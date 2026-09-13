@@ -1,12 +1,12 @@
 # V0.3 implementation work packages
 
-Status: proposed assignment plan; implementation has not started.
+Status: chunk 1 implemented and tested. See `handoffs/chunk-1.md` for the delivered API, verification and next assignment. Chunks 2–10 remain open.
 
 ## Authority and baseline
 
 - Product authority: `lifetime-capital-allocation-fire-optimisation-spec-v0.3.md`.
 - Visual and interaction reference: `../design/Web page UI specification/Lifetime Capital Allocation & FIRE Model.dc.html` and its Organic design tokens.
-- The repository currently contains the spec and a UI prototype, without a production application scaffold or test suite. The prototype engine explicitly describes itself as approximate. Its pooled accessible assets, simplified tax, fixed GIA haircut, small simulation counts, and standalone property calculation must not become production modelling assumptions.
+- At planning time the repository contained the spec and a UI prototype, without a production application scaffold or test suite. Chunk 1 adds the scaffold, contracts, tax engine and tests. The prototype engine explicitly describes itself as approximate. Its pooled accessible assets, simplified tax, fixed GIA haircut, small simulation counts, and standalone property calculation must not become production modelling assumptions.
 - Preserve the eight reference tabs: Overview; FIRE & Monte Carlo; FIRE Age Curve; Marginal Allocation; Reverse Solver; Scenario Comparison; Property & Leverage; Where It Comes From. Put additional required analysis inside these tabs rather than inventing an unrelated navigation system.
 
 ## Working agreement
@@ -177,4 +177,4 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Recommended first assignment: package 1 to Codex. Its completion is a tested foundation and tax engine with documented contracts, ready for Claude to build package 2. This planning request does not start implementation or an unattended ten-hour run.
+Next assignment: package 2 to Claude. Package 1 is delivered with a tested foundation and tax engine; use `handoffs/chunk-1.md` and `architecture-decisions.md` as the integration guide.

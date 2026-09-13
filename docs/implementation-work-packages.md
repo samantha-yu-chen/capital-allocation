@@ -1,6 +1,6 @@
 # V0.3 implementation work packages
 
-Status: chunk 1 implemented and tested. See `handoffs/chunk-1.md` for the delivered API, verification and next assignment. Chunks 2–10 remain open.
+Status: chunks 1 and 2 implemented and tested. See `handoffs/chunk-2.md` for the delivered ledger API, calculation conventions, verification and the chunk-3 assignment; `handoffs/chunk-1.md` still documents the contracts and tax engine. Chunks 3–10 remain open.
 
 ## Authority and baseline
 
@@ -46,6 +46,8 @@ Goal: calculate a transparent, reconciled year-by-year lifetime projection.
 Done when: annual cash/asset movements reconcile; the spec's reference FIRE arithmetic and spending double effect pass; locked pension cannot fund the bridge; negative cash flow and tax-bearing withdrawals are tested. A harness outputs the example profile's full ledger.
 
 Checkpoint: accumulation ledger → retirement withdrawals → reconciliation and golden tests.
+
+**Delivered.** `src/engine/` holds the ledger, funding solver, spending schedule, balance-sheet metrics and reference FIRE arithmetic. 92 tests pass; `npm run ledger` prints the section 79 profile's full lifetime ledger. Every "done when" clause above is covered by a named test. Remaining limitations, and the interfaces chunk 3 should build on, are in `handoffs/chunk-2.md`.
 
 ## 3. Reproducible Monte Carlo and FIRE analysis
 
@@ -177,4 +179,4 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 2 to Claude. Package 1 is delivered with a tested foundation and tax engine; use `handoffs/chunk-1.md` and `architecture-decisions.md` as the integration guide.
+Next assignment: package 3 to Codex. Packages 1 and 2 are delivered with a tested foundation, tax engine and deterministic lifetime ledger. Use `handoffs/chunk-2.md` as the integration guide, with `handoffs/chunk-1.md` and `architecture-decisions.md` for the underlying contracts and conventions. `runProjection(profile, path, options)` already accepts any `MarketPath`, so package 3 supplies sampled paths rather than reimplementing lifetime accounting.

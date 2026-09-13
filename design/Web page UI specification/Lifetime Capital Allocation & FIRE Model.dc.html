@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+  <link rel="stylesheet" href="_ds/organic-15f5e3a0-0b67-446b-87b6-517d1f462361/styles.css">
+  <script src="_ds/organic-15f5e3a0-0b67-446b-87b6-517d1f462361/_ds_bundle.js"></script>
+  <style>
+    .input::-webkit-outer-spin-button, .input::-webkit-inner-spin-button { opacity: 1; }
+    a { color: var(--color-accent-700); }
+    a:hover { color: var(--color-accent-800); }
+  </style>
+</helmet>
+<div style="display:flex;min-height:100vh;background:var(--color-bg);color:var(--color-text)">
+  <div style="width:250px;flex:none;background:var(--color-surface);padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-6);border-right:1px solid var(--color-divider)">
+    <div>
+      <h3 style="margin-bottom:2px">Freedom Capital</h3>
+      <div class="text-muted" style="font-size:12px">Lifetime allocation &amp; FIRE model</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="8">
+        <div onClick="{{ item.select }}" style="cursor:pointer;padding:10px 14px;border-radius:999px;font-size:14px;font-family:var(--font-heading);display:flex;align-items:center;gap:8px;background:{{ item.bg }};color:{{ item.color }}">
+          {{ item.label }}
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:auto;font-size:11px;color:color-mix(in srgb, var(--color-text) 55%, transparent);line-height:1.5">
+      Illustrative decision-support model. Not regulated financial advice. Uses simplified UK/Scotland tax rules and an approximate parametric Monte Carlo engine.
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4);overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:var(--space-3)">
+      <h2 style="margin:0">{{ tabTitle }}</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="tag tag-neutral">Age {{ pd.age }}</span>
+        <span class="tag tag-neutral">Salary £{{ pd.salaryFmt }}</span>
+        <span class="tag tag-accent-2">FIRE @ {{ pd.targetFireAge }}</span>
+        <span class="tag tag-outline">Target {{ pd.targetProbPct }}% success</span>
+        <sc-if value="{{ hasMc }}" hint-placeholder-val="{{ false }}">
+          <span class="tag {{ probLabel.cls }}">Current: {{ probLabel.pct }}% — {{ probLabel.label }}</span>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ══════ OVERVIEW ══════ -->
+    <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:var(--space-4)">
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div class="card elev-sm">
+            <div class="card-kicker">Personal &amp; target</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+              <div class="field"><label>Current age</label><input class="input" type="number" value="{{ pd.age }}" onChange="{{ setAge }}"></div>
+              <div class="field"><label>Target FIRE age</label><input class="input" type="number" value="{{ pd.targetFireAge }}" onChange="{{ setTargetFireAge }}"></div>
+              <div class="field"><label>Pension access age</label><input class="input" type="number" value="{{ pd.accessAge }}" onChange="{{ setAccessAge }}"></div>
+              <div class="field"><label>Simulation end age</label><input class="input" type="number" value="{{ pd.endAge }}" onChange="{{ setEndAge }}"></div>
+              <div class="field" style="grid-column:1/-1"><label>Target FIRE success probability (%)</label><input class="input" type="number" value="{{ pd.targetProbPct }}" onChange="{{ setTargetProb }}"></div>
+            </div>
+          </div>
+          <div class="card elev-sm">
+            <div class="card-kicker">Income</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+              <div class="field"><label>Gross salary (£/yr)</label><input class="input" type="number" value="{{ pd.salary }}" onChange="{{ setSalary }}"></div>
+              <div class="field"><label>Real salary growth (%/yr)</label><input class="input" type="number" value="{{ pd.salaryGrowthPct }}" onChange="{{ setSalaryGrowth }}"></div>
+            </div>
+          </div>
+          <div class="card elev-sm">
+            <div class="card-kicker">Spending (today's money)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-2)">
+              <div class="field"><label>Current £/month</label><input class="input" type="number" value="{{ pd.spendingCurrentMonthly }}" onChange="{{ setSpendCurrent }}"></div>
+              <div class="field"><label>FIRE target £/month</label><input class="input" type="number" value="{{ pd.spendingFireMonthly }}" onChange="{{ setSpendFire }}"></div>
+              <div class="field"><label>FIRE minimum £/month</label><input class="input" type="number" value="{{ pd.spendingMinMonthly }}" onChange="{{ setSpendMin }}"></div>
+            </div>
+          </div>
+          <div class="card elev-sm">
+            <div class="card-kicker">Assets</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+              <div class="field"><label>Cash (£)</label><input class="input" type="number" value="{{ pd.cash }}" onChange="{{ setCash }}"></div>
+              <div class="field"><label>ISA (£)</label><input class="input" type="number" value="{{ pd.isa }}" onChange="{{ setIsa }}"></div>
+              <div class="field"><label>GIA (£)</label><input class="input" type="number" value="{{ pd.gia }}" onChange="{{ setGia }}"></div>
+              <div class="field"><label>Pension (£)</label><input class="input" type="number" value="{{ pd.pension }}" onChange="{{ setPension }}"></div>
+            </div>
+          </div>
+          <div class="card elev-sm">
+            <div class="card-kicker">Pension contributions &amp; portfolio</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+              <div class="field"><label>Employee contribution (%)</label><input class="input" type="number" value="{{ pd.employeePctPct }}" onChange="{{ setEmployeePct }}"></div>
+              <div class="field"><label>Employer contribution (%)</label><input class="input" type="number" value="{{ pd.employerPctPct }}" onChange="{{ setEmployerPct }}"></div>
+              <div class="field"><label>Equities weight (%)</label><input class="input" type="number" value="{{ pd.equitiesPct }}" onChange="{{ setEquities }}"></div>
+              <div class="field"><label>Bonds weight (%)</label><input class="input" type="number" value="{{ pd.bondsPct }}" onChange="{{ setBonds }}"></div>
+              <div class="field"><label>Cash weight (%)</label><input class="input" type="number" value="{{ pd.cashWeightPct }}" onChange="{{ setCashWeight }}"></div>
+              <div class="field"><label>Portfolio total</label><div class="input" style="display:flex;align-items:center;background:transparent;border-color:transparent">{{ pd.portfolioSum }}%</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div class="card elev-md">
+            <div class="card-kicker">Current position</div>
+            <div class="card-title">Whole balance sheet</div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:14px">
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Liquid wealth (cash + ISA + GIA)</span><b>£{{ cf.liquidFmt }}</b></div>
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Pension (locked until {{ pd.accessAge }})</span><b>£{{ cf.pensionFmt }}</b></div>
+              <div class="hr" style="margin:2px 0"></div>
+              <div style="display:flex;justify-content:space-between"><span>Net worth</span><b>£{{ cf.netWorthFmt }}</b></div>
+            </div>
+          </div>
+          <div class="card elev-md">
+            <div class="card-kicker">Annual cash flow</div>
+            <div class="card-title">Where this year's £1 goes</div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:14px">
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Gross income</span><span>£{{ pd.salaryFmt }}</span></div>
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Pension contributions (employee + employer)</span><span>£{{ cf.pensionAddedFmt }}</span></div>
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Income tax + NI</span><span>£{{ cf.taxNiFmt }}</span></div>
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Take-home pay</span><span>£{{ cf.takeHomeFmt }}</span></div>
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Living costs</span><span>£{{ cf.spendFmt }}</span></div>
+              <div class="hr" style="margin:2px 0"></div>
+              <div style="display:flex;justify-content:space-between"><span>Annual investable surplus</span><b>£{{ cf.surplusFmt }}</b></div>
+              <div style="display:flex;justify-content:space-between"><span class="text-muted">Savings rate</span><span>{{ cf.savingsRatePct }}%</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span class="text-muted">Current marginal tax + NI rate</span><span class="tag tag-accent">{{ cf.marginalPct }}%</span></div>
+            </div>
+          </div>
+          <div class="card" style="background:transparent;border:1px solid var(--color-divider)">
+            <div class="card-body" style="opacity:1;font-size:12px;line-height:1.6">
+              Model assumptions: Scottish income tax bands 2024/25 (no personal-allowance taper), employee pension via salary sacrifice, returns and spending shown in real (today's-money) terms, uncorrelated normal return sampling per asset class, GIA long-term drag approximated at ~6%/yr vs ISA.
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ══════ FIRE + MONTE CARLO ══════ -->
+    <sc-if value="{{ isFire }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="card elev-sm">
+          <div class="card-kicker">Reference FIRE number</div>
+          <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;align-items:baseline">
+            <div><div class="text-muted" style="font-size:12px">Target annual spending</div><div style="font-family:var(--font-heading);font-size:22px">£{{ fireRef.spendFmt }}</div></div>
+            <div><div class="text-muted" style="font-size:12px">Safe withdrawal rate</div><div style="font-family:var(--font-heading);font-size:22px">{{ fireRef.swrPct }}%</div></div>
+            <div><div class="text-muted" style="font-size:12px">Reference FIRE number (spend ÷ SWR)</div><div style="font-family:var(--font-heading);font-size:22px">£{{ fireRef.numberFmt }}</div></div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.1fr 2fr;gap:var(--space-4)">
+          <div class="card elev-lg" style="justify-content:center;align-items:flex-start">
+            <div class="card-kicker">Monte Carlo — {{ mc.runs }} paths</div>
+            <div style="font-family:var(--font-heading);font-size:56px;line-height:1">{{ probLabel.pct }}%</div>
+            <span class="tag {{ probLabel.cls }}">{{ probLabel.label }}</span>
+            <p class="card-body" style="margin-top:8px">Probability that accessible assets survive the pre-pension bridge and the whole portfolio survives to age {{ pd.endAge }} while funding target spending.</p>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3)">
+            <div class="card"><div class="card-kicker">P10 terminal wealth</div><div class="card-title">£{{ mc.p10Fmt }}</div></div>
+            <div class="card"><div class="card-kicker">Median terminal wealth</div><div class="card-title">£{{ mc.medianFmt }}</div></div>
+            <div class="card"><div class="card-kicker">P90 terminal wealth</div><div class="card-title">£{{ mc.p90Fmt }}</div></div>
+            <div class="card"><div class="card-kicker">Mean terminal wealth</div><div class="card-title">£{{ mc.meanFmt }}</div></div>
+            <div class="card"><div class="card-kicker">Accessible wealth @ FIRE (median)</div><div class="card-title">£{{ mc.accessibleAtFireFmt }}</div></div>
+            <div class="card"><div class="card-kicker">Pre-pension bridge length</div><div class="card-title">{{ mc.bridgeYears }} yrs</div></div>
+          </div>
+        </div>
+
+        <div class="card elev-sm">
+          <div class="card-kicker">Failure decomposition</div>
+          <div style="display:flex;height:28px;border-radius:999px;overflow:hidden;margin:var(--space-2) 0">
+            <div style="width:{{ mc.successBarPct }}%;background:var(--color-accent-2-500)"></div>
+            <div style="width:{{ mc.bridgeBarPct }}%;background:var(--color-accent-500)"></div>
+            <div style="width:{{ mc.depletionBarPct }}%;background:var(--color-accent-800)"></div>
+            <div style="width:{{ mc.otherBarPct }}%;background:var(--color-neutral-400)"></div>
+          </div>
+          <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;font-size:13px">
+            <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--color-accent-2-500);margin-right:5px"></span>Success {{ mc.successPct }}%</span>
+            <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--color-accent-500);margin-right:5px"></span>Pre-pension liquidity failure {{ mc.bridgePct }}%</span>
+            <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--color-accent-800);margin-right:5px"></span>Portfolio depletion {{ mc.depletionPct }}%</span>
+          </div>
+          <p class="card-body">Sequence-of-returns risk means average return alone does not determine outcomes — an early crash right after FIRE age harms the plan far more than the same crash decades later.</p>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ══════ FIRE AGE CURVE ══════ -->
+    <sc-if value="{{ isCurve }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <p class="text-muted" style="margin:0;max-width:60ch">Instead of one FIRE age, run the simulation at every candidate age to find the earliest one clearing your target success probability.</p>
+          <button class="btn btn-primary" onClick="{{ runCurve }}">{{ curveButtonLabel }}</button>
+        </div>
+        <sc-if value="{{ hasCurve }}" hint-placeholder-val="{{ false }}">
+          <div class="card elev-sm">
+            <svg viewBox="0 0 640 240" style="width:100%;height:260px">
+              <line x1="40" y1="{{ curve.targetY }}" x2="620" y2="{{ curve.targetY }}" stroke="var(--color-accent-400)" stroke-width="1.5" stroke-dasharray="4 4"></line>
+              <text x="624" y="{{ curve.targetY }}" font-size="10" fill="var(--color-accent-700)">target {{ pd.targetProbPct }}%</text>
+              <line x1="40" y1="10" x2="40" y2="210" stroke="var(--color-divider)"></line>
+              <line x1="40" y1="210" x2="620" y2="210" stroke="var(--color-divider)"></line>
+              <path d="{{ curve.pathD }}" fill="none" stroke="var(--color-accent-600)" stroke-width="2.5"></path>
+              <sc-for list="{{ curve.points }}" as="pt" hint-placeholder-count="10">
+                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="{{ pt.r }}" fill="{{ pt.fill }}"></circle>
+              </sc-for>
+              <sc-for list="{{ curve.ageLabels }}" as="lab" hint-placeholder-count="10">
+                <text x="{{ lab.x }}" y="228" font-size="10" fill="var(--color-text)" text-anchor="middle">{{ lab.text }}</text>
+              </sc-for>
+            </svg>
+          </div>
+          <div class="card elev-sm" style="flex-direction:row;align-items:center;gap:var(--space-3)">
+            <span class="tag tag-accent">{{ curve.earliestLabel }}</span>
+            <span class="card-body" style="margin:0">is the earliest FIRE age reaching a {{ pd.targetProbPct }}% success probability, given current assumptions.</span>
+          </div>
+          <table class="table">
+            <thead><tr><th>Age</th><th>Success probability</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ curve.rows }}" as="row" hint-placeholder-count="10">
+                <tr><td>{{ row.age }}</td><td>{{ row.pct }}%</td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════ MARGINAL ALLOCATION ══════ -->
+    <sc-if value="{{ isMarginal }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="display:flex;gap:var(--space-3);align-items:flex-end;flex-wrap:wrap">
+          <div class="field" style="max-width:220px"><label>Additional annual amount to allocate (£)</label><input class="input" type="number" value="{{ marginal.amount }}" onChange="{{ setMarginalAmount }}"></div>
+          <button class="btn btn-primary" onClick="{{ runMarginal }}">{{ marginalButtonLabel }}</button>
+        </div>
+        <sc-if value="{{ hasMarginal }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3)">
+            <sc-for list="{{ marginal.mcOptions }}" as="opt" hint-placeholder-count="3">
+              <div class="card elev-sm">
+                <div class="card-kicker">{{ opt.name }}</div>
+                <div class="card-title">{{ opt.probPct }}% FIRE success</div>
+                <div style="font-size:13px" class="text-muted">Δ vs current plan: {{ opt.deltaLabel }}</div>
+                <div class="hr" style="margin:4px 0"></div>
+                <div style="font-size:13px">Accessible @ FIRE: £{{ opt.accessibleFmt }}</div>
+                <div style="font-size:13px" class="text-muted">{{ opt.note }}</div>
+                <span class="tag {{ opt.cls }}" style="margin-top:6px;align-self:flex-start">{{ opt.classification }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-3)">
+            <div class="card" style="background:transparent;border:1px solid var(--color-divider)">
+              <div class="card-kicker">Cash (reference, not simulated)</div>
+              <div class="card-title">£{{ marginal.cashNetFmt }} net, held flat</div>
+              <p class="card-body">Taxed at your marginal rate then held in cash earning ~0% real. Shown for liquidity comparison only.</p>
+            </div>
+            <div class="card" style="background:transparent;border:1px solid var(--color-divider)">
+              <div class="card-kicker">Mortgage overpayment (reference, not simulated)</div>
+              <div class="card-title">£{{ marginal.mortgageValueFmt }} at FIRE</div>
+              <p class="card-body">Net amount compounded at the {{ marginal.mortgageRatePct }}% mortgage rate — a guaranteed return, but locks capital into illiquid home equity.</p>
+            </div>
+          </div>
+          <div class="card elev-sm">
+            <p class="card-body" style="margin:0">{{ marginal.insight }}</p>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════ REVERSE SOLVER ══════ -->
+    <sc-if value="{{ isSolver }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="card elev-sm">
+          <div class="card-kicker">Solve for</div>
+          <div class="seg" style="align-self:flex-start">
+            <label class="seg-opt"><input type="radio" name="solvemode" checked="{{ solver.modeIsSalary }}" onChange="{{ setSolveModeSalary }}"><span>Required salary</span></label>
+            <label class="seg-opt"><input type="radio" name="solvemode" checked="{{ solver.modeIsSpending }}" onChange="{{ setSolveModeSpending }}"><span>Required FIRE spending</span></label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);margin-top:var(--space-2)">
+            <div class="field"><label>Target FIRE age</label><input class="input" type="number" value="{{ solver.targetAge }}" onChange="{{ setSolverAge }}"></div>
+            <div class="field"><label>Target success probability (%)</label><input class="input" type="number" value="{{ solver.targetProbPct }}" onChange="{{ setSolverProb }}"></div>
+          </div>
+          <button class="btn btn-primary btn-block" onClick="{{ runSolver }}" style="max-width:200px">{{ solverButtonLabel }}</button>
+        </div>
+        <sc-if value="{{ hasSolver }}" hint-placeholder-val="{{ false }}">
+          <div class="card elev-lg">
+            <div class="card-kicker">{{ solver.resultKicker }}</div>
+            <div style="font-family:var(--font-heading);font-size:40px">{{ solver.resultValue }}</div>
+            <p class="card-body">{{ solver.resultNote }}</p>
+          </div>
+          <table class="table">
+            <thead><tr><th>Sensitivity</th><th>Result</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ solver.sensitivity }}" as="row" hint-placeholder-count="3">
+                <tr><td>{{ row.label }}</td><td>{{ row.value }}</td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════ SCENARIO COMPARISON ══════ -->
+    <sc-if value="{{ isScenarios }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <p class="text-muted" style="margin:0;max-width:60ch">All scenarios share the same simulated market paths (common random numbers), so differences reflect strategy, not simulation noise.</p>
+          <button class="btn btn-primary" onClick="{{ runScenarios }}">{{ scenarioButtonLabel }}</button>
+        </div>
+        <sc-if value="{{ hasScenarios }}" hint-placeholder-val="{{ false }}">
+          <table class="table">
+            <thead><tr><th>Strategy</th><th>FIRE success</th><th>Median wealth</th><th>P10</th><th>Liquid @ FIRE</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ scenarios.rows }}" as="row" hint-placeholder-count="5">
+                <tr><td>{{ row.name }}</td><td>{{ row.probPct }}%</td><td>£{{ row.medianFmt }}</td><td>£{{ row.p10Fmt }}</td><td>£{{ row.accessibleFmt }}</td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ══════ PROPERTY & LEVERAGE ══════ -->
+    <sc-if value="{{ isProperty }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+        <div class="card elev-sm">
+          <div class="card-kicker">Property inputs</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)">
+            <div class="field"><label>Property price (£)</label><input class="input" type="number" value="{{ property.price }}" onChange="{{ setPropPrice }}"></div>
+            <div class="field"><label>Deposit (%)</label><input class="input" type="number" value="{{ property.depositPctPct }}" onChange="{{ setPropDeposit }}"></div>
+            <div class="field"><label>Mortgage rate (%)</label><input class="input" type="number" value="{{ property.ratePct }}" onChange="{{ setPropRate }}"></div>
+            <div class="field"><label>Mortgage term (yrs)</label><input class="input" type="number" value="{{ property.termYears }}" onChange="{{ setPropTerm }}"></div>
+            <div class="field"><label>Expected appreciation (%/yr)</label><input class="input" type="number" value="{{ property.appreciationPct }}" onChange="{{ setPropAppreciation }}"></div>
+            <div class="field"><label>Current rent (£/month)</label><input class="input" type="number" value="{{ property.currentRentMonthly }}" onChange="{{ setPropRent }}"></div>
+          </div>
+          <table class="table" style="margin-top:var(--space-3)">
+            <thead><tr><th>Scenario</th><th>Gain/loss</th><th>Return on deposit equity</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ property.leverageRows }}" as="row" hint-placeholder-count="3">
+                <tr><td>{{ row.label }}</td><td>£{{ row.gainFmt }}</td><td>{{ row.returnPct }}%</td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div class="card elev-md">
+            <div class="card-kicker">Leverage</div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Deposit</span><b>£{{ property.depositFmt }}</b></div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Mortgage balance</span><b>£{{ property.mortgageFmt }}</b></div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Monthly payment</span><b>£{{ property.paymentFmt }}</b></div>
+            <div class="hr" style="margin:4px 0"></div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Year-1 interest</span><span>£{{ property.interestFmt }}</span></div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Year-1 principal repaid</span><span>£{{ property.principalFmt }}</span></div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Year-1 appreciation gain</span><span>£{{ property.appreciationGainFmt }}</span></div>
+            <div class="hr" style="margin:4px 0"></div>
+            <div style="display:flex;justify-content:space-between"><span>Equity gain on deposit</span><b>{{ property.leverageReturnPct }}%</b></div>
+          </div>
+          <div class="card elev-sm">
+            <div class="card-kicker">Buy vs. rent — year 1 economics</div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Rent avoided</span><span>£{{ property.rentFmt }}</span></div>
+            <div style="display:flex;justify-content:space-between"><span class="text-muted">Housing economic cost (interest + maintenance − appreciation)</span><span>£{{ property.housingCostFmt }}</span></div>
+            <div class="hr" style="margin:4px 0"></div>
+            <div style="display:flex;justify-content:space-between"><span>Net vs. renting</span><span class="tag {{ property.netCls }}">£{{ property.netFmt }}</span></div>
+            <p class="card-body">Mortgage principal is not consumption — it builds equity. Deposit opportunity cost (what {{ property.depositFmt2 }} could have earned invested instead) is not yet netted in here.</p>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ══════ ATTRIBUTION ══════ -->
+    <sc-if value="{{ isAttribution }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <p class="text-muted" style="margin:0;max-width:60ch">Which lever actually moves your FIRE success probability the most — income, spending, time, or wrapper choice?</p>
+          <button class="btn btn-primary" onClick="{{ runAttribution }}">{{ attributionButtonLabel }}</button>
+        </div>
+        <sc-if value="{{ hasAttribution }}" hint-placeholder-val="{{ false }}">
+          <div class="card elev-sm" style="gap:var(--space-3)">
+            <sc-for list="{{ attribution.rows }}" as="row" hint-placeholder-count="5">
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>{{ row.label }}</span><b>{{ row.deltaLabel }}</b></div>
+                <div style="height:14px;border-radius:999px;background:var(--color-neutral-200);overflow:hidden">
+                  <div style="height:100%;width:{{ row.barPct }}%;background:{{ row.barColor }};border-radius:999px"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="card elev-sm">
+            <p class="card-body" style="margin:0">{{ attribution.insight }}</p>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const NUM_FIELDS = [
+  ['age', false], ['targetFireAge', false], ['accessAge', false], ['endAge', false], ['targetProb', true],
+  ['salary', false], ['salaryGrowth', true],
+  ['spendingCurrentMonthly', false], ['spendingFireMonthly', false], ['spendingMinMonthly', false],
+  ['cash', false], ['isa', false], ['gia', false], ['pension', false],
+  ['employeePct', true], ['employerPct', true], ['equities', true], ['bonds', true], ['cashWeight', true],
+];
+const SETTER_NAME = {
+  age: 'setAge', targetFireAge: 'setTargetFireAge', accessAge: 'setAccessAge', endAge: 'setEndAge', targetProb: 'setTargetProb',
+  salary: 'setSalary', salaryGrowth: 'setSalaryGrowth',
+  spendingCurrentMonthly: 'setSpendCurrent', spendingFireMonthly: 'setSpendFire', spendingMinMonthly: 'setSpendMin',
+  cash: 'setCash', isa: 'setIsa', gia: 'setGia', pension: 'setPension',
+  employeePct: 'setEmployeePct', employerPct: 'setEmployerPct', equities: 'setEquities', bonds: 'setBonds', cashWeight: 'setCashWeight',
+};
+const NAV = [
+  ['overview', 'Overview'], ['fire', 'FIRE & Monte Carlo'], ['curve', 'FIRE Age Curve'],
+  ['marginal', 'Marginal Allocation'], ['solver', 'Reverse Solver'], ['scenarios', 'Scenario Comparison'],
+  ['property', 'Property & Leverage'], ['attribution', 'Where It Comes From'],
+];
+const fmt = (n) => Math.round(n).toLocaleString('en-GB');
+const pct1 = (n) => Math.round(n * 1000) / 10;
+
+// Synchronous copy of the tax/cash-flow calc (mirrors engine.js) so Overview renders before the async engine import resolves.
+const SCOT_BANDS = [[12570, 0], [14876, 0.19], [26561, 0.20], [43662, 0.21], [75000, 0.42], [125140, 0.45], [Infinity, 0.48]];
+function scottishTaxSync(taxable) {
+  let tax = 0, prev = 0;
+  for (const [top, rate] of SCOT_BANDS) { if (taxable <= prev) break; tax += (Math.min(taxable, top) - prev) * rate; prev = top; }
+  return Math.max(0, tax);
+}
+function niSync(taxable) {
+  if (taxable <= 12570) return 0;
+  if (taxable <= 50270) return (taxable - 12570) * 0.08;
+  return (50270 - 12570) * 0.08 + (taxable - 50270) * 0.02;
+}
+function marginalRateSync(taxable) {
+  const niM = taxable <= 12570 ? 0 : taxable <= 50270 ? 0.08 : 0.02;
+  for (const [top, rate] of SCOT_BANDS) if (taxable <= top) return rate + niM;
+  return 0.48;
+}
+function cashFlowSync({ salary, employeePct, employerPct, spendingMonthly }) {
+  const employeeContribution = salary * employeePct;
+  const employerContribution = salary * employerPct;
+  const taxable = Math.max(0, salary - employeeContribution);
+  const tax = scottishTaxSync(taxable);
+  const ni = niSync(taxable);
+  const takeHome = taxable - tax - ni;
+  const annualSpending = spendingMonthly * 12;
+  return {
+    employeeContribution, employerContribution, tax, ni, takeHome, annualSpending,
+    investableSurplus: takeHome - annualSpending, pensionAdded: employeeContribution + employerContribution,
+    marginal: marginalRateSync(taxable), savingsRate: takeHome > 0 ? (takeHome - annualSpending) / takeHome : 0,
+  };
+}
+
+class Component extends DCLogic {
+  state = {
+    tab: 'overview',
+    profile: {
+      age: 31, targetFireAge: 45, accessAge: 57, endAge: 95, targetProb: 0.90,
+      salary: 55000, salaryGrowth: 0.03,
+      spendingCurrentMonthly: 1650, spendingFireMonthly: 1650, spendingMinMonthly: 1300,
+      cash: 10000, isa: 50000, gia: 15000, pension: 25000,
+      employeePct: 0.05, employerPct: 0.05,
+      equities: 0.85, bonds: 0.10, cashWeight: 0.05,
+      swr: 0.035,
+    },
+    mc: null,
+    curve: null, curveLoading: false,
+    marginal: { amount: 10000, result: null }, marginalLoading: false,
+    solver: { mode: 'salary', targetAge: 45, targetProb: 0.90, result: null }, solverLoading: false,
+    scenarios: null, scenariosLoading: false,
+    attribution: null, attributionLoading: false,
+    property: {
+      price: 300000, depositPct: 0.20, rate: 0.045, termYears: 25, appreciation: 0.03,
+      currentRentMonthly: 1200, maintenanceRate: 0.01,
+    },
+  };
+
+  componentDidMount() {
+    NUM_FIELDS.forEach(([key, isPct]) => {
+      this[SETTER_NAME[key]] = (e) => {
+        let v = parseFloat(e.target.value);
+        if (isNaN(v)) v = 0;
+        if (isPct) v = v / 100;
+        this.setState((s) => ({ profile: { ...s.profile, [key]: v } }));
+        this.scheduleMc();
+      };
+    });
+    ['Price', 'Deposit', 'Rate', 'Term', 'Appreciation', 'Rent'].forEach((label) => {});
+    this.setPropPrice = (e) => this.updateProperty('price', parseFloat(e.target.value) || 0);
+    this.setPropDeposit = (e) => this.updateProperty('depositPct', (parseFloat(e.target.value) || 0) / 100);
+    this.setPropRate = (e) => this.updateProperty('rate', (parseFloat(e.target.value) || 0) / 100);
+    this.setPropTerm = (e) => this.updateProperty('termYears', parseFloat(e.target.value) || 0);
+    this.setPropAppreciation = (e) => this.updateProperty('appreciation', (parseFloat(e.target.value) || 0) / 100);
+    this.setPropRent = (e) => this.updateProperty('currentRentMonthly', parseFloat(e.target.value) || 0);
+
+    this.setSolverAge = (e) => this.setState((s) => ({ solver: { ...s.solver, targetAge: parseFloat(e.target.value) || 0 } }));
+    this.setSolverProb = (e) => this.setState((s) => ({ solver: { ...s.solver, targetProb: (parseFloat(e.target.value) || 0) / 100 } }));
+    this.setSolveModeSalary = () => this.setState((s) => ({ solver: { ...s.solver, mode: 'salary' } }));
+    this.setSolveModeSpending = () => this.setState((s) => ({ solver: { ...s.solver, mode: 'spending' } }));
+    this.setMarginalAmount = (e) => this.setState((s) => ({ marginal: { ...s.marginal, amount: parseFloat(e.target.value) || 0 } }));
+
+    import('./engine.js').then((m) => {
+      this.engine = m;
+      this.runMC();
+    });
+  }
+
+  updateProperty(key, val) { this.setState((s) => ({ property: { ...s.property, [key]: val } })); }
+
+  buildParams(overrides) {
+    const p = this.state.profile;
+    return {
+      currentAge: p.age, endAge: p.endAge, accessAge: p.accessAge, fireAge: p.targetFireAge,
+      salary: p.salary, salaryGrowth: p.salaryGrowth,
+      spendingCurrentMonthly: p.spendingCurrentMonthly, spendingFireMonthly: p.spendingFireMonthly,
+      spendingMinMonthly: p.spendingMinMonthly,
+      cash: p.cash, isa: p.isa, gia: p.gia, pension: p.pension,
+      employeePct: p.employeePct, employerPct: p.employerPct,
+      portfolio: { equities: p.equities, bonds: p.bonds, cash: p.cashWeight },
+      giaDragFactor: 0.94,
+      ...overrides,
+    };
+  }
+
+  scheduleMc() {
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.runMC(), 300);
+  }
+
+  runMC() {
+    if (!this.engine) return;
+    const mc = this.engine.runMonteCarlo(this.buildParams(), 700, 421337);
+    this.setState({ mc });
+  }
+
+  setTab(tab) { this.setState({ tab }); }
+
+  runCurve() {
+    if (!this.engine) return;
+    this.setState({ curveLoading: true });
+    setTimeout(() => {
+      const p = this.state.profile;
+      const startAge = p.age + 1;
+      const endAge = Math.min(p.endAge - 5, startAge + 20);
+      const ages = [];
+      for (let a = startAge; a <= endAge; a++) ages.push(a);
+      const raw = this.engine.fireAgeCurve(this.buildParams(), ages, 300, 421337);
+      this.setState({ curve: raw, curveLoading: false });
+    }, 10);
+  }
+
+  runMarginal() {
+    if (!this.engine) return;
+    this.setState({ marginalLoading: true });
+    setTimeout(() => {
+      const p = this.state.profile;
+      const amount = this.state.marginal.amount;
+      const marginalRate = this.engine.marginalRate(Math.max(0, p.salary - p.salary * p.employeePct));
+      const base = this.engine.runMonteCarlo(this.buildParams(), 500, 421337);
+      const pension = this.engine.runMonteCarlo(this.buildParams({ extraLump: { amount, dest: 'pension' } }), 500, 421337);
+      const netAmount = amount * (1 - marginalRate);
+      const isa = this.engine.runMonteCarlo(this.buildParams({ extraLump: { amount: netAmount, dest: 'accessible' } }), 500, 421337);
+      const gia = this.engine.runMonteCarlo(this.buildParams({ extraLump: { amount: netAmount * 0.94, dest: 'accessible' } }), 500, 421337);
+      const mortgageRate = this.state.property.rate;
+      const yearsToFire = Math.max(0, p.targetFireAge - p.age);
+      const mortgageValue = netAmount * Math.pow(1 + mortgageRate, yearsToFire);
+      const opts = [
+        { name: 'Pension', r: pension, note: 'Full amount sheltered from tax today; locked until access age.' },
+        { name: 'ISA', r: isa, note: `Taxed at ${pct1(marginalRate)}% now, then fully tax-free and accessible.` },
+        { name: 'GIA', r: gia, note: 'Taxed at same marginal rate now, plus ongoing dividend/CGT drag.' },
+      ];
+      const maxProb = Math.max(...opts.map((o) => o.r.successProbability));
+      opts.forEach((o) => {
+        o.probPct = pct1(o.r.successProbability);
+        o.deltaLabel = (o.r.successProbability - base.successProbability >= 0 ? '+' : '') + pct1(o.r.successProbability - base.successProbability) + 'pp';
+        o.accessibleFmt = fmt(o.r.accessibleAtFireMedian);
+        o.classification = o.r.successProbability >= maxProb - 0.0005 ? 'Dominant' : o.r.successProbability >= maxProb - 0.01 ? 'Near Equivalent' : 'Inferior';
+        o.cls = o.classification === 'Dominant' ? 'tag-accent' : o.classification === 'Near Equivalent' ? 'tag-accent-2' : 'tag-neutral';
+      });
+      const best = opts.reduce((a, b) => (b.r.successProbability > a.r.successProbability ? b : a));
+      const insight = `${best.name} dominates this £${fmt(amount)} increment under current assumptions (FIRE at ${p.targetFireAge}, pension access at ${p.accessAge}). If the FIRE age moves past pension access age, or the marginal tax rate rises, pension typically becomes more competitive.`;
+      this.setState({
+        marginal: {
+          ...this.state.marginal,
+          mcOptions: opts, cashNetFmt: fmt(netAmount), mortgageValueFmt: fmt(mortgageValue),
+          mortgageRatePct: pct1(mortgageRate), insight,
+        },
+        marginalLoading: false,
+      });
+    }, 10);
+  }
+
+  runSolver() {
+    if (!this.engine) return;
+    this.setState({ solverLoading: true });
+    setTimeout(() => {
+      const p = this.state.profile;
+      const { mode, targetAge, targetProb } = this.state.solver;
+      const base = this.buildParams();
+      let result, sensitivity;
+      if (mode === 'salary') {
+        result = this.engine.reverseSolveSalary(base, targetProb, targetAge, 350, 421337);
+        const later = this.engine.reverseSolveSalary(base, targetProb, targetAge + 2, 350, 421337);
+        const lessSpend = this.engine.reverseSolveSalary({ ...base, spendingFireMonthly: base.spendingFireMonthly - 150, spendingCurrentMonthly: base.spendingCurrentMonthly - 150 }, targetProb, targetAge, 350, 421337);
+        sensitivity = [
+          { label: `FIRE age +2 (${targetAge + 2})`, value: later.achievable ? '£' + fmt(later.requiredSalary) : 'not achievable' },
+          { label: 'Spending −£150/mo', value: lessSpend.achievable ? '£' + fmt(lessSpend.requiredSalary) : 'not achievable' },
+          { label: `Current salary`, value: '£' + fmt(p.salary) },
+        ];
+        this.setState({
+          solver: {
+            ...this.state.solver,
+            result, sensitivity,
+            resultKicker: result.achievable ? 'Required gross salary' : 'Not achievable within tested range',
+            resultValue: result.achievable ? '£' + fmt(result.requiredSalary) : '> £' + fmt(result.requiredSalary),
+            resultNote: result.achievable
+              ? `Gross salary needed to reach a ${pct1(targetProb)}% success probability by age ${targetAge}, holding spending and allocation fixed.`
+              : `Even at £${fmt(result.requiredSalary)} salary this only reaches ${pct1(result.probAtHi)}% — the age or spending target needs to move too.`,
+          },
+          solverLoading: false,
+        });
+      } else {
+        result = this.engine.reverseSolveSpending(base, targetProb, targetAge, 350, 421337);
+        const later = this.engine.reverseSolveSpending(base, targetProb, targetAge + 2, 350, 421337);
+        sensitivity = [
+          { label: `FIRE age +2 (${targetAge + 2})`, value: later.achievable ? '£' + fmt(later.requiredMonthly) + '/mo' : 'not achievable' },
+          { label: 'Current FIRE spending', value: '£' + fmt(p.spendingFireMonthly) + '/mo' },
+        ];
+        this.setState({
+          solver: {
+            ...this.state.solver,
+            result, sensitivity,
+            resultKicker: result.achievable ? 'Maximum sustainable FIRE spending' : 'Not achievable within tested range',
+            resultValue: result.achievable ? '£' + fmt(result.requiredMonthly) + '/mo' : '< £' + fmt(result.requiredMonthly) + '/mo',
+            resultNote: result.achievable
+              ? `Monthly spending in retirement that still reaches a ${pct1(targetProb)}% success probability at age ${targetAge}.`
+              : `Even cut to £${fmt(result.requiredMonthly)}/mo this only reaches ${pct1(result.probAtLo)}% — the age or income needs to move too.`,
+          },
+          solverLoading: false,
+        });
+      }
+    }, 10);
+  }
+
+  runScenarios() {
+    if (!this.engine) return;
+    this.setState({ scenariosLoading: true });
+    setTimeout(() => {
+      const p = this.state.profile;
+      const base = this.buildParams();
+      const defs = [
+        ['Baseline', {}],
+        ['Pension Heavy', { employeePct: p.employeePct + 0.10 }],
+        ['ISA Heavy', { employeePct: Math.min(p.employeePct, p.employerPct), giaDragFactor: 1 }],
+        ['Salary £75k', { salary: 75000 }],
+        ['FIRE +3 years', { fireAge: p.targetFireAge + 3 }],
+      ];
+      const rows = defs.map(([name, over]) => {
+        const r = this.engine.runMonteCarlo({ ...base, ...over }, 500, 421337);
+        return { name, probPct: pct1(r.successProbability), medianFmt: fmt(r.median), p10Fmt: fmt(r.p10), accessibleFmt: fmt(r.accessibleAtFireMedian) };
+      });
+      this.setState({ scenarios: { rows }, scenariosLoading: false });
+    }, 10);
+  }
+
+  runAttribution() {
+    if (!this.engine) return;
+    this.setState({ attributionLoading: true });
+    setTimeout(() => {
+      const p = this.state.profile;
+      const base = this.buildParams();
+      const baseR = this.engine.runMonteCarlo(base, 500, 421337);
+      const defs = [
+        ['Pension optimisation (+10pp contribution)', { employeePct: p.employeePct + 0.10 }],
+        ['ISA optimisation (remove GIA drag)', { giaDragFactor: 1 }],
+        [`Salary +£10,000`, { salary: p.salary + 10000 }],
+        ['Retire 2 years later', { fireAge: p.targetFireAge + 2 }],
+        ['Reduce spending £3,000/yr', { spendingFireMonthly: p.spendingFireMonthly - 250, spendingCurrentMonthly: p.spendingCurrentMonthly - 250 }],
+      ];
+      const rows = defs.map(([label, over]) => {
+        const r = this.engine.runMonteCarlo({ ...base, ...over }, 500, 421337);
+        return { label, delta: r.successProbability - baseR.successProbability };
+      });
+      const maxAbs = Math.max(...rows.map((r) => Math.abs(r.delta)), 0.001);
+      rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+      rows.forEach((r) => {
+        r.deltaLabel = (r.delta >= 0 ? '+' : '') + pct1(r.delta) + 'pp';
+        r.barPct = Math.round((Math.abs(r.delta) / maxAbs) * 100);
+        r.barColor = r.delta >= 0 ? 'var(--color-accent-2-500)' : 'var(--color-accent-500)';
+      });
+      const dominant = rows[0];
+      const insight = `${dominant.label} moves FIRE success probability the most (${dominant.deltaLabel}). If income or spending levers dominate tax-wrapper choices, fine-tuning pension vs ISA allocation matters less than closing the structural gap first.`;
+      this.setState({ attribution: { rows, insight }, attributionLoading: false });
+    }, 10);
+  }
+
+  renderVals() {
+    const p = this.state.profile;
+    const tab = this.state.tab;
+    const navItems = NAV.map(([key, label]) => ({
+      key, label, active: key === tab,
+      bg: key === tab ? 'var(--color-accent)' : 'transparent',
+      color: key === tab ? 'var(--color-bg)' : 'var(--color-text)',
+      select: () => this.setTab(key),
+    }));
+
+    const cf = cashFlowSync({ salary: p.salary, employeePct: p.employeePct, employerPct: p.employerPct, spendingMonthly: p.spendingCurrentMonthly });
+    const liquid = p.cash + p.isa + p.gia;
+    const netWorth = liquid + p.pension;
+
+    const mc = this.state.mc;
+    const probLabel = (() => {
+      const prob = mc ? mc.successProbability : 0;
+      const pctVal = pct1(prob);
+      if (prob < 0.70) return { pct: pctVal, label: 'Fragile', cls: 'tag-outline' };
+      if (prob < 0.80) return { pct: pctVal, label: 'Moderate', cls: 'tag-neutral' };
+      if (prob < 0.90) return { pct: pctVal, label: 'Strong', cls: 'tag-accent-2' };
+      if (prob < 0.95) return { pct: pctVal, label: 'High Confidence', cls: 'tag-accent' };
+      return { pct: pctVal, label: 'Very Conservative', cls: 'tag-accent' };
+    })();
+
+    const fireSpendAnnual = p.spendingFireMonthly * 12;
+    const fireRef = { spendFmt: fmt(fireSpendAnnual), swrPct: pct1(p.swr), numberFmt: fmt(fireSpendAnnual / p.swr) };
+
+    const curve = this.state.curve ? (() => {
+      const pts = this.state.curve;
+      const minAge = pts[0].age, maxAge = pts[pts.length - 1].age;
+      const x = (age) => 40 + ((age - minAge) / Math.max(1, maxAge - minAge)) * 580;
+      const y = (prob) => 210 - prob * 200;
+      const pathD = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${x(pt.age)},${y(pt.successProbability)}`).join(' ');
+      const earliest = pts.find((pt) => pt.successProbability >= p.targetProb);
+      return {
+        pathD, targetY: y(p.targetProb),
+        points: pts.map((pt) => ({ x: x(pt.age), y: y(pt.successProbability), r: earliest && pt.age === earliest.age ? 6 : 3, fill: earliest && pt.age === earliest.age ? 'var(--color-accent-700)' : 'var(--color-accent-500)' })),
+        ageLabels: pts.filter((_, i) => i % 2 === 0).map((pt) => ({ x: x(pt.age), text: pt.age })),
+        rows: pts.map((pt) => ({ age: pt.age, pct: pct1(pt.successProbability) })),
+        earliestLabel: earliest ? `Age ${earliest.age}` : 'None in range',
+      };
+    })() : null;
+
+    const marginal = this.state.marginal;
+    const solver = this.state.solver;
+
+    const prop = this.state.property;
+    const propModel = this.engine ? this.engine.propertyModel({
+      price: prop.price, depositPct: prop.depositPct, rate: prop.rate, termYears: prop.termYears,
+      appreciation: prop.appreciation, currentRentMonthly: prop.currentRentMonthly, maintenanceRate: prop.maintenanceRate,
+    }) : null;
+    const property = propModel ? {
+      ...prop,
+      ratePct: pct1(prop.rate), appreciationPct: pct1(prop.appreciation), depositPctPct: pct1(prop.depositPct),
+      depositFmt: fmt(propModel.deposit), depositFmt2: '£' + fmt(propModel.deposit), mortgageFmt: fmt(propModel.mortgage),
+      paymentFmt: fmt(propModel.monthlyPayment), interestFmt: fmt(propModel.interestYear1), principalFmt: fmt(propModel.principalYear1),
+      appreciationGainFmt: fmt(propModel.appreciationGain), leverageReturnPct: pct1(propModel.leverageReturnPct),
+      rentFmt: fmt(propModel.rentAnnual), housingCostFmt: fmt(propModel.housingEconomicCostYear1),
+      netFmt: fmt(Math.abs(propModel.netVsRentYear1)), netCls: propModel.netVsRentYear1 >= 0 ? 'tag-accent-2' : 'tag-outline',
+      leverageRows: [
+        { label: `Price rises ${pct1(prop.appreciation)}%`, gainFmt: fmt(propModel.appreciationGain), returnPct: pct1(propModel.leverageReturnPct) },
+        { label: 'Price rises 5%', gainFmt: fmt(prop.price * 0.05), returnPct: pct1((prop.price * 0.05) / propModel.deposit) },
+        { label: 'Price falls 10%', gainFmt: '-' + fmt(prop.price * 0.10), returnPct: -pct1((prop.price * 0.10) / propModel.deposit) },
+      ],
+    } : null;
+
+    const pd = {
+      age: p.age, targetFireAge: p.targetFireAge, accessAge: p.accessAge, endAge: p.endAge,
+      targetProbPct: Math.round(p.targetProb * 100),
+      salary: p.salary, salaryFmt: fmt(p.salary), salaryGrowthPct: pct1(p.salaryGrowth),
+      spendingCurrentMonthly: p.spendingCurrentMonthly, spendingFireMonthly: p.spendingFireMonthly, spendingMinMonthly: p.spendingMinMonthly,
+      cash: p.cash, isa: p.isa, gia: p.gia, pension: p.pension,
+      employeePctPct: pct1(p.employeePct), employerPctPct: pct1(p.employerPct),
+      equitiesPct: pct1(p.equities), bondsPct: pct1(p.bonds), cashWeightPct: pct1(p.cashWeight),
+      portfolioSum: Math.round((p.equities + p.bonds + p.cashWeight) * 100),
+    };
+
+    return {
+      navItems, tabTitle: NAV.find((n) => n[0] === tab)[1],
+      isOverview: tab === 'overview', isFire: tab === 'fire', isCurve: tab === 'curve',
+      isMarginal: tab === 'marginal', isSolver: tab === 'solver', isScenarios: tab === 'scenarios',
+      isProperty: tab === 'property', isAttribution: tab === 'attribution',
+      pd, hasMc: !!mc, probLabel,
+      cf: cf ? {
+        liquidFmt: fmt(liquid), pensionFmt: fmt(p.pension), netWorthFmt: fmt(netWorth),
+        pensionAddedFmt: fmt(cf.pensionAdded), taxNiFmt: fmt(cf.tax + cf.ni), takeHomeFmt: fmt(cf.takeHome),
+        spendFmt: fmt(cf.annualSpending), surplusFmt: fmt(cf.investableSurplus),
+        savingsRatePct: pct1(cf.savingsRate), marginalPct: pct1(cf.marginal),
+      } : {},
+      fireRef,
+      mc: mc ? {
+        runs: mc.runs, p10Fmt: fmt(mc.p10), medianFmt: fmt(mc.median), p90Fmt: fmt(mc.p90), meanFmt: fmt(mc.mean),
+        accessibleAtFireFmt: fmt(mc.accessibleAtFireMedian), bridgeYears: Math.max(0, p.accessAge - p.targetFireAge),
+        successPct: pct1(mc.successProbability), bridgePct: pct1(mc.bridgeFailureRate), depletionPct: pct1(mc.depletionFailureRate),
+        successBarPct: Math.round(mc.successProbability * 100), bridgeBarPct: Math.round(mc.bridgeFailureRate * 100),
+        depletionBarPct: Math.round(mc.depletionFailureRate * 100), otherBarPct: Math.round(mc.otherFailureRate * 100),
+      } : {},
+      curveButtonLabel: this.state.curveLoading ? 'Computing…' : 'Recompute curve', hasCurve: !!curve, curve: curve || {},
+      marginalButtonLabel: this.state.marginalLoading ? 'Computing…' : 'Compare', hasMarginal: !!marginal.mcOptions,
+      marginal: { ...marginal, mcOptions: marginal.mcOptions || [] },
+      setMarginalAmount: this.setMarginalAmount, runMarginal: () => this.runMarginal(),
+      solverButtonLabel: this.state.solverLoading ? 'Solving…' : 'Solve', hasSolver: !!solver.result,
+      solver: { ...solver, targetProbPct: Math.round(solver.targetProb * 100), modeIsSalary: solver.mode === 'salary', modeIsSpending: solver.mode === 'spending', sensitivity: solver.sensitivity || [] },
+      scenarioButtonLabel: this.state.scenariosLoading ? 'Running…' : 'Run scenarios', hasScenarios: !!this.state.scenarios,
+      scenarios: this.state.scenarios || {},
+      attributionButtonLabel: this.state.attributionLoading ? 'Computing…' : 'Compute levers', hasAttribution: !!this.state.attribution,
+      attribution: this.state.attribution || {},
+      property: property || { ...prop, ratePct: pct1(prop.rate), appreciationPct: pct1(prop.appreciation), depositPctPct: pct1(prop.depositPct) },
+      runCurve: () => this.runCurve(), runSolver: () => this.runSolver(), runScenarios: () => this.runScenarios(), runAttribution: () => this.runAttribution(),
+      setAge: this.setAge, setTargetFireAge: this.setTargetFireAge, setAccessAge: this.setAccessAge, setEndAge: this.setEndAge, setTargetProb: this.setTargetProb,
+      setSalary: this.setSalary, setSalaryGrowth: this.setSalaryGrowth,
+      setSpendCurrent: this.setSpendCurrent, setSpendFire: this.setSpendFire, setSpendMin: this.setSpendMin,
+      setCash: this.setCash, setIsa: this.setIsa, setGia: this.setGia, setPension: this.setPension,
+      setEmployeePct: this.setEmployeePct, setEmployerPct: this.setEmployerPct, setEquities: this.setEquities, setBonds: this.setBonds, setCashWeight: this.setCashWeight,
+      setPropPrice: this.setPropPrice, setPropDeposit: this.setPropDeposit, setPropRate: this.setPropRate, setPropTerm: this.setPropTerm, setPropAppreciation: this.setPropAppreciation, setPropRent: this.setPropRent,
+      setSolverAge: this.setSolverAge, setSolverProb: this.setSolverProb, setSolveModeSalary: this.setSolveModeSalary, setSolveModeSpending: this.setSolveModeSpending,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

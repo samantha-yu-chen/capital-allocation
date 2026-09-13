@@ -1,20 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExampleProfile } from '../src/domain/fixtures.js';
-import { parseProfile, type AccountBalances, type Profile } from '../src/domain/contracts.js';
 import { deterministicPath, runDeterministicProjection, runProjection } from '../src/engine/index.js';
-
-const ACCOUNTS = ['cash', 'isa', 'gia', 'pension', 'sipp'] as const satisfies readonly (keyof AccountBalances)[];
-
-export function profileWith(mutate: (profile: Profile) => void): Profile {
-  const profile = createExampleProfile();
-  mutate(profile);
-  return parseProfile(profile);
-}
-const close = (actual: number, expected: number, tolerance = 1e-6, label = '') =>
-  assert.ok(Math.abs(actual - expected) < tolerance,
-    `${label} expected ${expected}, got ${actual} (difference ${actual - expected})`);
-const total = (balances: AccountBalances) => ACCOUNTS.reduce((sum, key) => sum + balances[key], 0);
+import { ACCOUNTS, close, profileWith, totalAccounts as total } from './ledger-helpers.js';
 
 test('every account closes at opening + contributions - withdrawals + return', () => {
   const projection = runDeterministicProjection(createExampleProfile());

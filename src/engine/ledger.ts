@@ -1,0 +1,449 @@
+import type {
+  AccountBalances, BalanceSheet, FailureEvent, LedgerYear, MarketPath, Profile, ProjectionResult,
+} from '../domain/contracts.js';
+import {
+  assessIsaContribution, calculateCapitalGainsTax, calculateNetIncome, getTaxConfig,
+  PensionLimitError, realiseGiaDisposal, scaleTaxConfig, splitPensionWithdrawal, type TaxConfig,
+} from '../domain/tax/index.js';
+import { accessibleWealth, financialNetWorth, lockedWealth, netWorth, openingBalanceSheet, proRataGain } from './accounts.js';
+import {
+  liquidityCoverageYears, liquidFireRatio, pensionCoverageRatio, referenceFireNumber,
+  referenceFireRatio, requiredBridgeCapital, requiredPostPensionCapital,
+} from './fire-metrics.js';
+import { deterministicPath, inflationIndices, portfolioReturn } from './returns.js';
+import { solveMonotone } from './solve.js';
+import {
+  capitalNeedsForAge, emergencyReserveTarget, retirementAnnualReal, spendingForYear,
+  type RetirementSpendingLevel, type SpendingOptions, type SpendingYear,
+} from './spending.js';
+
+export const ENGINE_VERSION = 'deterministic-ledger-v1';
+
+/** Raised for validated profiles whose features this chunk deliberately does not model. */
+export class UnsupportedProfileError extends Error {
+  constructor(public readonly feature: string, message: string) {
+    super(message);
+    this.name = 'UnsupportedProfileError';
+  }
+}
+
+export interface LedgerOptions extends SpendingOptions {
+  /** Retain surplus in cash until the section 41 emergency reserve is covered, before investing. */
+  fundEmergencyReserve: boolean;
+  /**
+   * Where investable surplus goes. The default fills the ISA allowance and puts the remainder in
+   * the GIA. This is a transparent chunk-2 default, not an optimised answer: the marginal
+   * allocation engine (chunk 7) owns that decision.
+   */
+  surplusAllocation: 'isa_then_gia' | 'gia_only' | 'cash_only';
+  solverTolerance: number;
+  solverMaxIterations: number;
+}
+
+export const defaultLedgerOptions = (): LedgerOptions => ({
+  retirementLevel: 'target', monthlyHouseholdOverride: null, fundEmergencyReserve: true,
+  surplusAllocation: 'isa_then_gia', solverTolerance: 1e-6, solverMaxIterations: 60,
+});
+
+/** Every §6 line item plus the intermediate values needed to audit the year. Extends the shared contract. */
+export interface LedgerYearDetail extends LedgerYear {
+  taxConfigVersion: string;
+  /** Cumulative inflation index at the END of this year; deflates `closing` to today's money. */
+  closingInflationIndex: number;
+  salaryNominal: number;
+  bonusNominal: number;
+  pensionablePay: number;
+  grossIncome: number;
+  spendingSource: SpendingYear['source'];
+  spendingEssentialRequired: number;
+  spendingDiscretionaryRequired: number;
+  spendingRequiredReal: number;
+  lifestyleCreepReal: number;
+  capitalNeedsRequired: number;
+  capitalNeedsFunded: number;
+  shortfall: number;
+  savingsInterestTaxed: number;
+  giaDividendsTaxed: number;
+  giaTurnoverProceeds: number;
+  giaTurnoverRealisedGain: number;
+  giaDisposalProceeds: number;
+  giaRealisedGains: number;
+  giaRealisedLosses: number;
+  giaTaxableGains: number;
+  giaCgtExemptionUsed: number;
+  pensionWithdrawalTaxFree: number;
+  pensionWithdrawalTaxable: number;
+  pensionContributionEmployer: number;
+  pensionContributionMember: number;
+  pensionContributionTotal: number;
+  personalCashReduction: number;
+  totalTax: number;
+  /** Spec §31: net active income less cash living costs. Negative values are real and must not be clamped. */
+  investableSurplus: number;
+  allocatedToCashReserve: number;
+  allocatedToIsa: number;
+  allocatedToGia: number;
+  isaAllowanceUsed: number;
+  isaAllowanceRemaining: number;
+  pensionAllowanceRemaining: number;
+  pensionAccessible: boolean;
+  accessibleWealth: number;
+  lockedWealth: number;
+  netWorth: number;
+  emergencyReserveTarget: number;
+  liquidityCoverageYears: number;
+  meetsMinimumLiquidity: boolean;
+}
+
+export interface ProjectionMetrics {
+  fireAge: number;
+  bridgeYears: number;
+  /** Today's money throughout. Reference arithmetic only - not a safety measure (spec §6). */
+  retirementSpendingReal: number;
+  referenceFireNumber: number;
+  investableAssetsAtFireReal: number;
+  referenceFireRatio: number;
+  accessibleWealthAtFireReal: number;
+  lockedWealthAtFireReal: number;
+  requiredBridgeCapitalReal: number;
+  liquidFireRatio: number;
+  requiredPostPensionCapitalReal: number;
+  pensionCoverageRatio: number;
+  terminalNetWorthNominal: number;
+  terminalNetWorthReal: number;
+  peakNetWorthReal: number;
+  firstFailureAge: number | null;
+  totalShortfallNominal: number;
+  yearsWithShortfall: number;
+}
+
+export interface ProjectionAssumptions {
+  engineVersion: string;
+  taxConfigVersion: string;
+  taxPolicy: Profile['simulation']['taxPolicy'];
+  marketAssumptionVersion: string;
+  pathIndex: number;
+  years: number;
+  options: LedgerOptions;
+  /** ADR 002 event order, implemented in this sequence for every year. */
+  eventOrder: readonly string[];
+}
+
+export interface DeterministicProjection extends ProjectionResult {
+  years: LedgerYearDetail[];
+  metrics: ProjectionMetrics;
+  assumptions: ProjectionAssumptions;
+}
+
+const EVENT_ORDER = [
+  'opening balances',
+  'taxable investment income measured on opening balances',
+  'employment income, pension contributions and annual tax',
+  'spending, capital needs and gross-of-tax withdrawals in the configured order',
+  'surplus allocation',
+  'market returns on post-flow balances',
+  'closing balances and failure records',
+] as const;
+
+const clampZero = (value: number): number => Math.abs(value) < 1e-9 ? 0 : value;
+
+function cloneSheet(sheet: BalanceSheet): BalanceSheet {
+  return {
+    accounts: { ...sheet.accounts }, giaCostBasis: sheet.giaCostBasis, giaCarriedLosses: sheet.giaCarriedLosses,
+    propertyValue: sheet.propertyValue, mortgageDebt: sheet.mortgageDebt, pensionTaxFreeCashUsed: sheet.pensionTaxFreeCashUsed,
+  };
+}
+
+/** Expected-value run: the configured nominal means every year. */
+export function runDeterministicProjection(profile: Profile, overrides: Partial<LedgerOptions> = {}): DeterministicProjection {
+  const years = profile.personal.endAge - profile.personal.currentAge;
+  return runProjection(profile, deterministicPath(years, profile.market), overrides);
+}
+
+/**
+ * One complete lifetime ledger over one market path.
+ *
+ * Conventions (see docs/handoffs/chunk-2.md):
+ * - Projected year `t` covers the half-open age interval `[currentAge + t, currentAge + t + 1)`.
+ * - Ledger values are NOMINAL. Profile amounts are today's money; `inflationIndex` converts.
+ * - Salary growth is real, so nominal salary compounds both real growth and inflation.
+ * - Taxable investment income is measured on OPENING balances, which breaks the circular
+ *   dependency between the tax bill and the withdrawal that funds it. Those figures are tax
+ *   inputs only, never balance movements, so the reconciliation identity stays exact.
+ * - Market growth compounds on POST-FLOW balances, per the ADR 002 event order.
+ */
+export function runProjection(profile: Profile, path: MarketPath, overrides: Partial<LedgerOptions> = {}): DeterministicProjection {
+  if (profile.property !== null)
+    throw new UnsupportedProfileError('property',
+      'Property is not integrated into the lifetime ledger yet (work package 5). Its cash flows, ' +
+      'debt service and equity would be silently omitted, so this profile is rejected rather than ' +
+      'projected with a misleadingly complete-looking result.');
+  const options: LedgerOptions = { ...defaultLedgerOptions(), ...overrides };
+  const totalYears = profile.personal.endAge - profile.personal.currentAge;
+  if (path.years.length < totalYears)
+    throw new RangeError(`Market path supplies ${path.years.length} years; the projection needs ${totalYears}`);
+  const baseConfig = getTaxConfig(profile.personal.taxRegion, profile.personal.taxYear);
+  const indices = inflationIndices(path);
+  const tolerance = options.solverTolerance;
+
+  let sheet = openingBalanceSheet(profile);
+  const years: LedgerYearDetail[] = [];
+  const allFailures: FailureEvent[] = [];
+
+  for (let t = 0; t < totalYears; t += 1) {
+    const age = profile.personal.currentAge + t;
+    const marketYear = path.years[t]!;
+    const inflationIndex = indices[t]!;
+    const closingInflationIndex = inflationIndex * (1 + marketYear.inflation);
+    // `constant_real` (the only supported policy): keep this year's structure in real terms.
+    const config: TaxConfig = scaleTaxConfig(baseConfig, inflationIndex);
+    const opening = cloneSheet(sheet);
+
+    const working = age < profile.personal.targetFireAge;
+    const phase: LedgerYear['phase'] = working ? 'accumulation'
+      : age < profile.pension.accessAge ? 'bridge' : 'retirement';
+    const realGrowth = (1 + profile.income.salaryGrowthReal) ** t;
+    const salaryNominal = working ? profile.income.salaryAnnual * realGrowth * inflationIndex : 0;
+    const bonusNominal = working ? profile.income.bonusAnnual * realGrowth * inflationIndex : 0;
+    // Post-FIRE employment is not pensionable: the contribution policy follows the salary.
+    const retirementEmployment = working ? 0 : profile.income.retirementEmploymentAnnual * inflationIndex;
+    const employmentIncome = salaryNominal + bonusNominal + retirementEmployment;
+    const pensionablePay = salaryNominal;
+    const otherIncome = profile.income.otherNonSavingsAnnual * inflationIndex;
+    const statePensionIncome = age >= profile.income.statePensionAge ? profile.income.statePensionAnnual * inflationIndex : 0;
+    const niCategory = age >= profile.income.statePensionAge ? 'C' as const : 'A' as const;
+
+    const savingsInterestTaxed = Math.max(0, opening.accounts.cash * marketYear.cash);
+    const giaDividendsTaxed = opening.accounts.gia * profile.gia.dividendYield;
+    // Turnover is a sell-and-rebuy: value is unchanged, realised gain steps the cost basis up.
+    const giaTurnoverProceeds = opening.accounts.gia * profile.gia.turnoverRate;
+    const giaTurnoverRealisedGain = Math.max(0,
+      proRataGain(opening.accounts.gia, opening.giaCostBasis, giaTurnoverProceeds)) * profile.gia.gainRealisationRate;
+    const basisAfterTurnover = opening.giaCostBasis + giaTurnoverRealisedGain;
+
+    const spending = spendingForYear(profile, { age, inflationIndex, realSalaryGrowthMultiple: realGrowth }, options);
+    const capitalNeedsRequired = capitalNeedsForAge(profile, age, inflationIndex);
+    const need = spending.totalNominal + capitalNeedsRequired;
+    const isaUsedAtStart = t === 0 ? profile.isa.allowanceUsed : 0;
+    const pensionAccessible = age >= profile.pension.accessAge;
+    const pensionCapacity = pensionAccessible ? opening.accounts.pension + opening.accounts.sipp : 0;
+    const lumpSumRemaining = Math.max(0, config.pension.lumpSumAllowance - opening.pensionTaxFreeCashUsed);
+
+    const evaluate = (cashAllowed: number, isaWithdrawal: number, giaProceeds: number, pensionGross: number) => {
+      const pensionFromPension = Math.min(pensionGross, opening.accounts.pension);
+      const pensionFromSipp = pensionGross - pensionFromPension;
+      const split = splitPensionWithdrawal(pensionGross, lumpSumRemaining, config);
+      const disposal = opening.accounts.gia > 0
+        ? realiseGiaDisposal(opening.accounts.gia, basisAfterTurnover, giaProceeds)
+        : { proceeds: 0, basisDisposed: 0, realisedGain: 0, realisedLoss: 0, remainingValue: 0, remainingCostBasis: basisAfterTurnover };
+      const realisedGains = giaTurnoverRealisedGain + disposal.realisedGain;
+      let net;
+      try {
+        net = calculateNetIncome({
+          employmentIncome, pensionablePay, memberAge: age, policy: profile.pension,
+          otherNonSavingsIncome: otherIncome + statePensionIncome + split.taxable,
+          savingsInterest: savingsInterestTaxed, dividends: giaDividendsTaxed, niCategory,
+        }, config);
+      } catch (error) {
+        if (error instanceof PensionLimitError)
+          throw new PensionLimitError(error.code, `Age ${age}: ${error.message}`);
+        throw error;
+      }
+      const cgt = calculateCapitalGainsTax({
+        realisedGains, currentYearLosses: disposal.realisedLoss, carriedLosses: opening.giaCarriedLosses,
+        remainingBasicRateBand: net.tax.remainingBasicRateBandForGains,
+      }, config);
+      const totalTax = net.tax.totalIncomeTax + net.ni.employee + cgt.tax;
+      const cashInflow = employmentIncome + otherIncome + statePensionIncome + split.gross + isaWithdrawal + giaProceeds;
+      const cashOutflowBeforeSpending = net.pension.personalCashReduction + totalTax;
+      return {
+        pensionFromPension, pensionFromSipp, split, disposal, realisedGains, net, cgt, totalTax,
+        cashInflow, cashOutflowBeforeSpending,
+        available: cashAllowed + cashInflow - cashOutflowBeforeSpending,
+      };
+    };
+
+    // Fund the year in the configured order. `cash` is the settlement account, so its position
+    // controls how much of the OPENING cash balance may be released at that point; the other
+    // entries are liquidations grossed up for the tax they create.
+    let cashAllowed = 0;
+    let isaWithdrawal = 0;
+    let giaProceeds = 0;
+    let pensionGross = 0;
+    const surplusNow = () => evaluate(cashAllowed, isaWithdrawal, giaProceeds, pensionGross).available - need;
+    for (const account of profile.simulation.withdrawalOrder) {
+      if (surplusNow() >= -tolerance) break;
+      if (account === 'cash') {
+        cashAllowed = opening.accounts.cash;
+      } else if (account === 'isa') {
+        isaWithdrawal = solveMonotone(x => evaluate(cashAllowed, x, giaProceeds, pensionGross).available - need,
+          opening.accounts.isa, tolerance, options.solverMaxIterations).x;
+      } else if (account === 'gia') {
+        giaProceeds = solveMonotone(x => evaluate(cashAllowed, isaWithdrawal, x, pensionGross).available - need,
+          opening.accounts.gia, tolerance, options.solverMaxIterations).x;
+      } else {
+        pensionGross = solveMonotone(x => evaluate(cashAllowed, isaWithdrawal, giaProceeds, x).available - need,
+          pensionCapacity, tolerance, options.solverMaxIterations).x;
+      }
+    }
+
+    const result = evaluate(cashAllowed, isaWithdrawal, giaProceeds, pensionGross);
+    // Living costs take priority over known capital needs when both cannot be met.
+    const spendingFunded = Math.min(spending.totalNominal, Math.max(0, result.available));
+    const capitalNeedsFunded = Math.min(capitalNeedsRequired, Math.max(0, result.available - spendingFunded));
+    const shortfall = clampZero(need - spendingFunded - capitalNeedsFunded);
+
+    const cashBeforeAllocation = opening.accounts.cash + result.cashInflow
+      - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded;
+    // Spec §31. Excludes the opening cash balance: only this year's flows are investable.
+    const investableSurplus = result.cashInflow - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded;
+    const reserveTarget = emergencyReserveTarget(profile, spending.essentialNominal);
+    const reserveShortfallGate = options.fundEmergencyReserve ? reserveTarget : 0;
+    const investable = Math.max(0, Math.min(Math.max(0, investableSurplus), cashBeforeAllocation - reserveShortfallGate));
+    const allocatedToCashReserve = Math.max(0, investableSurplus) - investable;
+    const isaAssessment = assessIsaContribution(investable, isaUsedAtStart, config);
+    const allocatedToIsa = options.surplusAllocation === 'isa_then_gia' ? isaAssessment.permitted : 0;
+    const allocatedToGia = options.surplusAllocation === 'cash_only' ? 0 : investable - allocatedToIsa;
+
+    const contributions: AccountBalances = {
+      cash: employmentIncome + otherIncome + statePensionIncome + result.split.gross + isaWithdrawal + giaProceeds,
+      isa: allocatedToIsa, gia: allocatedToGia, pension: result.net.pension.totalPensionAdded, sipp: 0,
+    };
+    const withdrawalsGross: AccountBalances = {
+      cash: result.net.pension.personalCashReduction + result.totalTax + spendingFunded
+        + capitalNeedsFunded + allocatedToIsa + allocatedToGia,
+      isa: isaWithdrawal, gia: giaProceeds, pension: result.pensionFromPension, sipp: result.pensionFromSipp,
+    };
+    const postFlow: AccountBalances = {
+      cash: clampZero(opening.accounts.cash + contributions.cash - withdrawalsGross.cash),
+      isa: clampZero(opening.accounts.isa + contributions.isa - withdrawalsGross.isa),
+      gia: clampZero(opening.accounts.gia + contributions.gia - withdrawalsGross.gia),
+      pension: clampZero(opening.accounts.pension + contributions.pension - withdrawalsGross.pension),
+      sipp: clampZero(opening.accounts.sipp + contributions.sipp - withdrawalsGross.sipp),
+    };
+    const pensionReturnRate = portfolioReturn(profile.portfolios.pension, marketYear);
+    const investmentReturn: AccountBalances = {
+      cash: postFlow.cash * marketYear.cash,
+      isa: postFlow.isa * portfolioReturn(profile.portfolios.isa, marketYear),
+      gia: postFlow.gia * portfolioReturn(profile.portfolios.gia, marketYear),
+      pension: postFlow.pension * pensionReturnRate,
+      sipp: postFlow.sipp * pensionReturnRate,
+    };
+    const closing: BalanceSheet = {
+      accounts: {
+        cash: postFlow.cash + investmentReturn.cash, isa: postFlow.isa + investmentReturn.isa,
+        gia: postFlow.gia + investmentReturn.gia, pension: postFlow.pension + investmentReturn.pension,
+        sipp: postFlow.sipp + investmentReturn.sipp,
+      },
+      // Taxed dividends stay inside the GIA as accumulated units, so they raise the base cost.
+      giaCostBasis: clampZero(basisAfterTurnover - result.disposal.basisDisposed + allocatedToGia + giaDividendsTaxed),
+      giaCarriedLosses: result.cgt.carriedLossesRemaining,
+      propertyValue: 0, mortgageDebt: 0,
+      pensionTaxFreeCashUsed: opening.pensionTaxFreeCashUsed + result.split.taxFree,
+    };
+
+    const failures: FailureEvent[] = [];
+    if (shortfall > tolerance) {
+      if (!pensionAccessible && lockedWealth(opening) > tolerance)
+        failures.push({ age, code: 'pre_pension_liquidity', shortfall });
+      if (spendingFunded < spending.essentialNominal - tolerance)
+        failures.push({ age, code: 'unfunded_essential_spending', shortfall: spending.essentialNominal - spendingFunded });
+      if (accessibleWealth(closing) <= tolerance)
+        failures.push({ age, code: 'portfolio_depletion', shortfall });
+    }
+    if (netWorth(closing) < -tolerance)
+      failures.push({ age, code: 'insolvency', shortfall: -netWorth(closing) });
+    allFailures.push(...failures);
+
+    const annualEssential = spending.essentialNominal;
+    years.push({
+      yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
+      employmentIncome, otherIncome, statePensionIncome, rentalIncome: 0,
+      contributions, withdrawalsGross, investmentReturn,
+      incomeTax: result.net.tax.totalIncomeTax, employeeNi: result.net.ni.employee,
+      capitalGainsTax: result.cgt.tax,
+      // Chunk 1 rejects contributions above the available allowance instead of modelling a charge.
+      pensionAllowanceCharge: 0,
+      spendingRequired: spending.totalNominal, spendingFunded,
+      propertyOperatingCosts: 0, mortgageInterest: 0, mortgagePrincipal: 0, propertyTransactionCashFlow: 0,
+      failures,
+      taxConfigVersion: config.version,
+      salaryNominal, bonusNominal, pensionablePay,
+      grossIncome: employmentIncome + otherIncome + statePensionIncome + savingsInterestTaxed
+        + giaDividendsTaxed + result.split.gross,
+      spendingSource: spending.source,
+      spendingEssentialRequired: spending.essentialNominal,
+      spendingDiscretionaryRequired: spending.discretionaryNominal,
+      spendingRequiredReal: spending.totalReal,
+      lifestyleCreepReal: spending.lifestyleCreepReal,
+      capitalNeedsRequired, capitalNeedsFunded, shortfall,
+      savingsInterestTaxed, giaDividendsTaxed, giaTurnoverProceeds, giaTurnoverRealisedGain,
+      giaDisposalProceeds: giaProceeds,
+      giaRealisedGains: result.realisedGains, giaRealisedLosses: result.disposal.realisedLoss,
+      giaTaxableGains: result.cgt.taxableGains, giaCgtExemptionUsed: result.cgt.exemptionUsed,
+      pensionWithdrawalTaxFree: result.split.taxFree, pensionWithdrawalTaxable: result.split.taxable,
+      pensionContributionEmployer: result.net.pension.employerContribution,
+      pensionContributionMember: result.net.pension.memberGross,
+      pensionContributionTotal: result.net.pension.totalPensionAdded,
+      personalCashReduction: result.net.pension.personalCashReduction,
+      totalTax: result.totalTax, investableSurplus,
+      allocatedToCashReserve, allocatedToIsa, allocatedToGia,
+      isaAllowanceUsed: isaUsedAtStart + allocatedToIsa,
+      isaAllowanceRemaining: Math.max(0, isaAssessment.remaining - allocatedToIsa),
+      pensionAllowanceRemaining: result.net.allowance.remaining,
+      pensionAccessible,
+      accessibleWealth: accessibleWealth(closing), lockedWealth: lockedWealth(closing), netWorth: netWorth(closing),
+      emergencyReserveTarget: reserveTarget,
+      liquidityCoverageYears: liquidityCoverageYears(accessibleWealth(closing), annualEssential),
+      meetsMinimumLiquidity:
+        liquidityCoverageYears(accessibleWealth(closing), annualEssential) >= profile.liquidity.minimumLiquidYears,
+    });
+    sheet = closing;
+  }
+
+  return {
+    years, failures: allFailures, success: allFailures.length === 0,
+    metrics: buildMetrics(profile, years, options),
+    assumptions: {
+      engineVersion: ENGINE_VERSION, taxConfigVersion: baseConfig.version,
+      taxPolicy: profile.simulation.taxPolicy, marketAssumptionVersion: profile.market.assumptionVersion,
+      pathIndex: path.pathIndex, years: totalYears, options, eventOrder: EVENT_ORDER,
+    },
+  };
+}
+
+function buildMetrics(profile: Profile, years: LedgerYearDetail[], options: LedgerOptions): ProjectionMetrics {
+  const retirementSpendingReal = retirementAnnualReal(profile, options);
+  const fireNumber = referenceFireNumber(retirementSpendingReal, profile.simulation.referenceWithdrawalRate);
+  const fireIndex = profile.personal.targetFireAge - profile.personal.currentAge;
+  const fireYear = years[Math.min(fireIndex, years.length - 1)]!;
+  const deflator = fireYear.inflationIndex;
+  const investableAtFire = financialNetWorth(fireYear.opening) / deflator;
+  const accessibleAtFire = accessibleWealth(fireYear.opening) / deflator;
+  const lockedAtFire = lockedWealth(fireYear.opening) / deflator;
+  const bridgeCapital = requiredBridgeCapital(retirementSpendingReal, profile.personal.targetFireAge, profile.pension.accessAge);
+  const postPensionCapital = requiredPostPensionCapital(retirementSpendingReal, profile.pension.accessAge, profile.personal.endAge);
+  const last = years[years.length - 1]!;
+  const shortfallYears = years.filter(y => y.shortfall > 0);
+  const firstFailure = years.find(y => y.failures.length > 0);
+  return {
+    fireAge: profile.personal.targetFireAge,
+    bridgeYears: Math.max(0, profile.pension.accessAge - profile.personal.targetFireAge),
+    retirementSpendingReal, referenceFireNumber: fireNumber,
+    investableAssetsAtFireReal: investableAtFire,
+    referenceFireRatio: referenceFireRatio(investableAtFire, fireNumber),
+    accessibleWealthAtFireReal: accessibleAtFire, lockedWealthAtFireReal: lockedAtFire,
+    requiredBridgeCapitalReal: bridgeCapital,
+    liquidFireRatio: liquidFireRatio(accessibleAtFire, bridgeCapital),
+    requiredPostPensionCapitalReal: postPensionCapital,
+    pensionCoverageRatio: pensionCoverageRatio(lockedAtFire, postPensionCapital),
+    terminalNetWorthNominal: netWorth(last.closing),
+    terminalNetWorthReal: netWorth(last.closing) / last.closingInflationIndex,
+    peakNetWorthReal: years.reduce((peak, y) => Math.max(peak, netWorth(y.closing) / y.closingInflationIndex), 0),
+    firstFailureAge: firstFailure ? firstFailure.age : null,
+    totalShortfallNominal: shortfallYears.reduce((total, y) => total + y.shortfall, 0),
+    yearsWithShortfall: shortfallYears.length,
+  };
+}
+
+export type { RetirementSpendingLevel };

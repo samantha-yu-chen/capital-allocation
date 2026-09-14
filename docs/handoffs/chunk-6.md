@@ -253,7 +253,7 @@ of `npm run check`.
 - Three screens remain planned: Marginal Allocation, Scenario Comparison and Where It Comes From.
   Persistence remains package 8.
 
-## Chunk 7 — paste-ready assignment for Claude
+## Chunk 7 — paste-ready assignment for Codex
 
 Implement package 7 in the capital-allocation repository: the marginal capital allocation engine and
 the Marginal Allocation screen. Chunks 1–6 are complete on main; start from the latest main
@@ -261,9 +261,12 @@ containing this handoff.
 
 Check branch, working tree and origin/main first. Preserve existing changes. Work on a branch in a
 separate worktree, commit in understandable stages, merge back to main and push. No PR required.
+The primary checkout stays on `main`, so a worktree session cannot move the local `main` ref: build
+the merge commit against `origin/main`, push that, and tell the user to run `git pull --ff-only`.
 
 Read in order:
 
+0. `AGENTS.md` — the repository's working agreement, commands and the conventions that must not break.
 1. `docs/handoffs/chunk-6.md`, including the interfaces and limitations above.
 2. Package 7 in `docs/implementation-work-packages.md`.
 3. `docs/handoffs/chunk-5.md`, `chunk-4.md`, `chunk-3.md`, `chunk-2.md`,

@@ -1,3 +1,4 @@
+import { PropertyScreen } from './screen-property.js';
 /**
  * Application shell: the eight reference destinations, the shared profile state, and the simulation
  * runner that the FIRE screen drives.
@@ -130,6 +131,7 @@ export function App(): ReactNode {
         </div>
 
         <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>
+          {active === 'property' ? <PropertyScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'overview' ? <OverviewScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'fire' ? (
             <FireScreen

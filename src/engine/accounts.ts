@@ -10,7 +10,8 @@ export function openingBalanceSheet(profile: Profile): BalanceSheet {
   return {
     accounts: { cash: a.cash, isa: a.isa, gia: a.gia.marketValue, pension: a.pension, sipp: a.sipp },
     giaCostBasis: a.gia.costBasis, giaCarriedLosses: a.gia.carriedLosses,
-    propertyValue: 0, mortgageDebt: 0, pensionTaxFreeCashUsed: a.pensionTaxFreeCashUsed,
+    propertyValue: profile.property && !profile.property.purchase ? profile.property.marketValue : 0,
+    mortgageDebt: profile.property && !profile.property.purchase ? profile.property.mortgageBalance : 0, pensionTaxFreeCashUsed: a.pensionTaxFreeCashUsed,
   };
 }
 

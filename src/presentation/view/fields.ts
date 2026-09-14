@@ -11,7 +11,7 @@ import { profileSchema, type Profile } from '../../domain/contracts.js';
 
 export type FieldGroupId =
   | 'personal' | 'income' | 'household' | 'spending' | 'assets' | 'pension'
-  | 'wrappers' | 'liquidity' | 'portfolios' | 'market' | 'simulation';
+  | 'wrappers' | 'liquidity' | 'portfolios' | 'market' | 'simulation' | 'property';
 
 export interface FieldGroup {
   id: FieldGroupId;
@@ -31,6 +31,7 @@ export const FIELD_GROUPS: readonly FieldGroup[] = [
   { id: 'portfolios', label: 'Portfolios by wrapper', note: 'Each wrapper’s weights must sum to 100%.' },
   { id: 'market', label: 'Market assumptions', note: 'Means and volatilities are arithmetic annual nominal figures. The matrix is the correlation of Gaussian log-growth shocks, not of arithmetic returns.' },
   { id: 'simulation', label: 'Simulation' },
+  { id: 'property', label: 'Property inputs', note: 'One residential property. Amounts are today’s GBP; existing rental acquisition basis is historical nominal GBP. Included rent is removed from each spending schedule only while owner-occupied. Enter other household spending without mortgage or the property costs entered here.' },
 ];
 
 /** How a stored value is shown and typed back. `percent` stores a fraction and shows ×100. */
@@ -84,7 +85,7 @@ export const NUMBER_FIELDS: readonly NumberFieldDef[] = [
   field(['spending', 'retirement', 'discretionaryMonthly'], 'Retirement discretionary', 'spending', 'monthlyMoney', 25),
   field(['spending', 'retirementFloorAnnual'], 'Retirement floor (annual)', 'spending', 'money', 250, 'The “floor” run. Must be at or below the target total.'),
   field(['spending', 'retirementComfortAnnual'], 'Retirement comfort (annual)', 'spending', 'money', 250, 'The “comfort” run. Must be at or above the target total.'),
-  field(['spending', 'currentRentMonthlyIncluded'], 'Rent already inside current spending', 'spending', 'monthlyMoney', 25, 'Recorded so package 5 can replace it with housing costs without double counting.'),
+  field(['spending', 'currentRentMonthlyIncluded'], 'Rent already inside current spending', 'spending', 'monthlyMoney', 25, 'Included rent component in your spending schedules. Removed once during owner occupation; restored on sale.'),
   field(['spending', 'lifestyleCreepRate'], 'Lifestyle creep on real pay rises', 'spending', 'percent', 1, 'Share of each real salary increase that becomes discretionary spending.'),
   field(['spending', 'scenarioMonthly', 'low'], 'Low spending case', 'spending', 'monthlyMoney', 25),
   field(['spending', 'scenarioMonthly', 'base'], 'Base spending case', 'spending', 'monthlyMoney', 25),
@@ -131,7 +132,7 @@ export const NUMBER_FIELDS: readonly NumberFieldDef[] = [
   field(['market', 'bonds', 'volatility'], 'Bonds volatility', 'market', 'percent', 0.1),
   field(['market', 'cash', 'meanNominal'], 'Cash mean return', 'market', 'percent', 0.1),
   field(['market', 'cash', 'volatility'], 'Cash volatility', 'market', 'percent', 0.1),
-  field(['market', 'property', 'meanNominal'], 'Property mean return', 'market', 'percent', 0.1, 'Held for package 5; property is not in the ledger yet.'),
+  field(['market', 'property', 'meanNominal'], 'Property mean return', 'market', 'percent', 0.1, 'Annual value growth while the property is owned.'),
   field(['market', 'property', 'volatility'], 'Property volatility', 'market', 'percent', 0.1),
   field(['market', 'inflation', 'mean'], 'Inflation mean', 'market', 'percent', 0.1),
   field(['market', 'inflation', 'volatility'], 'Inflation volatility', 'market', 'percent', 0.1),
@@ -147,6 +148,38 @@ export type MarketVariable = typeof MARKET_VARIABLES[number];
 /** Fields whose path contains an array index, so they depend on the profile's current shape. */
 export function arrayFields(profile: Profile): NumberFieldDef[] {
   const defs: NumberFieldDef[] = [];
+  if (profile.property) {
+    defs.push(
+      field(['property', 'marketValue'], 'Existing property value', 'property', 'money', 1000),
+      field(['property', 'mortgageBalance'], 'Existing mortgage balance', 'property', 'money', 1000),
+      field(['property', 'mortgageAnnualRate'], 'Mortgage annual rate', 'property', 'percent', 0.1),
+      field(['property', 'mortgageTermYears'], 'Remaining mortgage term (years)', 'property', 'integer', 1),
+      field(['property', 'maintenanceAnnual'], 'Annual maintenance', 'property', 'money', 100),
+      field(['property', 'insuranceAnnual'], 'Annual insurance', 'property', 'money', 50),
+      field(['property', 'serviceChargeAnnual'], 'Annual service charge', 'property', 'money', 100),
+      field(['property', 'councilTaxAnnual'], 'Annual council tax paid by owner', 'property', 'money', 100),
+      field(['property', 'rentAnnual'], 'Annual gross rent at full occupancy', 'property', 'money', 500),
+      field(['property', 'occupancyRate'], 'Rental occupancy', 'property', 'percent', 1),
+      field(['property', 'managementRate'], 'Rental management fee', 'property', 'percent', 1),
+      field(['property', 'acquisitionCostBasis'], 'Existing rental acquisition cost basis', 'property', 'money', 1000),
+      field(['property', 'purchaseTaxOverride'], 'Manual purchase tax', 'property', 'money', 100),
+    );
+    if (profile.property.purchase) defs.push(
+      field(['property', 'purchase', 'age'], 'Purchase age', 'property', 'age', 1),
+      field(['property', 'purchase', 'price'], 'Purchase price', 'property', 'money', 1000),
+      field(['property', 'purchase', 'deposit'], 'Purchase deposit', 'property', 'money', 1000),
+      field(['property', 'purchase', 'transactionCosts'], 'Legal and other purchase costs (excluding tax)', 'property', 'money', 100),
+    );
+    if (profile.property.sale) defs.push(
+      field(['property', 'sale', 'age'], 'Sale age', 'property', 'age', 1),
+      field(['property', 'sale', 'sellingCostRate'], 'Selling costs', 'property', 'percent', 0.1),
+    );
+    profile.property.rateChanges.forEach((_, i) => defs.push(
+      field(['property', 'rateChanges', i, 'age'], `Refinance ${i + 1} age`, 'property', 'age', 1),
+      field(['property', 'rateChanges', i, 'annualRate'], `Refinance ${i + 1} rate`, 'property', 'percent', .1),
+    ));
+  }
+
   profile.spending.phases.forEach((_, i) => {
     defs.push(
       field(['spending', 'phases', i, 'startAge'], `Phase ${i + 1} start age`, 'spending', 'age', 1),
@@ -174,7 +207,15 @@ export function arrayFields(profile: Profile): NumberFieldDef[] {
         `${MARKET_VARIABLES[row]} / ${MARKET_VARIABLES[column]} log-shock correlation`, 'market', 'decimal', 0.05));
     }
   }
-  return defs;
+  return defs.filter(def => {
+    if (def.group !== 'property' || !profile.property) return true;
+    const key = def.path[1];
+    if (key === 'marketValue' || key === 'mortgageBalance') return profile.property.purchase === null;
+    if (key === 'acquisitionCostBasis') return profile.property.use === 'rental' && profile.property.purchase === null;
+    if (key === 'purchaseTaxOverride') return profile.property.taxLocation === 'manual';
+    if (key === 'rentAnnual' || key === 'occupancyRate' || key === 'managementRate') return profile.property.use === 'rental';
+    return true;
+  });
 }
 
 /** Every field applicable to this profile, scalar and array-backed. */
@@ -267,7 +308,7 @@ export type ValidationState =
   | { ok: false; issues: readonly FieldIssue[] };
 
 const GROUP_BY_ROOT: Record<string, FieldGroupId> = {
-  personal: 'personal', income: 'income', household: 'household', spending: 'spending',
+  property: 'property', personal: 'personal', income: 'income', household: 'household', spending: 'spending',
   assets: 'assets', pension: 'pension', isa: 'wrappers', gia: 'wrappers',
   liquidity: 'liquidity', portfolios: 'portfolios', market: 'market', simulation: 'simulation',
 };

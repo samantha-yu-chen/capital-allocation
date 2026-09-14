@@ -331,14 +331,6 @@ function Metadata(props: { result: MonteCarloResult }): ReactNode {
 }
 
 function resultErrorBanner(state: Extract<RunState, { status: 'error' }>): ReactNode {
-  if (state.name === 'UnsupportedProfileError') {
-    return (
-      <Banner tone="error" title="This profile carries a property, which is not in the lifetime model yet">
-        <p style={{ margin: 0 }}>{state.message}</p>
-        <p style={{ margin: 0 }}>Property integration is work package 5.</p>
-      </Banner>
-    );
-  }
   if (state.name === 'PensionLimitError') {
     return (
       <Banner tone="error" title="A pension contribution exceeded the available allowance">
@@ -411,7 +403,7 @@ export function FireScreen(props: {
             </div>
           </div>
           <p className="footnote">
-            Spending ÷ withdrawal rate. A reference ratio only — the probability below is the safety result.
+            Entered retirement budget ÷ withdrawal rate, before property adjustments. A reference ratio only — the probability below includes housing cash flows and is the safety result.
           </p>
         </Card>
       ) : null}

@@ -2,9 +2,9 @@
 
 This checklist tracks section 88 of the comprehensive spec. “Foundation” means contracts/primitives exist; it does not claim the full lifetime behaviour is implemented. Additional requirements inside the full spec remain authoritative.
 
-After chunk 4 the deterministic ledger and Monte Carlo analysis are implemented and tested, and the Overview and FIRE & Monte Carlo screens run them for real in the browser. Solver, property, marginal-allocation, saved-scenario and attribution requirements remain open. See `handoffs/chunk-4.md` for the 138-test verification and the measured in-browser 10,000-path run; `handoffs/chunk-3.md` holds the engine benchmark. `docs/v0.3-requirements-checklist.md` holds the longer per-item acceptance analysis kept for the package-10 audit.
+After chunk 5 the deterministic ledger, Monte Carlo and integrated single-property engine are implemented, with Overview, FIRE & Monte Carlo and Property & Leverage built in the browser. Solver, marginal-allocation, saved-scenario and attribution work remains open. See `handoffs/chunk-5.md` for 157 passing tests and real-browser property verification, and `property-model.md` for the property accounting, tax sources and boundaries. `docs/v0.3-requirements-checklist.md` holds the longer acceptance analysis for the package-10 audit.
 
-| # | MUST requirement | Owning chunks | Status / evidence after chunk 4 |
+| # | MUST requirement | Owning chunks | Status / evidence after chunk 5 |
 | --- | --- | --- | --- |
 | 1 | UK tax model | 1, 2 | Annual primitives, plus one joint annual assessment per projected year in the ledger; `tests/tax.test.ts`, `tax-allocation.test.ts`, and `ledger-reconciliation.test.ts` reproduces the documented £9,927.05 / £3,055.60 reference case |
 | 2 | Scotland support | 1 | Implemented and tested alongside rest of UK; the ledger selects the region's config every year |
@@ -25,9 +25,9 @@ After chunk 4 the deterministic ledger and Monte Carlo analysis are implemented 
 | 17 | Reverse savings solver | 6 | Pending |
 | 18 | Reverse gross-salary solver | 6 | Pending |
 | 19 | Marginal pension/ISA/GIA | 7 | Tax primitives and a whole-life ledger to re-run are ready; optimiser pending |
-| 20 | Single-property model | 5 | Input/ledger contracts supplied. The ledger rejects a non-null property rather than omitting its cash flows |
-| 21 | Property leverage | 5 | Pending |
-| 22 | Rent vs buy | 5 | Pending |
+| 20 | Single-property model | 5 | **Done.** Atomic, tax-grossed-up purchase funding; acquisition/sale taxes and costs; owner/rental operating cash flows; explicit sale proceeds; amortisation, interest-only balloons and arrears in every deterministic/stochastic path. `property.test.ts`, `ledger-reconciliation.test.ts`, `monte-carlo.test.ts`; property changes FIRE success. Tax boundaries in `property-model.md` |
+| 21 | Property leverage | 5 | **Done.** Equity, LTV, debt-service coverage, downside leverage, equity drawdown and full-plan 3/5/7/9% mortgage scenarios on the built Property screen. Golden scenario B and repayment/refinance/balloon tests in `property.test.ts`; view-model checks in `property-presentation.test.ts` |
+| 22 | Rent vs buy | 5 | **Done.** Full-plan paired paths with the deposit and acquisition-cost opportunity cost, unused ISA allowance/GIA investment, success and terminal/liquidity/drawdown/debt distributions. Included rent replaced once while owner occupied. Reproducible and cancellable worker comparison; `property-presentation.test.ts`, `browser-property-ui.mjs` |
 | 23 | Named scenarios | 8 | Versioned scenario schema supplied; storage/comparisons pending |
 | 24 | Deterministic stress cases | 9 | Pending. Chunk 9 can drive them through this ledger by supplying shocked `MarketPath`s |
 | 25 | Percentiles | 3, 4 | **Done.** Mean, P10/P25/P50/P75/P90, observed minimum, FIRE capital and real age-boundary asset distributions; known-quantile and zero-volatility aggregation tests. Terminal wealth and opening FIRE capital are tabulated in full, and every age boundary is drawn as a percentile fan with the same numbers in an adjacent table |
@@ -49,7 +49,7 @@ exists and states which package owns it; it renders no illustrative figures.
 | Marginal Allocation | 7 | Reachable, labelled |
 | Reverse Solver | 6 | Reachable, labelled |
 | Scenario Comparison | 8 | Reachable, labelled |
-| Property & Leverage | 5 | Reachable, labelled. The ledger still rejects a non-null property rather than omitting its cash flows |
+| Property & Leverage | 5 | **Built.** Validated conditional property form, equity/LTV/coverage/downside, rate scenarios, complete property ledger and cancellable 10,000-pair rent/invest comparison. Verified in Chrome at 1440px and 390px. Overview includes property ledger audit lines; FIRE includes property wealth and mortgage failures |
 | Where It Comes From | 9 | Reachable, labelled |
 
 ## Golden cases (sections 86–87)
@@ -58,7 +58,7 @@ exists and states which package owns it; it renders no illustrative figures.
 - FIRE £40k/4% = £1m (scenario A), compound growth, and the spending double effect (scenario F): **done in chunk 2**; 92 tests overall.
 - Certain success (C), certain failure (D) and locked-wealth failure (E): **done deterministically and probabilistically**; `monte-carlo.test.ts` covers C/D/E across paths.
 - Zero-volatility equality: the ledger already consumes a supplied `MarketPath`, and `ledger-reconciliation.test.ts` pins that an explicit means path reproduces the deterministic run. Chunk 3 now asserts generator zero-volatility equality and complete ledger/real-distribution equality.
-- Mortgage amortisation, and £300k/£60k leveraged appreciation (scenario B): chunk 5.
+- Mortgage amortisation and £300k/£60k leveraged appreciation (scenario B): **done in chunk 5**, plus GIA-tax-bearing purchase funding, full property reconciliation, housing counted once, explicit sale and changed FIRE success. `property.test.ts`.
 - Seeded repeatability and sampling statistics: **done**, `monte-carlo-generator.test.ts` and `monte-carlo.test.ts`.
 - Section 80 dashboard figures (£75,000 liquid, £25,000 pension, £100,000 net worth, £19,800 target spending, £565,714 reference FIRE number): **done in chunk 4**, asserted against the engine in `presentation-screens.test.ts` and confirmed rendering in Chrome.
 - Release acceptance across all requirements and screens: chunk 10.

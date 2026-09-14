@@ -52,9 +52,9 @@ export const TABS: readonly TabDefinition[] = [
     groundwork: 'Needs scenario persistence and the matrix runner from package 8. The versioned scenario schema already exists in the shared contracts.',
   },
   {
-    id: 'property', label: 'Property & Leverage', status: 'planned', package: 5,
+    id: 'property', label: 'Property & Leverage', status: 'built', package: 5,
     summary: 'Buying, owning or renting inside the same lifetime model, with leverage and rate scenarios.',
-    groundwork: 'Needs the property engine from package 5. Until then the ledger rejects a profile carrying a property rather than projecting it with its cash flows silently omitted.',
+    groundwork: '',
   },
   {
     id: 'attribution', label: 'Where It Comes From', status: 'planned', package: 9,

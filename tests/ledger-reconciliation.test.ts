@@ -133,7 +133,7 @@ test('a market path shorter than the projection is rejected rather than truncate
   assert.throws(() => runProjection(profile, deterministicPath(10, profile.market)), /needs 64/);
 });
 
-test('unsupported property input is rejected, not silently dropped', () => {
+test('property input is integrated, not silently dropped', () => {
   const profile = profileWith(p => {
     p.property = {
       use: 'owner_occupied', marketValue: 300_000, mortgageBalance: 240_000, mortgageAnnualRate: 0.045,
@@ -142,6 +142,6 @@ test('unsupported property input is rejected, not silently dropped', () => {
       purchase: null, sale: null, rateChanges: [],
     };
   });
-  assert.throws(() => runDeterministicProjection(profile), /work package 5/);
+  assert.ok(runDeterministicProjection(profile).years[0]!.closing.propertyValue > 0);
   assert.equal(runDeterministicProjection(createExampleProfile()).success, true);
 });

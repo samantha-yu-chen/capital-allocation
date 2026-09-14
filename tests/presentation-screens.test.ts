@@ -67,17 +67,14 @@ test('the marginal rate comes from re-running the engine, not a parallel tax for
   assert.ok(outcome.model.rate > 0 && outcome.model.rate < 1, `implausible marginal rate ${outcome.model.rate}`);
 });
 
-test('an unsupported profile surfaces the engine error instead of a projection', () => {
+test('a property profile projects its actual equity', () => {
   const withProperty = writePath(example, ['property'], {
     use: 'owner_occupied', marketValue: 300_000, mortgageBalance: 200_000, mortgageAnnualRate: 0.045,
     mortgageTermYears: 25, mortgageType: 'repayment', maintenanceAnnual: 3_000, insuranceAnnual: 400,
     serviceChargeAnnual: 0, councilTaxAnnual: 1_800, rentAnnual: 0, occupancyRate: 0, managementRate: 0,
     purchase: null, sale: null, rateChanges: [],
   });
-  assert.throws(() => computeOverview(withProperty), error => {
-    assert.equal((error as Error).name, 'UnsupportedProfileError');
-    return true;
-  });
+  assert.equal(computeOverview(withProperty).position.propertyEquity, 100000);
 });
 
 test('a ledger row carries both bases, with real values deflated by the right index', () => {

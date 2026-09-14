@@ -25,6 +25,20 @@ function LedgerDetail(props: { row: LedgerRowModel; basis: MoneyBasis }): ReactN
     ['Employment income', money(v.employmentIncome)],
     ['Other income', money(v.otherIncome)],
     ['State pension', money(v.statePensionIncome)],
+    ['Rental income', money(v.rentalIncome)],
+    ['Property operating costs required', money(v.propertyOperatingCosts)],
+    ['Mortgage interest required', money(v.mortgageInterest)],
+    ['Mortgage principal paid', money(v.mortgagePrincipal)],
+    ['Property transaction cash flow', money(v.propertyTransactionCashFlow)],
+    ['Included rent removed', money(v.rentRemoved)],
+    ['Landlord finance tax relief', money(v.rentalFinanceRelief)],
+    ['Closing property value', money(v.propertyValue)],
+    ['Closing mortgage debt', money(v.mortgageDebt)],
+    ['Closing property equity', money(v.propertyEquity)],
+    ['Purchase funding', money(v.propertyPurchaseFunding)],
+    ['Purchase tax and costs', money(v.propertyAcquisitionCosts)],
+    ['Property appreciation', money(v.propertyAppreciation)],
+
     ['Employer pension contribution', money(v.pensionContributionEmployer)],
     ['Member pension contribution', money(v.pensionContributionMember)],
     ['Income tax', money(v.incomeTax)],
@@ -156,7 +170,7 @@ function ReferenceFire(props: { model: OverviewModel }): ReactNode {
     <Card kicker="Reference FIRE target" title="Transparent arithmetic, not a safety result" elevation="md">
       <p className="card-body">
         These are the spec’s reference ratios. They ignore sequence of returns, tax on withdrawals and
-        the shape of the path. The FIRE &amp; Monte Carlo screen holds the answer to whether the plan survives.
+        the shape of the path. The spending reference is the entered retirement budget before property adjustments. The FIRE &amp; Monte Carlo screen includes housing cash flows when testing whether the plan survives.
       </p>
       <dl className="kv">
         <Line label="Annual retirement spending (today’s money)" value={money(r.retirementSpendingReal)} />
@@ -240,20 +254,8 @@ function CashFlow(props: { model: OverviewModel }): ReactNode {
   );
 }
 
-function engineErrorBanner(error: unknown, profile: Profile): ReactNode {
+function engineErrorBanner(error: unknown, _profile: Profile): ReactNode {
   const thrown = error instanceof Error ? error : new Error(String(error));
-  if (thrown.name === 'UnsupportedProfileError' && profile.property !== null) {
-    return (
-      <Banner tone="error" title="This profile carries a property, which the ledger does not model yet">
-        <p style={{ margin: 0 }}>{thrown.message}</p>
-        <p style={{ margin: 0 }}>
-          Property is work package 5. Until then the engine rejects the profile rather than projecting it with
-          the property’s cash flows, debt service and equity silently omitted. Remove the property to project
-          this plan, or wait for the Property &amp; Leverage screen.
-        </p>
-      </Banner>
-    );
-  }
   return (
     <Banner tone="error" title="The projection could not be produced">
       <p style={{ margin: 0 }}><b>{thrown.name}:</b> {thrown.message}</p>

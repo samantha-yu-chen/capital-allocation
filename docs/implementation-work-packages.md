@@ -1,6 +1,6 @@
 # V0.3 implementation work packages
 
-Status: chunks 1–4 implemented and tested. See `handoffs/chunk-4.md` for the application shell, the Overview and FIRE screens, the browser verification and the chunk-5 assignment. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions and the benchmark; `handoffs/chunk-2.md` for the ledger API and calculation conventions; `handoffs/chunk-1.md` for the contracts and tax engine. Chunks 5–10 remain open.
+Status: chunks 1–5 implemented and tested. See `handoffs/chunk-5.md` for property integration and the chunk-6 assignment. See `handoffs/chunk-4.md` for the application shell, the Overview and FIRE screens, the browser verification and the chunk-5 assignment. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions and the benchmark; `handoffs/chunk-2.md` for the ledger API and calculation conventions; `handoffs/chunk-1.md` for the contracts and tax engine. Chunks 6–10 remain open.
 
 ## Authority and baseline
 
@@ -100,6 +100,8 @@ Done when: amortisation and leverage examples pass; purchase funding reconciles;
 
 Checkpoint: mortgage/property ledger → lifecycle integration → property screen and rent/buy.
 
+**Delivered.** The same ledger now integrates property acquisition, ownership, rental tax, mortgage service and explicit sale on deterministic and stochastic paths. The Property screen provides validated inputs, leverage, rate scenarios and full-plan paired rent/invest comparisons in a worker. 157 tests pass; real Chrome verification includes 10,000 property paths, 10,000 paired comparisons and cancellation. See `handoffs/chunk-5.md` and `property-model.md`.
+
 ## 6. Reverse Solver and FIRE Age Curve screens
 
 Suggested owner: Claude. Dependencies: 5. Spec: 17, 32–33, 60; reference UI tabs 3 and 5.
@@ -183,4 +185,4 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 5 to Codex. Use `handoffs/chunk-4.md` for the full assignment and integration guide. Packages 1–4 supply the tested tax engine, lifetime ledger, worker-based Monte Carlo analysis and a working application shell with two live screens. Integrate property into the same lifetime model and complete its screen; preserve the ledger, stochastic and presentation conventions documented in the handoffs.
+Next assignment: package 6 to Claude. Use `handoffs/chunk-5.md` for the paste-ready assignment. Packages 1–5 supply tax, reconciled lifetime accounting including property, seeded Monte Carlo workers and three built screens. Implement bounded reverse solvers and the FIRE Age Curve using these engines and the existing React-free view-model pattern.

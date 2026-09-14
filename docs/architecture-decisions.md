@@ -32,3 +32,23 @@ Seed independent path streams by seed and absolute path index, consuming five no
 Extend result/metadata interfaces locally in `monte-carlo/`, preserving the shared contracts. Report real closing wealth at age+1 and opening FIRE capital at FIRE age. Diagnostics are associations; direct ledger failure events remain separate.
 
 Use reusable batch workers and a browser coordinator so both accounting and final percentile sorting stay off the UI thread. Reject cancelled/failed runs instead of publishing partial probabilities. Runtime/count limits never silently change simulation count or solver precision.
+
+## ADR 005: property inside the same ledger (chunk 5)
+
+Retain the established event order and per-account reconciliation identities. Property acquisition,
+monthly mortgage amortisation aggregated annually, rental cash flow and joint tax, explicit sale,
+and post-flow appreciation run inside every deterministic/stochastic projection. Failed purchases
+are atomic failures; equity never funds a shortfall without a sale. Unpaid mortgage obligations
+remain debt. Principal is cash outflow and equity accumulation, not consumption.
+
+Property location and buyer eligibility are independent inputs; optional schema-1 extensions and
+the property-tax version are documented in `property-model.md`. Rent replacement removes the
+explicit included-rent component during owner occupation from each spending schedule. No dynamic
+spending cuts. Reference FIRE arithmetic remains the entered budget before property adjustments,
+labelled accordingly; full-plan success includes all housing obligations.
+
+The rent/invest comparison uses identical generated path objects and opening financial assets.
+An explicit `rentInvestment` ledger option deploys available cash from the avoided purchase budget
+at acquisition age, respecting the cash reserve and ISA limit. No deposit is credited. A dedicated
+worker handles comparison computation and cancellation; presentation calculations remain in
+`src/presentation/view/`.

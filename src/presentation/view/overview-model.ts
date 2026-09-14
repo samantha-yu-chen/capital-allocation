@@ -61,6 +61,20 @@ export interface ReferenceFireModel extends ProjectionMetrics {
 }
 
 export interface LedgerRowValues {
+  rentalIncome: number;
+  propertyOperatingCosts: number;
+  mortgageInterest: number;
+  mortgagePrincipal: number;
+  propertyTransactionCashFlow: number;
+  rentRemoved: number;
+  rentalFinanceRelief: number;
+  propertyPurchaseFunding: number;
+  propertyAcquisitionCosts: number;
+  propertyAppreciation: number;
+  propertyValue: number;
+  mortgageDebt: number;
+  propertyEquity: number;
+
   grossIncome: number;
   employmentIncome: number;
   otherIncome: number;
@@ -143,6 +157,19 @@ function values(year: LedgerYearDetail, flowDivisor: number, closingDivisor: num
   const investmentReturnTotal = year.investmentReturn.cash + year.investmentReturn.isa
     + year.investmentReturn.gia + year.investmentReturn.pension + year.investmentReturn.sipp;
   return {
+    rentalIncome: flow(year.rentalIncome),
+    propertyOperatingCosts: flow(year.propertyOperatingCosts),
+    mortgageInterest: flow(year.mortgageInterest),
+    mortgagePrincipal: flow(year.mortgagePrincipal),
+    propertyTransactionCashFlow: flow(year.propertyTransactionCashFlow),
+    rentRemoved: flow(year.rentRemoved),
+    rentalFinanceRelief: flow(year.rentalFinanceRelief),
+    propertyPurchaseFunding: flow(year.propertyPurchaseFunding),
+    propertyAcquisitionCosts: flow(year.propertyAcquisitionCosts),
+    propertyAppreciation: flow(year.propertyAppreciation),
+    propertyValue: stock(year.closing.propertyValue),
+    mortgageDebt: stock(year.closing.mortgageDebt),
+    propertyEquity: stock(year.closing.propertyValue-year.closing.mortgageDebt),
     grossIncome: flow(year.grossIncome),
     employmentIncome: flow(year.employmentIncome),
     otherIncome: flow(year.otherIncome),
@@ -204,7 +231,7 @@ export function ledgerRow(year: LedgerYearDetail): LedgerRowModel {
 }
 
 function cashFlow(year: LedgerYearDetail): CashFlowModel {
-  const activeIncome = year.employmentIncome + year.otherIncome + year.statePensionIncome;
+  const activeIncome = year.employmentIncome + year.otherIncome + year.statePensionIncome + year.rentalIncome;
   const takeHome = activeIncome - year.personalCashReduction - year.totalTax;
   return {
     age: year.age,

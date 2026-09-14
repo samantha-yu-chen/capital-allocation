@@ -32,9 +32,9 @@ export const TABS: readonly TabDefinition[] = [
     groundwork: '',
   },
   {
-    id: 'curve', label: 'FIRE Age Curve', status: 'planned', package: 6,
+    id: 'curve', label: 'FIRE Age Curve', status: 'built', package: 6,
     summary: 'Success probability at every candidate FIRE age, and the earliest age clearing the target.',
-    groundwork: 'Needs the bounded solver framework from package 6. The Monte Carlo engine it will call is already implemented.',
+    groundwork: '',
   },
   {
     id: 'marginal', label: 'Marginal Allocation', status: 'planned', package: 7,
@@ -42,9 +42,9 @@ export const TABS: readonly TabDefinition[] = [
     groundwork: 'Needs the marginal comparison engine from package 7. Exact incremental tax primitives exist in the tax engine already.',
   },
   {
-    id: 'solver', label: 'Reverse Solver', status: 'planned', package: 6,
-    summary: 'Required savings, gross salary, FIRE age or spending reduction to hit the target probability.',
-    groundwork: 'Needs the solver framework from package 6.',
+    id: 'solver', label: 'Reverse Solver', status: 'built', package: 6,
+    summary: 'Required savings, gross salary, FIRE age, spending reduction, starting capital or pension contribution to hit the target probability.',
+    groundwork: '',
   },
   {
     id: 'scenarios', label: 'Scenario Comparison', status: 'planned', package: 8,

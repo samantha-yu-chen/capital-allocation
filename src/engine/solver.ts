@@ -351,8 +351,9 @@ function resolveRequest(profile: Profile, request: SolverRequest): ResolvedReque
   };
 }
 
-/** Candidates must differ from the base plan only in the searched input's downstream effects. */
-function assertCommonPaths(base: Profile, candidate: Profile): void {
+/** Candidates must differ from the base plan only in the searched input's downstream effects.
+ * Shared with the scenario matrix, which compares plans under exactly the same requirement. */
+export function assertCommonPaths(base: Profile, candidate: Profile): void {
   if (candidate.simulation.seed !== base.simulation.seed || candidate.simulation.count !== base.simulation.count)
     throw new Error('A solver candidate changed the seed or path count; candidates must share the same draws');
   if (JSON.stringify(candidate.market) !== JSON.stringify(base.market))

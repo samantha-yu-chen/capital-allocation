@@ -8,12 +8,23 @@ import { compareMarginal } from './marginal.js';
 import { runMonteCarloBrowserPool } from './monte-carlo/browser-pool.js';
 import { fireAgeCurve } from './fire-curve.js';
 import { runSolver, type EvaluateProfile } from './solver.js';
+import { memoryScenarioCache, runScenarioBatch } from './scenario.js';
 import type { AnalysisReply, AnalysisRequest, AnalysisTransport } from './analysis-browser.js';
 
 const scope = globalThis as unknown as {
   onmessage: (event: MessageEvent<AnalysisRequest>) => void;
   postMessage: (reply: AnalysisReply) => void;
 };
+
+/**
+ * One cache per coordinator instance.
+ *
+ * The screen creates a coordinator per run, so this reuses identical cells inside one batch — for
+ * example the repeated ISA Heavy plan when only the spending axis moved a cell it does not touch.
+ * It is keyed on the complete versioned inputs, so it can never return a cell computed for
+ * different inputs.
+ */
+const cache = memoryScenarioCache();
 
 const poolEvaluator = (transport: AnalysisTransport): EvaluateProfile => (profile, controls) =>
   runMonteCarloBrowserPool(profile, {
@@ -31,6 +42,10 @@ scope.onmessage = async ({ data }) => {
       const result = await compareMarginal(data.profile, data.request, { evaluate,
         onProgress: progress => scope.postMessage({ type: 'marginal-progress', progress }) });
       scope.postMessage({ type: 'marginal-done', result });
+    } else if (data.kind === 'scenarios') {
+      const result = await runScenarioBatch(data.profile, data.request, { evaluate, cache,
+        onProgress: progress => scope.postMessage({ type: 'scenarios-progress', progress }) });
+      scope.postMessage({ type: 'scenarios-done', result });
     } else if (data.kind === 'solver') {
       const result = await runSolver(data.profile, data.request, {
         evaluate, includeSensitivity: data.includeSensitivity,

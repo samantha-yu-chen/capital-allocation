@@ -6,8 +6,8 @@
  * real projection with a larger salary, so it is the model's own marginal rate rather than a
  * parallel tax formula.
  */
-import type { LedgerYearDetail, LedgerOptions, DeterministicProjection, ProjectionMetrics } from '../../engine/index.js';
-import { accessibleWealth, lockedWealth, netWorth, propertyEquity, openingBalanceSheet, runDeterministicProjection } from '../../engine/index.js';
+import type { LedgerYearDetail, LedgerOptions, DeterministicProjection, ProjectionMetrics, MarginalIncrement } from '../../engine/index.js';
+import { accessibleWealth, lockedWealth, netWorth, propertyEquity, openingBalanceSheet, runDeterministicProjection, marginalIncrement } from '../../engine/index.js';
 import type { FailureEvent, Profile } from '../../domain/contracts.js';
 
 export interface PositionModel {
@@ -46,15 +46,7 @@ export interface CashFlowModel {
   pensionAllowanceRemaining: number;
 }
 
-export interface MarginalModel {
-  increment: number;
-  incomeTax: number;
-  employeeNi: number;
-  total: number;
-  /** Combined income tax + employee NI on the increment, as a fraction of gross. */
-  rate: number;
-  extraPensionContribution: number;
-}
+export type MarginalModel = MarginalIncrement;
 
 export interface ReferenceFireModel extends ProjectionMetrics {
   withdrawalRate: number;
@@ -262,37 +254,16 @@ function cashFlow(year: LedgerYearDetail): CashFlowModel {
   };
 }
 
-/**
- * Marginal income tax and employee NI on the next slice of gross salary, measured by re-running the
- * real projection. The pension policy is held constant, so under salary sacrifice the taxable part
- * of the increment is smaller than the increment itself — the label on screen says so.
- */
+/** Presentation wrapper around the engine's own marginal measurement: an unsupported uplifted
+ * profile becomes a stated reason rather than a thrown error. */
 export function marginalOnIncrement(
   profile: Profile, base: LedgerYearDetail, options: Partial<LedgerOptions>, increment: number,
 ): { model: MarginalModel } | { unavailable: string } {
-  if (!(increment > 0)) return { unavailable: 'The increment must be positive.' };
-  const raised: Profile = {
-    ...profile,
-    income: { ...profile.income, salaryAnnual: profile.income.salaryAnnual + increment },
-  };
-  let uplifted: LedgerYearDetail;
   try {
-    uplifted = runDeterministicProjection(raised, options).years[0]!;
+    return { model: marginalIncrement(profile, base, options, increment) };
   } catch (error) {
     return { unavailable: error instanceof Error ? error.message : String(error) };
   }
-  const incomeTax = uplifted.incomeTax - base.incomeTax;
-  const employeeNi = uplifted.employeeNi - base.employeeNi;
-  return {
-    model: {
-      increment,
-      incomeTax,
-      employeeNi,
-      total: incomeTax + employeeNi,
-      rate: (incomeTax + employeeNi) / increment,
-      extraPensionContribution: uplifted.pensionContributionTotal - base.pensionContributionTotal,
-    },
-  };
 }
 
 /** Runs the deterministic ledger and shapes it for the Overview screen. Throws what the engine throws. */

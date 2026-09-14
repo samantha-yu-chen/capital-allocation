@@ -12,17 +12,21 @@ import type { Profile } from '../domain/contracts.js';
 import type { LedgerOptions } from './ledger.js';
 import type { FireAgeCurveProgress, FireAgeCurveRequest, FireAgeCurveResult } from './fire-curve.js';
 import type { SolverProgress, SolverRequest, SolverRun } from './solver.js';
+import type { ScenarioBatchRequest, ScenarioBatchResult, ScenarioProgress } from './scenario.js';
 
 export interface AnalysisTransport { concurrency: number; batchSize: number }
 
 export type AnalysisRequest =
   | { kind: 'marginal'; profile: Profile; request: MarginalRequest; transport: AnalysisTransport }
   | { kind: 'solver'; profile: Profile; request: SolverRequest; includeSensitivity: boolean; transport: AnalysisTransport }
-  | { kind: 'curve'; profile: Profile; request: FireAgeCurveRequest; transport: AnalysisTransport };
+  | { kind: 'curve'; profile: Profile; request: FireAgeCurveRequest; transport: AnalysisTransport }
+  | { kind: 'scenarios'; profile: Profile; request: ScenarioBatchRequest; transport: AnalysisTransport };
 
 export type AnalysisReply =
   | { type: 'marginal-progress'; progress: MarginalProgress }
   | { type: 'marginal-done'; result: MarginalResult }
+  | { type: 'scenarios-progress'; progress: ScenarioProgress }
+  | { type: 'scenarios-done'; result: ScenarioBatchResult }
   | { type: 'solver-progress'; progress: SolverProgress }
   | { type: 'curve-progress'; progress: FireAgeCurveProgress }
   | { type: 'solver-done'; result: SolverRun }
@@ -82,4 +86,12 @@ export function fireAgeCurveBrowser(
 export function compareMarginalBrowser(profile: Profile, request: MarginalRequest, controls: Controls<MarginalProgress>): Promise<MarginalResult> {
   return runInWorker<MarginalProgress, MarginalResult>({ kind: 'marginal', profile, request,
     transport: controls.transport ?? defaultTransport() }, controls, 'marginal-done', 'marginal-progress');
+}
+
+/** The whole batch runs in one coordinator: no cell arithmetic and no aggregation on the UI thread. */
+export function runScenariosBrowser(
+  profile: Profile, request: ScenarioBatchRequest, controls: Controls<ScenarioProgress>,
+): Promise<ScenarioBatchResult> {
+  return runInWorker<ScenarioProgress, ScenarioBatchResult>({ kind: 'scenarios', profile, request,
+    transport: controls.transport ?? defaultTransport() }, controls, 'scenarios-done', 'scenarios-progress');
 }

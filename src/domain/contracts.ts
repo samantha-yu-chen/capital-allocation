@@ -148,9 +148,7 @@ export const profileSchema = z.strictObject({
 export type Profile = z.infer<typeof profileSchema>;
 export const parseProfile = (input: unknown): Profile => profileSchema.parse(input);
 
-export const scenarioSchema = z.strictObject({ schemaVersion: z.literal('1'), id: z.string().min(1),
-  name: z.string().trim().min(1).max(120), profile: profileSchema });
-export type Scenario = z.infer<typeof scenarioSchema>;
+/** Named scenarios and their versioned library live in `./scenarios.ts`; this file owns the profile. */
 
 /** Contract only: chunk 2 implements accounting; chunk 3 implements path sampling. */
 export interface AccountBalances { cash: number; isa: number; gia: number; pension: number; sipp: number }

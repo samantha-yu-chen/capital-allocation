@@ -1,3 +1,4 @@
+import { propertyYear, PROPERTY_TAX_VERSION } from './property.js';
 import type {
   AccountBalances, BalanceSheet, FailureEvent, LedgerYear, MarketPath, Profile, ProjectionResult,
 } from '../domain/contracts.js';
@@ -17,7 +18,7 @@ import {
   type RetirementSpendingLevel, type SpendingOptions, type SpendingYear,
 } from './spending.js';
 
-export const ENGINE_VERSION = 'deterministic-ledger-v1';
+export const ENGINE_VERSION = 'deterministic-ledger-v2-property-' + PROPERTY_TAX_VERSION;
 
 /** Raised for validated profiles whose features this chunk deliberately does not model. */
 export class UnsupportedProfileError extends Error {
@@ -28,6 +29,8 @@ export class UnsupportedProfileError extends Error {
 }
 
 export interface LedgerOptions extends SpendingOptions {
+  /** Explicit rent-comparison cash investment action, in today's GBP; never creates capital. */
+  rentInvestment: { age: number; amount: number } | null;
   /** Retain surplus in cash until the section 41 emergency reserve is covered, before investing. */
   fundEmergencyReserve: boolean;
   /**
@@ -41,12 +44,28 @@ export interface LedgerOptions extends SpendingOptions {
 }
 
 export const defaultLedgerOptions = (): LedgerOptions => ({
-  retirementLevel: 'target', monthlyHouseholdOverride: null, fundEmergencyReserve: true,
+  retirementLevel: 'target', monthlyHouseholdOverride: null, fundEmergencyReserve: true, rentInvestment: null,
   surplusAllocation: 'isa_then_gia', solverTolerance: 1e-6, solverMaxIterations: 60,
 });
 
 /** Every §6 line item plus the intermediate values needed to audit the year. Extends the shared contract. */
 export interface LedgerYearDetail extends LedgerYear {
+  propertyPurchasePrice: number;
+  propertyAcquisitionCosts: number;
+  propertyPurchaseFunding: number;
+  propertySaleCosts: number;
+  propertyAppreciation: number;
+  propertyOperatingCostsFunded: number;
+  mortgageInterestFunded: number;
+  mortgagePrincipalRequired: number;
+  mortgageRate: number;
+  rentRemoved: number;
+  rentalTaxableProfit: number;
+  rentalFinanceRelief: number;
+  rentalLossCarry: number;
+  rentalFinanceCostCarry: number;
+  propertyRealisedGain: number;
+  propertyRealisedLoss: number;
   taxConfigVersion: string;
   /** Cumulative inflation index at the END of this year; deflates `closing` to today's money. */
   closingInflationIndex: number;
@@ -173,11 +192,6 @@ export function runDeterministicProjection(profile: Profile, overrides: Partial<
  * - Market growth compounds on POST-FLOW balances, per the ADR 002 event order.
  */
 export function runProjection(profile: Profile, path: MarketPath, overrides: Partial<LedgerOptions> = {}): DeterministicProjection {
-  if (profile.property !== null)
-    throw new UnsupportedProfileError('property',
-      'Property is not integrated into the lifetime ledger yet (work package 5). Its cash flows, ' +
-      'debt service and equity would be silently omitted, so this profile is rejected rather than ' +
-      'projected with a misleadingly complete-looking result.');
   const options: LedgerOptions = { ...defaultLedgerOptions(), ...overrides };
   const totalYears = profile.personal.endAge - profile.personal.currentAge;
   if (path.years.length < totalYears)
@@ -189,6 +203,10 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
   let sheet = openingBalanceSheet(profile);
   const years: LedgerYearDetail[] = [];
   const allFailures: FailureEvent[] = [];
+  let cancelledPurchase = false;
+  let failedPurchase: FailureEvent | null = null;
+  let propertyBasis = profile.property?.acquisitionCostBasis ?? 0;
+  let rentalLossCarry = 0, rentalFinanceCostCarry = 0;
 
   for (let t = 0; t < totalYears; t += 1) {
     const age = profile.personal.currentAge + t;
@@ -222,8 +240,26 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const basisAfterTurnover = opening.giaCostBasis + giaTurnoverRealisedGain;
 
     const spending = spendingForYear(profile, { age, inflationIndex, realSalaryGrowthMultiple: realGrowth }, options);
+    const property = propertyYear(profile, opening, age, inflationIndex, cancelledPurchase);
+    // The included rent component belongs to every supplied spending schedule. Remove it once,
+    // bounded by that schedule's total (essentials first), only during owner occupation.
+    const rentRemoved = Math.min(spending.totalNominal, property.rentRemoved);
+    const essentialRent = Math.min(spending.essentialNominal, rentRemoved);
+    spending.essentialNominal -= essentialRent;
+    spending.discretionaryNominal -= rentRemoved - essentialRent;
+    spending.totalNominal -= rentRemoved;
+    spending.essentialReal = spending.essentialNominal / inflationIndex;
+    spending.discretionaryReal = spending.discretionaryNominal / inflationIndex;
+    spending.totalReal = spending.totalNominal / inflationIndex;
+    const rentalProfit = property.rentalIncome - (profile.property?.use === 'rental' ? property.operatingCosts : 0);
+    const rentalTaxableProfit = Math.max(0, rentalProfit - rentalLossCarry);
+    const nextRentalLossCarry = Math.max(0, rentalLossCarry - rentalProfit);
+    const financeCosts = rentalFinanceCostCarry + (profile.property?.use === 'rental' ? property.mortgage.interest : 0);
+    const propertyGain = property.selling && profile.property?.use === 'rental'
+      ? property.value - property.saleCosts - propertyBasis : 0;
     const capitalNeedsRequired = capitalNeedsForAge(profile, age, inflationIndex);
-    const need = spending.totalNominal + capitalNeedsRequired;
+    const propertyRequired = property.operatingCosts + property.mortgage.payment + property.purchaseFunding + Math.max(0, -property.saleCash);
+    const need = spending.totalNominal + capitalNeedsRequired + propertyRequired;
     const isaUsedAtStart = t === 0 ? profile.isa.allowanceUsed : 0;
     const pensionAccessible = age >= profile.pension.accessAge;
     const pensionCapacity = pensionAccessible ? opening.accounts.pension + opening.accounts.sipp : 0;
@@ -241,7 +277,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       try {
         net = calculateNetIncome({
           employmentIncome, pensionablePay, memberAge: age, policy: profile.pension,
-          otherNonSavingsIncome: otherIncome + statePensionIncome + split.taxable,
+          otherNonSavingsIncome: otherIncome + statePensionIncome + split.taxable + rentalTaxableProfit,
           savingsInterest: savingsInterestTaxed, dividends: giaDividendsTaxed, niCategory,
         }, config);
       } catch (error) {
@@ -250,15 +286,18 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
         throw error;
       }
       const cgt = calculateCapitalGainsTax({
-        realisedGains, currentYearLosses: disposal.realisedLoss, carriedLosses: opening.giaCarriedLosses,
+        realisedGains: realisedGains + Math.max(0, propertyGain), currentYearLosses: disposal.realisedLoss + Math.max(0, -propertyGain), carriedLosses: opening.giaCarriedLosses,
         remainingBasicRateBand: net.tax.remainingBasicRateBandForGains,
       }, config);
-      const totalTax = net.tax.totalIncomeTax + net.ni.employee + cgt.tax;
-      const cashInflow = employmentIncome + otherIncome + statePensionIncome + split.gross + isaWithdrawal + giaProceeds;
+      const eligibleFinanceCosts = Math.min(financeCosts, rentalTaxableProfit,
+        Math.max(0, net.tax.adjustedNetIncome - savingsInterestTaxed - giaDividendsTaxed - net.tax.personalAllowance));
+      const rentalFinanceRelief = Math.min(net.tax.totalIncomeTax, eligibleFinanceCosts * .20);
+      const totalTax = net.tax.totalIncomeTax - rentalFinanceRelief + net.ni.employee + cgt.tax;
+      const cashInflow = employmentIncome + otherIncome + statePensionIncome + split.gross + isaWithdrawal + giaProceeds + property.rentalIncome + Math.max(0, property.saleCash);
       const cashOutflowBeforeSpending = net.pension.personalCashReduction + totalTax;
       return {
         pensionFromPension, pensionFromSipp, split, disposal, realisedGains, net, cgt, totalTax,
-        cashInflow, cashOutflowBeforeSpending,
+        cashInflow, cashOutflowBeforeSpending, rentalFinanceRelief, eligibleFinanceCosts,
         available: cashAllowed + cashInflow - cashOutflowBeforeSpending,
       };
     };
@@ -288,30 +327,45 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     }
 
     const result = evaluate(cashAllowed, isaWithdrawal, giaProceeds, pensionGross);
-    // Living costs take priority over known capital needs when both cannot be met.
-    const spendingFunded = Math.min(spending.totalNominal, Math.max(0, result.available));
-    const capitalNeedsFunded = Math.min(capitalNeedsRequired, Math.max(0, result.available - spendingFunded));
-    const shortfall = clampZero(need - spendingFunded - capitalNeedsFunded);
-
+    // A purchase is atomic. If its full-year obligations cannot be funded, retry this year
+    // without buying; keep the failure, but never create a partly funded house or lose a deposit.
+    if (property.buying && result.available < need - tolerance) {
+      failedPurchase = { age, code: 'unfunded_essential_spending', shortfall: need - result.available };
+      cancelledPurchase = true;
+      t -= 1;
+      continue;
+    }
+    let available = Math.max(0, result.available);
+    const fund = (required: number) => { const paid = Math.min(required, available); available -= paid; return paid; };
+    const spendingFunded = fund(spending.totalNominal);
+    const operatingFunded = fund(property.operatingCosts);
+    const interestFunded = fund(property.mortgage.interest);
+    const principalFunded = fund(property.mortgage.principal);
+    const saleDeficitFunded = fund(Math.max(0, -property.saleCash));
+    const capitalNeedsFunded = fund(capitalNeedsRequired);
+    const purchaseFunded = fund(property.purchaseFunding);
+    const propertyFunded = operatingFunded + interestFunded + principalFunded + saleDeficitFunded + purchaseFunded;
+    const shortfall = clampZero(need - spendingFunded - capitalNeedsFunded - propertyFunded);
     const cashBeforeAllocation = opening.accounts.cash + result.cashInflow
-      - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded;
-    // Spec §31. Excludes the opening cash balance: only this year's flows are investable.
-    const investableSurplus = result.cashInflow - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded;
+      - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
+    const investableSurplus = result.cashInflow - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
     const reserveTarget = emergencyReserveTarget(profile, spending.essentialNominal);
     const reserveShortfallGate = options.fundEmergencyReserve ? reserveTarget : 0;
     const investable = Math.max(0, Math.min(Math.max(0, investableSurplus), cashBeforeAllocation - reserveShortfallGate));
     const allocatedToCashReserve = Math.max(0, investableSurplus) - investable;
-    const isaAssessment = assessIsaContribution(investable, isaUsedAtStart, config);
-    const allocatedToIsa = options.surplusAllocation === 'isa_then_gia' ? isaAssessment.permitted : 0;
-    const allocatedToGia = options.surplusAllocation === 'cash_only' ? 0 : investable - allocatedToIsa;
+    const rentInvestment = options.rentInvestment?.age === age
+      ? Math.min(options.rentInvestment.amount * inflationIndex, Math.max(0, cashBeforeAllocation - reserveShortfallGate - investable)) : 0;
+    const isaAssessment = assessIsaContribution(investable + rentInvestment, isaUsedAtStart, config);
+    const allocatedToIsa = options.surplusAllocation === 'isa_then_gia' ? isaAssessment.permitted : Math.min(rentInvestment, isaAssessment.remaining);
+    const allocatedToGia = options.surplusAllocation === 'cash_only' ? rentInvestment - allocatedToIsa : investable + rentInvestment - allocatedToIsa;
 
     const contributions: AccountBalances = {
-      cash: employmentIncome + otherIncome + statePensionIncome + result.split.gross + isaWithdrawal + giaProceeds,
+      cash: result.cashInflow,
       isa: allocatedToIsa, gia: allocatedToGia, pension: result.net.pension.totalPensionAdded, sipp: 0,
     };
     const withdrawalsGross: AccountBalances = {
       cash: result.net.pension.personalCashReduction + result.totalTax + spendingFunded
-        + capitalNeedsFunded + allocatedToIsa + allocatedToGia,
+        + capitalNeedsFunded + propertyFunded + allocatedToIsa + allocatedToGia,
       isa: isaWithdrawal, gia: giaProceeds, pension: result.pensionFromPension, sipp: result.pensionFromSipp,
     };
     const postFlow: AccountBalances = {
@@ -338,11 +392,22 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       // Taxed dividends stay inside the GIA as accumulated units, so they raise the base cost.
       giaCostBasis: clampZero(basisAfterTurnover - result.disposal.basisDisposed + allocatedToGia + giaDividendsTaxed),
       giaCarriedLosses: result.cgt.carriedLossesRemaining,
-      propertyValue: 0, mortgageDebt: 0,
+      propertyValue: property.owned ? property.value * (1 + marketYear.property) : 0,
+      mortgageDebt: property.selling ? Math.max(0, -property.saleCash - saleDeficitFunded)
+        : property.debt - principalFunded + property.mortgage.interest - interestFunded,
       pensionTaxFreeCashUsed: opening.pensionTaxFreeCashUsed + result.split.taxFree,
     };
 
+    if (property.buying) propertyBasis = property.price + property.acquisitionCosts;
+    rentalLossCarry = nextRentalLossCarry;
+    rentalFinanceCostCarry = Math.max(0, financeCosts - result.eligibleFinanceCosts);
     const failures: FailureEvent[] = [];
+    if (failedPurchase?.age === age) failures.push(failedPurchase);
+    const mortgageShortfall = property.mortgage.payment - interestFunded - principalFunded
+      + Math.max(0, -property.saleCash) - saleDeficitFunded;
+    if (mortgageShortfall > tolerance) failures.push({ age, code: 'mortgage_shortfall', shortfall: mortgageShortfall });
+    if (operatingFunded < property.operatingCosts - tolerance)
+      failures.push({ age, code: 'unfunded_essential_spending', shortfall: property.operatingCosts - operatingFunded });
     if (shortfall > tolerance) {
       if (!pensionAccessible && lockedWealth(opening) > tolerance)
         failures.push({ age, code: 'pre_pension_liquidity', shortfall });
@@ -358,19 +423,29 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const annualEssential = spending.essentialNominal;
     years.push({
       yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
-      employmentIncome, otherIncome, statePensionIncome, rentalIncome: 0,
+      employmentIncome, otherIncome, statePensionIncome, rentalIncome: property.rentalIncome,
       contributions, withdrawalsGross, investmentReturn,
-      incomeTax: result.net.tax.totalIncomeTax, employeeNi: result.net.ni.employee,
+      incomeTax: result.net.tax.totalIncomeTax - result.rentalFinanceRelief, employeeNi: result.net.ni.employee,
       capitalGainsTax: result.cgt.tax,
       // Chunk 1 rejects contributions above the available allowance instead of modelling a charge.
       pensionAllowanceCharge: 0,
       spendingRequired: spending.totalNominal, spendingFunded,
-      propertyOperatingCosts: 0, mortgageInterest: 0, mortgagePrincipal: 0, propertyTransactionCashFlow: 0,
+      propertyOperatingCosts: property.operatingCosts, mortgageInterest: property.mortgage.interest,
+      mortgagePrincipal: principalFunded,
+      propertyTransactionCashFlow: Math.max(0, property.saleCash) - saleDeficitFunded - purchaseFunded,
+      propertyPurchasePrice: property.price, propertyAcquisitionCosts: property.acquisitionCosts,
+      propertyPurchaseFunding: purchaseFunded, propertySaleCosts: property.saleCosts,
+      propertyAppreciation: property.owned ? property.value * marketYear.property : 0,
+      propertyOperatingCostsFunded: operatingFunded, mortgageInterestFunded: interestFunded,
+      mortgagePrincipalRequired: property.mortgage.principal, mortgageRate: property.annualRate,
+      rentRemoved, rentalTaxableProfit, rentalFinanceRelief: result.rentalFinanceRelief,
+      rentalLossCarry, rentalFinanceCostCarry,
+      propertyRealisedGain: Math.max(0, propertyGain), propertyRealisedLoss: Math.max(0, -propertyGain),
       failures,
       taxConfigVersion: config.version,
       salaryNominal, bonusNominal, pensionablePay,
       grossIncome: employmentIncome + otherIncome + statePensionIncome + savingsInterestTaxed
-        + giaDividendsTaxed + result.split.gross,
+        + giaDividendsTaxed + result.split.gross + property.rentalIncome,
       spendingSource: spending.source,
       spendingEssentialRequired: spending.essentialNominal,
       spendingDiscretionaryRequired: spending.discretionaryNominal,

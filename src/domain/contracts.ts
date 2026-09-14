@@ -31,7 +31,13 @@ export type PensionPolicy = z.infer<typeof pensionPolicySchema>;
 
 export const propertySchema = z.strictObject({
   use: z.enum(['owner_occupied', 'rental']), marketValue: money,
-  mortgageBalance: money, mortgageAnnualRate: growth,
+  /** Property location is independent of the owner's income-tax residence. */
+  taxLocation: z.enum(['scotland', 'england_ni', 'manual']).optional(),
+  buyerStatus: z.enum(['standard', 'first_time', 'additional']).optional(),
+  purchaseTaxOverride: money.optional(),
+  /** Historical allowable acquisition cost for an existing rental; nominal GBP. */
+  acquisitionCostBasis: money.optional(),
+  mortgageBalance: money, mortgageAnnualRate: rate,
   mortgageTermYears: z.number().int().min(1).max(50), mortgageType: z.enum(['repayment', 'interest_only']),
   maintenanceAnnual: money, insuranceAnnual: money, serviceChargeAnnual: money,
   councilTaxAnnual: money, rentAnnual: money, occupancyRate: rate, managementRate: rate,
@@ -86,6 +92,24 @@ export const profileSchema = z.strictObject({
   if (p.personal.currentAge > p.personal.targetFireAge || p.personal.targetFireAge >= p.personal.endAge)
     issue(['personal'], 'Require currentAge <= targetFireAge < endAge');
   if (new Set(p.simulation.withdrawalOrder).size !== 4) issue(['simulation', 'withdrawalOrder'], 'Each account must occur once');
+  const property = p.property;
+  if (property) {
+    const start = property.purchase?.age ?? p.personal.currentAge;
+    if (start < p.personal.currentAge || start >= p.personal.endAge)
+      issue(['property', 'purchase'], 'Purchase must fall within the projection; use existing ownership for a past purchase');
+    if (property.sale && (property.sale.age <= start || property.sale.age >= p.personal.endAge))
+      issue(['property', 'sale'], 'Sale must follow ownership and fall before end age');
+    if (new Set(property.rateChanges.map(r => r.age)).size !== property.rateChanges.length)
+      issue(['property', 'rateChanges'], 'Only one refinance rate per age');
+    if (property.rateChanges.some(r => r.age < start))
+      issue(['property', 'rateChanges'], 'Refinance cannot precede ownership');
+    if (property.use === 'rental' && property.sale && !property.purchase && property.acquisitionCostBasis === undefined)
+      issue(['property'], 'An existing rental sale requires its historical acquisition cost basis');
+    if (property.use === 'rental' && property.buyerStatus === 'first_time')
+      issue(['property'], 'First-time buyer relief requires an owner-occupied home');
+    if (property.taxLocation === 'manual' && property.purchaseTaxOverride === undefined)
+      issue(['property'], 'Manual location requires an explicit purchase tax amount');
+  }
   const s = p.spending;
   const target = 12 * (s.retirement.essentialMonthly + s.retirement.discretionaryMonthly);
   if (s.retirementFloorAnnual > target || target > s.retirementComfortAnnual)

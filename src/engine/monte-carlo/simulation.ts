@@ -11,6 +11,7 @@ import type { Distribution } from './statistics.js';
 export const SIMULATION_VERSION = 'monte-carlo-v1';
 export const ledgerOptionsSchema = z.strictObject({
   retirementLevel: z.enum(['floor', 'target', 'comfort']), monthlyHouseholdOverride: z.number().finite().nonnegative().nullable(),
+  rentInvestment: z.strictObject({age:z.number().int().min(18).max(120),amount:z.number().finite().nonnegative()}).nullable(),
   fundEmergencyReserve: z.boolean(), surplusAllocation: z.enum(['isa_then_gia', 'gia_only', 'cash_only']),
   solverTolerance: z.number().finite().positive(), solverMaxIterations: z.number().int().positive(),
 });
@@ -75,7 +76,7 @@ export function sequenceObservation(profile: Profile, projection: DeterministicP
   window.forEach((year, i) => {
     const openingLiquid = accessibleWealth(year.opening) / year.inflationIndex;
     const closingLiquid = year.accessibleWealth / year.closingInflationIndex;
-    const spending = year.spendingRequired / year.inflationIndex;
+    const spending = (year.spendingRequired + year.propertyOperatingCosts + year.mortgageInterest + year.mortgagePrincipalRequired) / year.inflationIndex;
     below ||= Math.min(openingLiquid, closingLiquid) < 2 * spending;
     const wealth = financialNetWorth(year.closing) / year.closingInflationIndex;
     if (peak > 0 && wealth < .8 * peak && trigger === null) trigger = { index: first + i, peak };

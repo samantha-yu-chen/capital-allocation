@@ -119,15 +119,15 @@ test('sequence liquidity threshold, high inflation association and horizon short
   assert.equal(r.diagnostics.highEarlyInflation.failureProbabilityWhenAbsent,null);
   assert.match(r.diagnostics.interpretation,/not proven causes/);
 });
-test('validation and worker errors propagate, property remains rejected', async () => {
+test('validation and worker errors propagate, property works in workers', async () => {
   const p=small();
   await assert.rejects(runMonteCarlo(p,{batchSize:0}));
   await assert.rejects(runMonteCarlo(p,{ledgerOptions:{solverTolerance:NaN}}));
   await assert.rejects(runMonteCarlo(p,{executeBatch:async()=>{throw new Error('transport failed');}}),/transport failed/);
   await assert.rejects(runMonteCarlo(p,{generator:{version:'bad',generatePath:()=>({pathIndex:0,years:[]})}}),/invalid market path/);
-  // Property needs only be non-null to trigger the existing explicit engine rejection; use a valid schema value.
+  // A validated property is integrated by the same worker ledger.
   p.property={use:'owner_occupied',marketValue:300000,mortgageBalance:240000,mortgageAnnualRate:.04,mortgageTermYears:25,mortgageType:'repayment',maintenanceAnnual:0,insuranceAnnual:0,serviceChargeAnnual:0,councilTaxAnnual:0,rentAnnual:0,occupancyRate:1,managementRate:0,purchase:null,sale:null,rateChanges:[]};
-  await assert.rejects(runMonteCarloNode(p,{concurrency:1}),{name:'UnsupportedProfileError'});
+  assert.ok((await runMonteCarloNode(p,{concurrency:1})).wealthByAge[0]!.propertyEquity.median > 0);
 });
 test('same cumulative market return in different order changes withdrawal outcomes', () => {
   const p=zero(strippedProfile(p=>{p.assets.isa=100_000;p.personal.endAge=49;}));

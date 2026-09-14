@@ -1,6 +1,6 @@
 # V0.3 implementation work packages
 
-Status: chunks 1–3 implemented and tested. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions, the benchmark and the chunk-4 assignment. See `handoffs/chunk-2.md` for the delivered ledger API, calculation conventions, verification and the chunk-3 assignment; `handoffs/chunk-1.md` still documents the contracts and tax engine. Chunks 4–10 remain open.
+Status: chunks 1–4 implemented and tested. See `handoffs/chunk-4.md` for the application shell, the Overview and FIRE screens, the browser verification and the chunk-5 assignment. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions and the benchmark; `handoffs/chunk-2.md` for the ledger API and calculation conventions; `handoffs/chunk-1.md` for the contracts and tax engine. Chunks 5–10 remain open.
 
 ## Authority and baseline
 
@@ -82,6 +82,8 @@ Goal: users can enter a complete baseline and run the real model through the sup
 Done when: editing inputs changes real results; a 10,000-path run leaves the UI responsive; invalid input cannot silently enter the engine; both screens work at desktop/mobile widths and with keyboard navigation.
 
 Checkpoint: shell/forms → Overview → worker and FIRE results.
+
+**Delivered.** `src/presentation/view/` holds React-free view models; `src/presentation/web/` holds the shell and the two screens on the Organic design system. All eight tabs are reachable and the six unbuilt ones name their package. 138 tests pass. Verified in Chrome: a 10,000-path run completed in 4.0 s with a 19 ms longest frame gap, reproducing the chunk-3 benchmark; cancellation, stale invalidation and input validation all behave. See `handoffs/chunk-4.md`.
 
 ## 5. Integrated property engine and Property & Leverage screen
 
@@ -181,4 +183,4 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 4 to Claude. Use `handoffs/chunk-3.md` for the full assignment and integration guide. Packages 1–3 supply the tested tax engine, lifetime ledger and worker-based Monte Carlo analysis. Build the application screens on these APIs; preserve the ledger and stochastic conventions documented in the handoffs.
+Next assignment: package 5 to Codex. Use `handoffs/chunk-4.md` for the full assignment and integration guide. Packages 1–4 supply the tested tax engine, lifetime ledger, worker-based Monte Carlo analysis and a working application shell with two live screens. Integrate property into the same lifetime model and complete its screen; preserve the ledger, stochastic and presentation conventions documented in the handoffs.

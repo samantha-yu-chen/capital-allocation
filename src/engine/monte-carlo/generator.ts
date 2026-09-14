@@ -4,7 +4,7 @@ export const ASSETS = ['equities', 'bonds', 'cash', 'property', 'inflation'] as 
 
 /** Correlations apply to Gaussian log-growth shocks, not arithmetic returns. */
 export function cholesky(matrix: readonly (readonly number[])[]): number[][] {
-  if (matrix.length !== 5 || matrix.some(row => row.length !== 5)) throw new RangeError('Correlation must be 5 by 5');
+  if (matrix.length !== 5 || matrix.some(row => row.length !== 5 || row.some(v => !Number.isFinite(v)))) throw new RangeError('Correlation must be 5 by 5');
   const l = Array.from({ length: 5 }, () => Array<number>(5).fill(0));
   for (let i = 0; i < 5; i++) {
     for (let j = 0; j <= i; j++) {

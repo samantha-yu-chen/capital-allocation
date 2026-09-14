@@ -81,7 +81,7 @@ export function sequenceObservation(profile: Profile, projection: DeterministicP
   window.forEach((year, i) => {
     const openingLiquid = accessibleWealth(year.opening) / year.inflationIndex;
     const closingLiquid = year.accessibleWealth / year.closingInflationIndex;
-    const spending = (year.spendingRequired + year.propertyOperatingCosts + year.mortgageInterest + year.mortgagePrincipalRequired) / year.inflationIndex;
+    const spending = (year.spendingRequired + year.propertyOperatingCosts + year.mortgageInterest + year.mortgagePrincipalRequired - year.mortgageOverpayment) / year.inflationIndex;
     below ||= Math.min(openingLiquid, closingLiquid) < 2 * spending;
     const wealth = financialNetWorth(year.closing) / year.closingInflationIndex;
     if (peak > 0 && wealth < .8 * peak && trigger === null) trigger = { index: first + i, peak };

@@ -20,7 +20,8 @@ export function standardError(values: readonly number[]): number {
 }
 export function assertMarginalPaths(base: MonteCarloResult, candidate: MonteCarloResult): void {
   const a = base.metadata, b = candidate.metadata;
-  if (a.seed !== b.seed || a.simulationCount !== b.simulationCount || a.returnGeneratorVersion !== b.returnGeneratorVersion ||
+  if (a.profile.personal.currentAge !== b.profile.personal.currentAge || a.profile.personal.endAge !== b.profile.personal.endAge ||
+      a.seed !== b.seed || a.simulationCount !== b.simulationCount || a.returnGeneratorVersion !== b.returnGeneratorVersion ||
       JSON.stringify(a.pathIndices) !== JSON.stringify(b.pathIndices) ||
       JSON.stringify(a.profile.market) !== JSON.stringify(b.profile.market) ||
       base.allocationSamples?.length !== candidate.allocationSamples?.length ||
@@ -35,7 +36,7 @@ function summarize(result: MonteCarloResult, ages: number[]) {
     standardError: Math.sqrt(result.successProbability * (1-result.successProbability) / samples.length),
     score: at(s => s.score), terminal: result.terminalWealth,
     lifetimeTax: at(s => s.tax), maxDebt: at(s => s.maxDebt),
-    minimumReserve: at(s => s.minimumReserve), minimumLiquidity: at(s => s.minimumLiquidity),
+    minimumReserve: at(s => s.minimumReserve), minimumLiquidityMargin: at(s => s.minimumLiquidityMargin),
     targets: ages.map((age,i) => ({ age, debt: at(s => s.debt[i]!), usable: at(s => s.usable[i]!), accessible: at(s => s.accessible[i]!), netWorth: at(s => s.netWorth[i]!) })),
   };
 }
@@ -51,7 +52,7 @@ export interface MarginalResult {
   baseline: MarginalSummary; candidates: MarginalCandidate[]; ages: number[];
   boundaries: ReturnType<typeof taxBoundaries>;
   metadata: { seed: number; pathIndices: { start: number; endExclusive: number }; simulationCount: number;
-    request: MarginalRequest; options: LedgerOptions; engineVersion: string; moneyBasis: 'today' };
+    profile: Profile; request: MarginalRequest; options: LedgerOptions; engineVersion: string; generatorVersion: string; taxConfigVersion: string; moneyBasis: 'today' };
 }
 /** Taxable-income bands and adjusted-net-income taper boundaries retain their actual bases.
  * They are deliberately not mislabelled as gross salary thresholds.
@@ -107,7 +108,7 @@ export async function compareMarginal(input: Profile, request: MarginalRequest, 
       const constraints: string[] = [];
       if (summary.probability - 1.96 * summary.standardError < profile.personal.targetSuccessProbability)
         constraints.push('FIRE target not cleared by the 95% sampling lower bound.');
-      if (summary.minimumLiquidity.worst < profile.liquidity.minimumLiquidYears)
+      if (summary.minimumLiquidityMargin.worst < -1e-6)
         constraints.push('Minimum liquid-years threshold breached on at least one sampled path.');
       if (summary.minimumReserve.worst < -1e-6) constraints.push('Emergency cash reserve breached on at least one sampled path.');
       if (summary.maxDebt.worst > parsed.maximumDebt + 1e-6) constraints.push('Maximum acceptable real debt exceeded on at least one sampled path.');
@@ -153,6 +154,7 @@ export async function compareMarginal(input: Profile, request: MarginalRequest, 
   abortIfNeeded(controls.signal);
   return { baseline, candidates, ages, boundaries: taxBoundaries(profile), metadata: {
     seed: profile.simulation.seed, pathIndices: baselineResult.metadata.pathIndices, simulationCount: profile.simulation.count,
-    request, options, engineVersion: baselineResult.metadata.engineVersion, moneyBasis: 'today',
+    profile, request: { ...parsed, ledgerOptions: options }, options, engineVersion: baselineResult.metadata.engineVersion,
+    generatorVersion: baselineResult.metadata.returnGeneratorVersion, taxConfigVersion: baselineResult.metadata.taxConfigVersion, moneyBasis: 'today',
   } };
 }

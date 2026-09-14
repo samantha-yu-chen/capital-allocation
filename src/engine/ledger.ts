@@ -54,6 +54,8 @@ export const defaultLedgerOptions = (): LedgerOptions => ({
 /** Every §6 line item plus the intermediate values needed to audit the year. Extends the shared contract. */
 export interface LedgerYearDetail extends LedgerYear {
   marginalFunding: ReturnType<typeof marginalFunding> | null;
+  /** Voluntary one-off principal, excluded from the recurring emergency reserve base. */
+  mortgageOverpayment: number;
   propertyPurchaseShortfall: number;
   propertyPurchasePrice: number;
   propertyAcquisitionCosts: number;
@@ -395,7 +397,8 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const cashBeforeAllocation = opening.accounts.cash + result.cashInflow
       - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
     const investableSurplus = result.cashInflow - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
-    const annualEssential = spending.essentialNominal + property.operatingCosts + property.mortgage.payment;
+    const mortgageOverpayment = action?.destination === 'mortgage' ? direct : 0;
+    const annualEssential = spending.essentialNominal + property.operatingCosts + property.mortgage.payment - mortgageOverpayment;
     const reserveTarget = emergencyReserveTarget(profile, annualEssential);
     const reserveShortfallGate = options.fundEmergencyReserve ? reserveTarget : 0;
     const retained = directTransfer + ((action?.destination === 'cash' || (action?.destination === 'deposit' && !property.buying)) && action.basis === 'gross_earnings' ? direct : 0);
@@ -475,7 +478,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     allFailures.push(...failures);
 
     years.push({
-      marginalFunding: marginal, yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
+      mortgageOverpayment, marginalFunding: marginal, yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
       employmentIncome, otherIncome, statePensionIncome, rentalIncome: property.rentalIncome,
       contributions, withdrawalsGross, investmentReturn,
       incomeTax: result.net.tax.totalIncomeTax - result.rentalFinanceRelief, employeeNi: result.net.ni.employee,

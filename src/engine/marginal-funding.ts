@@ -20,6 +20,7 @@ export class MarginalInfeasibleError extends RangeError {
  */
 export function marginalFunding(action: MarginalAction, input: NetIncomeInput, config: TaxConfig,
   rentalFinance: { costs: number; profit: number } = { costs: 0, profit: 0 }) {
+  action = marginalActionSchema.parse(action);
   const settle = (i: NetIncomeInput) => {
     const n = calculateNetIncome(i, config);
     // The same capped residential finance reduction as the ledger's joint annual assessment.

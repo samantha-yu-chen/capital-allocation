@@ -25,7 +25,7 @@ export function usableWealth(profile: Profile, sheet: BalanceSheet, age: number,
 }
 export interface AllocationSample {
   usable: number[]; accessible: number[]; netWorth: number[]; debt: number[];
-  score: number; tax: number; maxDebt: number; minimumLiquidity: number; minimumReserve: number;
+  score: number; tax: number; maxDebt: number; minimumLiquidityMargin: number; minimumReserve: number;
 }
 export function allocationSample(profile: Profile, projection: DeterministicProjection): AllocationSample {
   const usable: number[] = [], accessible: number[] = [], netWorth: number[] = [], debt: number[] = [];
@@ -43,7 +43,8 @@ export function allocationSample(profile: Profile, projection: DeterministicProj
     tax: projection.years.reduce((sum,y) => sum + y.totalTax / y.inflationIndex, 0),
     maxDebt: Math.max(...projection.years.map(y => Math.max(y.opening.mortgageDebt / y.inflationIndex, y.closing.mortgageDebt / y.closingInflationIndex,
       y.propertyPurchasePrice > 0 ? (y.propertyPurchasePrice - y.propertyPurchaseFunding + y.propertyAcquisitionCosts) / y.inflationIndex : 0))),
-    minimumLiquidity: Math.min(...projection.years.map(y => y.liquidityCoverageYears)),
+    minimumLiquidityMargin: Math.min(...projection.years.map(y => (y.accessibleWealth - profile.liquidity.minimumLiquidYears *
+      (y.spendingEssentialRequired + y.propertyOperatingCosts + y.mortgageInterest + y.mortgagePrincipalRequired - y.mortgageOverpayment)) / y.closingInflationIndex)),
     minimumReserve: Math.min(...projection.years.map(y => (y.closing.accounts.cash - y.emergencyReserveTarget) / y.closingInflationIndex)),
   };
 }

@@ -353,10 +353,10 @@ export function pruneDrafts(base: Profile, drafts: Readonly<Record<string, strin
 }
 
 export const MARGINAL_AMOUNT_FIELD: ControlFieldDef = {
-  id: 'marginal.amount', label: 'One-off increment (£)', kind: 'money', step: 100,
+  id: 'marginal.amount', label: 'One-off increment', kind: 'money', step: 100,
   help: 'Applied once in the current model year; existing after-tax cash is transferred, not added.',
 };
 export const MARGINAL_DEBT_FIELD: ControlFieldDef = {
-  id: 'marginal.maximumDebt', label: 'Maximum acceptable debt (£, today)', kind: 'money', step: 1000,
+  id: 'marginal.maximumDebt', label: 'Maximum acceptable debt, today', kind: 'money', step: 1000,
   help: 'A hard ceiling across every sampled path. Enter the debt exposure you accept.',
 };

@@ -187,3 +187,29 @@ test('property capacity and emergency reserve reject an increment without silent
   p.property=null;p.assets.cash=10000;p.income.salaryAnnual=0;p.personal.targetFireAge=p.personal.currentAge;
   assert.throws(()=>runDeterministicProjection(p,{marginalAction:{amount:9000,basis:'after_tax_cash',destination:'isa'}}),/reserve/);
 });
+
+
+test('zero essential spending yields a finite liquidity margin rather than invalid infinite statistics',async()=>{
+  const p=fixture();p.spending.current={essentialMonthly:0,discretionaryMonthly:0};
+  p.spending.retirement={essentialMonthly:0,discretionaryMonthly:0};p.spending.retirementFloorAnnual=0;
+  p.spending.retirementComfortAnnual=0;p.simulation.count=2;
+  const r=await compareMarginal(p,{amount:1000,basis:'gross_earnings',maximumDebt:0});
+  assert.ok(Number.isFinite(r.baseline.minimumLiquidityMargin.mean));
+  assert.ok(r.candidates.filter(c=>c.summary).every(c=>Number.isFinite(c.summary!.minimumLiquidityMargin.mean)));
+});
+test('reproducibility metadata snapshots inputs even when caller edits the request during execution',async()=>{
+  const p=fixture();p.simulation.count=2;const original=structuredClone(p);
+  const request={amount:1000,basis:'gross_earnings' as const,maximumDebt:0};let edited=false;
+  const r=await compareMarginal(p,request,{onProgress:()=>{if(!edited){edited=true;request.amount=2000;p.income.salaryAnnual=1;}}});
+  assert.equal(r.metadata.request.amount,1000);assert.deepEqual(r.metadata.profile,original);
+  assert.ok(r.metadata.generatorVersion);assert.ok(r.metadata.taxConfigVersion);
+});
+
+
+test('voluntary mortgage principal is not a recurring emergency-reserve expense',()=>{
+  const p=fixture();p.property=home();p.assets.cash=200000;
+  const y=runDeterministicProjection(p,{marginalAction:{amount:10000,basis:'after_tax_cash',destination:'mortgage'}}).years[0]!;
+  close(y.mortgageOverpayment,10000);
+  const recurring=y.spendingEssentialRequired+y.propertyOperatingCosts+y.mortgageInterest+y.mortgagePrincipalRequired-10000;
+  close(y.emergencyReserveTarget,recurring*p.liquidity.emergencyFundMonths/12);
+});

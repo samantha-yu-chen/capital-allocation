@@ -1,3 +1,5 @@
+import { allocationSample, type AllocationSample } from '../allocation-metrics.js';
+import { marginalActionSchema } from '../marginal-funding.js';
 import { z } from 'zod';
 import { parseProfile, simulationMetadataSchema } from '../../domain/contracts.js';
 import type { FailureCode, MarketPath, Profile, ReturnGenerator, SimulationResult } from '../../domain/contracts.js';
@@ -10,6 +12,7 @@ import type { Distribution } from './statistics.js';
 
 export const SIMULATION_VERSION = 'monte-carlo-v1';
 export const ledgerOptionsSchema = z.strictObject({
+  marginalAction: marginalActionSchema.nullable(), measureAllocation: z.boolean(),
   retirementLevel: z.enum(['floor', 'target', 'comfort']), monthlyHouseholdOverride: z.number().finite().nonnegative().nullable(),
   rentInvestment: z.strictObject({age:z.number().int().min(18).max(120),amount:z.number().finite().nonnegative()}).nullable(),
   fundEmergencyReserve: z.boolean(), surplusAllocation: z.enum(['isa_then_gia', 'gia_only', 'cash_only']),
@@ -30,6 +33,7 @@ export interface SequenceObservation {
   earlyEquityCrash: boolean; highEarlyInflation: boolean;
 }
 export interface PathSample {
+  allocation?: AllocationSample;
   pathIndex: number; success: boolean; failures: FailureCode[];
   /** Opening current age, then closing age+1; liquid, pension (including SIPP), property equity, net worth, locked. */
   wealth: number[][]; terminal: number; fireCapital: number;
@@ -46,6 +50,7 @@ export interface SimulationControls {
   executeBatch?: (request: SimulationRequest, signal?: AbortSignal) => Promise<SimulationBatch>;
 }
 export interface MonteCarloResult extends SimulationResult {
+  allocationSamples?: (AllocationSample & { success: boolean; pathIndex: number })[];
   metadata: SimulationResult['metadata'] & {
     simulationVersion: string; ledgerOptions: LedgerOptions; taxPolicy: Profile['simulation']['taxPolicy'];
     eventOrder: readonly string[]; pathIndices: { start: number; endExclusive: number };
@@ -76,7 +81,7 @@ export function sequenceObservation(profile: Profile, projection: DeterministicP
   window.forEach((year, i) => {
     const openingLiquid = accessibleWealth(year.opening) / year.inflationIndex;
     const closingLiquid = year.accessibleWealth / year.closingInflationIndex;
-    const spending = (year.spendingRequired + year.propertyOperatingCosts + year.mortgageInterest + year.mortgagePrincipalRequired) / year.inflationIndex;
+    const spending = (year.spendingRequired + year.propertyOperatingCosts + year.mortgageInterest + year.mortgagePrincipalRequired - year.mortgageOverpayment) / year.inflationIndex;
     below ||= Math.min(openingLiquid, closingLiquid) < 2 * spending;
     const wealth = financialNetWorth(year.closing) / year.closingInflationIndex;
     if (peak > 0 && wealth < .8 * peak && trigger === null) trigger = { index: first + i, peak };
@@ -109,7 +114,7 @@ export function sampleProjection(profile: Profile, path: MarketPath, result: Det
       propertyEquity(year.closing) / d, year.netWorth / d, year.lockedWealth / d]);
   }
   if (wealth.some(row => row.some(value => !Number.isFinite(value)))) throw new RangeError('Nonfinite projection output');
-  return { pathIndex: path.pathIndex, success: result.success, failures: [...new Set(result.failures.map(f => f.code))],
+  return { ...(result.assumptions.options.measureAllocation ? { allocation: allocationSample(profile, result) } : {}), pathIndex: path.pathIndex, success: result.success, failures: [...new Set(result.failures.map(f => f.code))],
     wealth, terminal: result.metrics.terminalNetWorthReal, fireCapital: result.metrics.investableAssetsAtFireReal,
     sequence: sequenceObservation(profile, result, path) };
 }
@@ -152,6 +157,7 @@ function aggregate(profile: Profile, samples: PathSample[], batch: SimulationBat
       returnGeneratorVersion: batch.generatorVersion, profile }), simulationVersion: SIMULATION_VERSION,
       ledgerOptions: a.options, taxPolicy: a.taxPolicy, eventOrder: a.eventOrder,
       pathIndices: { start: 0, endExclusive: n }, moneyBasis: 'today', ageTiming: 'opening-current-then-closing-boundaries', percentileMethod: 'linear-(n-1)p' },
+    ...(a.options.measureAllocation ? { allocationSamples: samples.map(s => ({ ...s.allocation!, success: s.success, pathIndex: s.pathIndex })) } : {}),
     successProbability: probability(s => s.success), bridgeFailureProbability: failures.pre_pension_liquidity,
     depletionProbability: failures.portfolio_depletion, observedFailureProbabilities: failures,
     terminalWealth: distribution(samples.map(s => s.terminal)), fireCapital: distribution(samples.map(s => s.fireCapital)),

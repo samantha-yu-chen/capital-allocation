@@ -52,3 +52,33 @@ An explicit `rentInvestment` ledger option deploys available cash from the avoid
 at acquisition age, respecting the cash reserve and ISA limit. No deposit is credited. A dedicated
 worker handles comparison computation and cancellation; presentation calculations remain in
 `src/presentation/view/`.
+
+## ADR 006: one-off marginal actions and constrained usable-wealth comparisons (chunk 7)
+
+Marginal allocation is a one-off action in the first model year, not a recurring profile salary
+change or an untaxed opening-asset injection. `LedgerOptions.marginalAction` defaults to null;
+ordinary runs retain their previous flows. Gross earnings use a non-pensionable bonus and the
+configured workplace pension method/match/shareback. Existing cash uses opening cash and additional
+RAS with relief settled and recycled in-year. Extra workplace contributions are an explicit tax
+input. Reject the whole allocation when cash, ISA, pension, reserve or debt capacity is insufficient.
+
+The action participates in the existing income/tax, spending/funding and surplus-allocation stages.
+Transfers use both account entries; no reconciliation identity is relaxed. Property deposit adds
+to the configured purchase commitment and reduces its debt, while overpayment reduces existing
+principal and recasts the remaining original term. Future deposits remain cash until purchase;
+there is no ring-fenced account, automatic borrowing or equity release.
+
+Every destination is a full common-path lifetime simulation. A coordinator drives the existing
+worker pool and requests optional compact per-path allocation observations. Ordinary Monte Carlo
+runs do not pay for these observations. Pair samples by absolute path index and assert the seed,
+count, generator and market assumptions before calculating comparison errors. Cancelled/failed
+runs publish no partial ranking.
+
+Rank the equal-weight mean after-tax usable financial wealth at FIRE, access (if in horizon) and
+terminal ages, subject to sampled cash-reserve/liquid-years/debt constraints and a 95% lower-bound
+FIRE probability test. Value hypothetical liquidation in one tax year without employment or
+contributions, with configured other/state pension income, actual GIA basis/losses and remaining
+pension tax-free allowance. Exclude inaccessible pension and unsold property from usable wealth;
+report their net-worth effect and debt separately. This is an explicit V0.3 valuation approximation,
+not an optimal drawdown policy or a forced transaction in the ledger. Pairwise standard errors
+qualify rankings; static wrapper ordering and arbitrary liquidity prices are prohibited.

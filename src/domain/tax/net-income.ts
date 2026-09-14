@@ -15,7 +15,7 @@ export function calculateNetIncome(input: NetIncomeInput, config: TaxConfig) {
   const p = netIncomeInputSchema.parse(input);
   const pension = calculatePensionContributions({ employmentIncome: p.employmentIncome, pensionablePay: p.pensionablePay,
     memberAge: p.memberAge, policy: p.policy, additionalReliefAtSourceGross: p.additionalReliefAtSourceGross,
-    minimumRetainedPayAnnual: p.minimumRetainedPayAnnual }, config);
+    additionalWorkplaceGross: p.additionalWorkplaceGross, minimumRetainedPayAnnual: p.minimumRetainedPayAnnual }, config);
   const nonSavingsIncome = pension.taxableEmploymentIncome + p.otherNonSavingsIncome;
   const netIncomeForTaper = nonSavingsIncome + p.savingsInterest + p.dividends;
   const thresholdIncome = Math.max(0, netIncomeForTaper - pension.reliefAtSourceGross + pension.thresholdIncomeSacrificeAddback);

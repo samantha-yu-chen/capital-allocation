@@ -73,3 +73,10 @@ export function leverage(value: number, debt: number, change: number) {
   return { equity, ltv: value > 0 ? debt / value : null, appreciation: value * change,
     equityReturn: equity > 0 ? value * change / equity : null, stressedEquity: value * (1 + change) - debt };
 }
+
+/** Joint annual residential finance reduction; shared by the ledger and marginal funding. */
+export function rentalFinanceReduction(costs: number, profit: number, adjustedIncomeExcludingSavingsAndDividends: number,
+  personalAllowance: number, incomeTax: number, basicRate: number) {
+  const eligible = Math.min(costs, profit, Math.max(0, adjustedIncomeExcludingSavingsAndDividends - personalAllowance));
+  return { eligible, reduction: Math.min(incomeTax, eligible * basicRate) };
+}

@@ -1,4 +1,5 @@
-import { propertyYear, PROPERTY_TAX_VERSION } from './property.js';
+import { marginalFunding, MarginalInfeasibleError, type MarginalAction } from './marginal-funding.js';
+import { propertyYear, mortgageYear, rentalFinanceReduction, PROPERTY_TAX_VERSION } from './property.js';
 import type {
   AccountBalances, BalanceSheet, FailureEvent, LedgerYear, MarketPath, Profile, ProjectionResult,
 } from '../domain/contracts.js';
@@ -18,7 +19,7 @@ import {
   type RetirementSpendingLevel, type SpendingOptions, type SpendingYear,
 } from './spending.js';
 
-export const ENGINE_VERSION = 'deterministic-ledger-v2-property-' + PROPERTY_TAX_VERSION;
+export const ENGINE_VERSION = 'deterministic-ledger-v3-marginal-property-' + PROPERTY_TAX_VERSION;
 
 /** Raised for validated profiles whose features this chunk deliberately does not model. */
 export class UnsupportedProfileError extends Error {
@@ -29,6 +30,8 @@ export class UnsupportedProfileError extends Error {
 }
 
 export interface LedgerOptions extends SpendingOptions {
+  marginalAction: MarginalAction | null;
+  measureAllocation: boolean;
   /** Explicit rent-comparison cash investment action, in today's GBP; never creates capital. */
   rentInvestment: { age: number; amount: number } | null;
   /** Retain surplus in cash until the section 41 emergency reserve is covered, before investing. */
@@ -44,12 +47,15 @@ export interface LedgerOptions extends SpendingOptions {
 }
 
 export const defaultLedgerOptions = (): LedgerOptions => ({
-  retirementLevel: 'target', monthlyHouseholdOverride: null, fundEmergencyReserve: true, rentInvestment: null,
+  retirementLevel: 'target', monthlyHouseholdOverride: null, marginalAction: null, measureAllocation: false, fundEmergencyReserve: true, rentInvestment: null,
   surplusAllocation: 'isa_then_gia', solverTolerance: 1e-6, solverMaxIterations: 60,
 });
 
 /** Every §6 line item plus the intermediate values needed to audit the year. Extends the shared contract. */
 export interface LedgerYearDetail extends LedgerYear {
+  marginalFunding: ReturnType<typeof marginalFunding> | null;
+  /** Voluntary one-off principal, excluded from the recurring emergency reserve base. */
+  mortgageOverpayment: number;
   propertyPurchaseShortfall: number;
   propertyPurchasePrice: number;
   propertyAcquisitionCosts: number;
@@ -208,6 +214,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
   let failedPurchase: FailureEvent | null = null;
   let propertyBasis = profile.property?.acquisitionCostBasis ?? 0;
   let rentalLossCarry = 0, rentalFinanceCostCarry = 0;
+  let depositBudget = 0;
 
   for (let t = 0; t < totalYears; t += 1) {
     const age = profile.personal.currentAge + t;
@@ -226,7 +233,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const bonusNominal = working ? profile.income.bonusAnnual * realGrowth * inflationIndex : 0;
     // Post-FIRE employment is not pensionable: the contribution policy follows the salary.
     const retirementEmployment = working ? 0 : profile.income.retirementEmploymentAnnual * inflationIndex;
-    const employmentIncome = salaryNominal + bonusNominal + retirementEmployment;
+    let employmentIncome = salaryNominal + bonusNominal + retirementEmployment;
     const pensionablePay = salaryNominal;
     const otherIncome = profile.income.otherNonSavingsAnnual * inflationIndex;
     const statePensionIncome = age >= profile.income.statePensionAge ? profile.income.statePensionAnnual * inflationIndex : 0;
@@ -255,12 +262,48 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const rentalProfit = property.rentalIncome - (profile.property?.use === 'rental' ? property.operatingCosts : 0);
     const rentalTaxableProfit = Math.max(0, rentalProfit - rentalLossCarry);
     const nextRentalLossCarry = Math.max(0, rentalLossCarry - rentalProfit);
+    const action = t === 0 ? options.marginalAction : null;
+    if (action?.basis === 'after_tax_cash' && action.amount > opening.accounts.cash + tolerance)
+      throw new MarginalInfeasibleError('The increment exceeds existing opening cash; no implicit sale of ISA/GIA is assumed.');
+    const marginal = action ? marginalFunding(action, {
+      employmentIncome, pensionablePay, memberAge: age, policy: profile.pension,
+      otherNonSavingsIncome: otherIncome + statePensionIncome + rentalTaxableProfit,
+      savingsInterest: savingsInterestTaxed, dividends: giaDividendsTaxed, niCategory,
+    }, config, { costs: rentalFinanceCostCarry + (profile.property?.use === 'rental' ? property.mortgage.interest : 0), profit: rentalTaxableProfit }) : null;
+    employmentIncome += marginal?.gross ?? 0;
+    const direct = marginal?.allocation ?? 0;
+    // Property actions use the current year's actual debt. Recast the scheduled payment after the
+    // one-off principal payment, retaining the original term and the accounting principal line.
+    if (action?.destination === 'deposit') {
+      if (!profile.property?.purchase)
+        throw new MarginalInfeasibleError('A property deposit requires a configured planned purchase.');
+      if (direct > profile.property.purchase.price - profile.property.purchase.deposit + tolerance)
+        throw new MarginalInfeasibleError('The full increment exceeds the additional deposit capacity.');
+      depositBudget = direct;
+    }
+    if (property.buying && depositBudget > 0) {
+      const extraDeposit = depositBudget * inflationIndex;
+      property.debt -= extraDeposit;
+      property.purchaseFunding += extraDeposit;
+      property.mortgage = mortgageYear(property.debt, property.annualRate, profile.property!.mortgageTermYears, profile.property!.mortgageType);
+    }
+    if (action?.destination === 'mortgage') {
+      if (!property.owned || property.buying || property.debt <= 0)
+        throw new MarginalInfeasibleError('Mortgage overpayment requires an existing owned property with debt.');
+      if (direct > property.debt + tolerance)
+        throw new MarginalInfeasibleError('The full increment exceeds the remaining mortgage.');
+      property.mortgage = mortgageYear(property.debt - direct, property.annualRate,
+        profile.property!.mortgageTermYears - (age - (profile.property!.purchase?.age ?? profile.personal.currentAge)), profile.property!.mortgageType);
+      property.mortgage.principal += direct;
+      property.mortgage.payment += direct;
+    }
     const financeCosts = rentalFinanceCostCarry + (profile.property?.use === 'rental' ? property.mortgage.interest : 0);
     const propertyGain = property.selling && profile.property?.use === 'rental'
       ? property.value - property.saleCosts - propertyBasis : 0;
     const capitalNeedsRequired = capitalNeedsForAge(profile, age, inflationIndex);
     const propertyRequired = property.operatingCosts + property.mortgage.payment + property.purchaseFunding + Math.max(0, -property.saleCash);
-    const need = spending.totalNominal + capitalNeedsRequired + propertyRequired;
+    const directTransfer = action && ['isa', 'gia'].includes(action.destination) ? direct : 0;
+    const need = spending.totalNominal + capitalNeedsRequired + propertyRequired + directTransfer;
     const isaUsedAtStart = t === 0 ? profile.isa.allowanceUsed : 0;
     const pensionAccessible = age >= profile.pension.accessAge;
     const pensionCapacity = pensionAccessible ? opening.accounts.pension + opening.accounts.sipp : 0;
@@ -278,6 +321,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       try {
         net = calculateNetIncome({
           employmentIncome, pensionablePay, memberAge: age, policy: profile.pension,
+          additionalWorkplaceGross: marginal?.workplace ?? 0, additionalReliefAtSourceGross: marginal?.ras ?? 0,
           otherNonSavingsIncome: otherIncome + statePensionIncome + split.taxable + rentalTaxableProfit,
           savingsInterest: savingsInterestTaxed, dividends: giaDividendsTaxed, niCategory,
         }, config);
@@ -290,9 +334,9 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
         realisedGains: realisedGains + Math.max(0, propertyGain), currentYearLosses: disposal.realisedLoss + Math.max(0, -propertyGain), carriedLosses: opening.giaCarriedLosses,
         remainingBasicRateBand: net.tax.remainingBasicRateBandForGains,
       }, config);
-      const eligibleFinanceCosts = Math.min(financeCosts, rentalTaxableProfit,
-        Math.max(0, net.tax.adjustedNetIncome - savingsInterestTaxed - giaDividendsTaxed - net.tax.personalAllowance));
-      const rentalFinanceRelief = Math.min(net.tax.totalIncomeTax, eligibleFinanceCosts * .20);
+      const { eligible: eligibleFinanceCosts, reduction: rentalFinanceRelief } = rentalFinanceReduction(financeCosts,
+        rentalTaxableProfit, net.tax.adjustedNetIncome - savingsInterestTaxed - giaDividendsTaxed,
+        net.tax.personalAllowance, net.tax.totalIncomeTax, config.ukBands[0]!.rate);
       const totalTax = net.tax.totalIncomeTax - rentalFinanceRelief + net.ni.employee + cgt.tax;
       const cashInflow = employmentIncome + otherIncome + statePensionIncome + split.gross + isaWithdrawal + giaProceeds + property.rentalIncome + Math.max(0, property.saleCash);
       const cashOutflowBeforeSpending = net.pension.personalCashReduction + totalTax;
@@ -336,6 +380,8 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       t -= 1;
       continue;
     }
+    if (action && result.available < need - tolerance)
+      throw new MarginalInfeasibleError('The full allocation cannot be funded alongside the current year obligations.');
     let available = Math.max(0, result.available);
     const fund = (required: number) => { const paid = Math.min(required, available); available -= paid; return paid; };
     const spendingFunded = fund(spending.totalNominal);
@@ -347,20 +393,28 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const purchaseFunded = fund(property.purchaseFunding);
     const propertyFunded = operatingFunded + interestFunded + principalFunded + saleDeficitFunded + purchaseFunded;
     const propertyPurchaseShortfall = failedPurchase?.age === age ? failedPurchase.shortfall : 0;
-    const shortfall = clampZero(need - spendingFunded - capitalNeedsFunded - propertyFunded) + propertyPurchaseShortfall;
+    const shortfall = clampZero(need - directTransfer - spendingFunded - capitalNeedsFunded - propertyFunded) + propertyPurchaseShortfall;
     const cashBeforeAllocation = opening.accounts.cash + result.cashInflow
       - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
     const investableSurplus = result.cashInflow - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
-    const annualEssential = spending.essentialNominal + property.operatingCosts + property.mortgage.payment;
+    const mortgageOverpayment = action?.destination === 'mortgage' ? direct : 0;
+    const annualEssential = spending.essentialNominal + property.operatingCosts + property.mortgage.payment - mortgageOverpayment;
     const reserveTarget = emergencyReserveTarget(profile, annualEssential);
     const reserveShortfallGate = options.fundEmergencyReserve ? reserveTarget : 0;
-    const investable = Math.max(0, Math.min(Math.max(0, investableSurplus), cashBeforeAllocation - reserveShortfallGate));
+    const retained = directTransfer + ((action?.destination === 'cash' || (action?.destination === 'deposit' && !property.buying)) && action.basis === 'gross_earnings' ? direct : 0);
+    if (action && action.destination !== 'cash' && cashBeforeAllocation - directTransfer < reserveShortfallGate - tolerance)
+      throw new MarginalInfeasibleError('The allocation would leave cash below the current emergency reserve.');
+    const investable = Math.max(0, Math.min(Math.max(0, investableSurplus - retained), cashBeforeAllocation - reserveShortfallGate - retained));
     const allocatedToCashReserve = Math.max(0, investableSurplus) - investable;
     const rentInvestment = options.rentInvestment?.age === age
       ? Math.min(options.rentInvestment.amount * inflationIndex, Math.max(0, cashBeforeAllocation - reserveShortfallGate - investable)) : 0;
-    const isaAssessment = assessIsaContribution(investable + rentInvestment, isaUsedAtStart, config);
-    const allocatedToIsa = options.surplusAllocation === 'isa_then_gia' ? isaAssessment.permitted : Math.min(rentInvestment, isaAssessment.remaining);
-    const allocatedToGia = options.surplusAllocation === 'cash_only' ? rentInvestment - allocatedToIsa : investable + rentInvestment - allocatedToIsa;
+    const directIsa = action?.destination === 'isa' ? direct : 0;
+    const directGia = action?.destination === 'gia' ? direct : 0;
+    if (directIsa > Math.max(0, config.isaAllowance - isaUsedAtStart) + tolerance)
+      throw new MarginalInfeasibleError('The full increment exceeds remaining ISA subscription capacity.');
+    const isaAssessment = assessIsaContribution(investable + rentInvestment, isaUsedAtStart + directIsa, config);
+    const allocatedToIsa = directIsa + (options.surplusAllocation === 'isa_then_gia' ? isaAssessment.permitted : Math.min(rentInvestment, isaAssessment.remaining));
+    const allocatedToGia = directGia + (options.surplusAllocation === 'cash_only' ? rentInvestment - (allocatedToIsa - directIsa) : investable + rentInvestment - (allocatedToIsa - directIsa));
 
     const contributions: AccountBalances = {
       cash: result.cashInflow,
@@ -396,8 +450,8 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       giaCostBasis: clampZero(basisAfterTurnover - result.disposal.basisDisposed + allocatedToGia + giaDividendsTaxed),
       giaCarriedLosses: result.cgt.carriedLossesRemaining,
       propertyValue: property.owned ? property.value * (1 + marketYear.property) : 0,
-      mortgageDebt: property.selling ? Math.max(0, -property.saleCash - saleDeficitFunded)
-        : property.debt - principalFunded + property.mortgage.interest - interestFunded,
+      mortgageDebt: clampZero(property.selling ? Math.max(0, -property.saleCash - saleDeficitFunded)
+        : property.debt - principalFunded + property.mortgage.interest - interestFunded),
       pensionTaxFreeCashUsed: opening.pensionTaxFreeCashUsed + result.split.taxFree,
     };
 
@@ -424,7 +478,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     allFailures.push(...failures);
 
     years.push({
-      yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
+      mortgageOverpayment, marginalFunding: marginal, yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
       employmentIncome, otherIncome, statePensionIncome, rentalIncome: property.rentalIncome,
       contributions, withdrawalsGross, investmentReturn,
       incomeTax: result.net.tax.totalIncomeTax - result.rentalFinanceRelief, employeeNi: result.net.ni.employee,
@@ -466,7 +520,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       totalTax: result.totalTax, investableSurplus,
       allocatedToCashReserve, allocatedToIsa, allocatedToGia,
       isaAllowanceUsed: isaUsedAtStart + allocatedToIsa,
-      isaAllowanceRemaining: Math.max(0, isaAssessment.remaining - allocatedToIsa),
+      isaAllowanceRemaining: Math.max(0, config.isaAllowance - isaUsedAtStart - allocatedToIsa),
       pensionAllowanceRemaining: result.net.allowance.remaining,
       pensionAccessible,
       accessibleWealth: accessibleWealth(closing), lockedWealth: lockedWealth(closing), netWorth: netWorth(closing),

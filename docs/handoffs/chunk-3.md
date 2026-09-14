@@ -73,7 +73,7 @@ Metadata extends the shared base without changing `src/domain/contracts.ts`: ful
 
 ## Verification and measured benchmark
 
-`npm run check`: **113 tests pass**, zero failures; strict typecheck and production build pass on Node 24.21.0. This includes all 92 prior tests plus 21 new ones.
+`npm run check`: **113 tests pass**, zero failures; strict typecheck and production build pass on Node 24.21.0. This includes all 92 prior tests plus 21 new ones. A fresh tracked-file export of commit `4befbc8`, with an independent offline `npm ci`, also passed all 113 tests and the full check; no untracked files or shared node_modules were required.
 
 New coverage: 100,000-draw moment tests for all five variables (0.003 absolute tolerance, >6 standard errors for tested moments); log-growth correlation test (0.012 tolerance); singular/invalid matrices; seed and horizon-prefix stability; zero-volatility path and complete ledger equality; known quantiles; real age-level aggregation; golden C/D/E probabilities; both spending effects across common paths; floor/comfort; metadata replay; caller-mutation isolation; custom generators/inflation/wrapper weights; path validation; repeated failures; sequence ordering/drawdown/recovery/censoring; progress; worker cancellation/errors; bit-identical local/out-of-order/Node-worker results. Vite builds both the browser coordinator and its nested workers in an automated test.
 

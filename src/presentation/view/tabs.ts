@@ -37,9 +37,9 @@ export const TABS: readonly TabDefinition[] = [
     groundwork: '',
   },
   {
-    id: 'marginal', label: 'Marginal Allocation', status: 'planned', package: 7,
+    id: 'marginal', label: 'Marginal Allocation', status: 'built', package: 7,
     summary: 'Where the next increment of capital does the most good, on an after-tax, constraint-aware basis.',
-    groundwork: 'Needs the marginal comparison engine from package 7. Exact incremental tax primitives exist in the tax engine already.',
+    groundwork: '',
   },
   {
     id: 'solver', label: 'Reverse Solver', status: 'built', package: 6,

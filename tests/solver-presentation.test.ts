@@ -22,13 +22,13 @@ const small = (mutate: (profile: Profile) => void = () => {}): Profile => profil
 const form = (mode: Parameters<typeof solverModeSummary>[0], drafts: Record<string, string> = {}, sensitivity = false) =>
   ({ mode, destination: 'gia' as const, includeSensitivity: sensitivity, drafts });
 
-test('both package-6 destinations are built and the other six tabs are untouched', () => {
+test('package-6 destinations stay built and only scenarios/attribution remain planned', () => {
   assert.equal(tabById('curve').status, 'built');
   assert.equal(tabById('solver').status, 'built');
   assert.equal(TABS.length, 8, 'all eight reference destinations are preserved');
   assert.deepEqual(
     TABS.filter(tab => tab.status === 'planned').map(tab => tab.id),
-    ['marginal', 'scenarios', 'attribution'],
+    ['scenarios', 'attribution'],
   );
   for (const tab of TABS) if (tab.status === 'built') assert.equal(tab.groundwork, '');
 });

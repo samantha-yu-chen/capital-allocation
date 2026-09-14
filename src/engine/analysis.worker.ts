@@ -1,3 +1,4 @@
+import { compareMarginal } from './marginal.js';
 /**
  * Coordinator worker for the reverse solvers and the FIRE age curve.
  *
@@ -26,7 +27,11 @@ const poolEvaluator = (transport: AnalysisTransport): EvaluateProfile => (profil
 scope.onmessage = async ({ data }) => {
   try {
     const evaluate = poolEvaluator(data.transport);
-    if (data.kind === 'solver') {
+    if (data.kind === 'marginal') {
+      const result = await compareMarginal(data.profile, data.request, { evaluate,
+        onProgress: progress => scope.postMessage({ type: 'marginal-progress', progress }) });
+      scope.postMessage({ type: 'marginal-done', result });
+    } else if (data.kind === 'solver') {
       const result = await runSolver(data.profile, data.request, {
         evaluate, includeSensitivity: data.includeSensitivity,
         onProgress: progress => scope.postMessage({ type: 'solver-progress', progress }),

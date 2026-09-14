@@ -1,3 +1,4 @@
+import type { MarginalRequest, MarginalResult, MarginalProgress } from './marginal.js';
 /**
  * Browser transport for the reverse solvers and the FIRE age curve.
  *
@@ -15,10 +16,13 @@ import type { SolverProgress, SolverRequest, SolverRun } from './solver.js';
 export interface AnalysisTransport { concurrency: number; batchSize: number }
 
 export type AnalysisRequest =
+  | { kind: 'marginal'; profile: Profile; request: MarginalRequest; transport: AnalysisTransport }
   | { kind: 'solver'; profile: Profile; request: SolverRequest; includeSensitivity: boolean; transport: AnalysisTransport }
   | { kind: 'curve'; profile: Profile; request: FireAgeCurveRequest; transport: AnalysisTransport };
 
 export type AnalysisReply =
+  | { type: 'marginal-progress'; progress: MarginalProgress }
+  | { type: 'marginal-done'; result: MarginalResult }
   | { type: 'solver-progress'; progress: SolverProgress }
   | { type: 'curve-progress'; progress: FireAgeCurveProgress }
   | { type: 'solver-done'; result: SolverRun }
@@ -73,4 +77,9 @@ export function fireAgeCurveBrowser(
     request: controls.ledgerOptions ? { ...request, ledgerOptions: controls.ledgerOptions } : request,
     transport: controls.transport ?? defaultTransport(),
   }, controls, 'curve-done', 'curve-progress');
+}
+
+export function compareMarginalBrowser(profile: Profile, request: MarginalRequest, controls: Controls<MarginalProgress>): Promise<MarginalResult> {
+  return runInWorker<MarginalProgress, MarginalResult>({ kind: 'marginal', profile, request,
+    transport: controls.transport ?? defaultTransport() }, controls, 'marginal-done', 'marginal-progress');
 }

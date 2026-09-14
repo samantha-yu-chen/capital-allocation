@@ -13,7 +13,8 @@ import {
   memoryScenarioCache, runScenarioBatch, scenarioCellKey, scenarioPreset,
 } from '../src/engine/scenario.js';
 import { defaultLedgerOptions, runDeterministicProjection } from '../src/engine/ledger.js';
-import { runMonteCarlo } from '../src/engine/monte-carlo/simulation.js';
+import { runMonteCarlo, simulateBatch } from '../src/engine/monte-carlo/simulation.js';
+import { createWorkerPool } from '../src/engine/monte-carlo/worker-pool.js';
 import { getTaxConfig, taxInputFromProfile, calculateNetIncome } from '../src/domain/tax/index.js';
 import { defaultProperty } from '../src/presentation/view/property-model.js';
 
@@ -406,6 +407,34 @@ test('income uplift cells report real take-home, marginal tax, contributions and
   assert.ok(result.cells.at(-1)!.simulation!.probability >= result.cells[0]!.simulation!.probability);
   // Take-home is measured after the member contribution, so it is below gross pay.
   assert.ok(rows.every(row => row.takeHome < row.grossIncome));
+});
+
+test('one worker set serves a whole batch and still returns identical results', async () => {
+  const profile = small(10);
+  let created = 0, terminated = 0;
+  const pool = createWorkerPool(2, () => {
+    created += 1;
+    let reply: ((message: { result: ReturnType<typeof simulateBatch> }) => void) | null = null;
+    return {
+      post: request => queueMicrotask(() => reply?.({ result: simulateBatch(request) })),
+      listen: handler => { reply = handler as typeof reply; },
+      terminate: () => { terminated += 1; },
+    };
+  });
+  const options = defaultLedgerOptions();
+  const run = () => runMonteCarlo(profile, { concurrency: 2, batchSize: 3, executeBatch: pool.executeBatch, ledgerOptions: options });
+  const first = await run();
+  const second = await run();
+  const third = await run();
+  // A completed simulation must not tear down a pool its owner still holds.
+  assert.equal(created, 2, 'the batch must reuse one worker set rather than respawning per simulation');
+  assert.equal(terminated, 0);
+  assert.equal(second.successProbability, first.successProbability);
+  assert.equal(third.terminalWealth.median, first.terminalWealth.median);
+  assert.deepEqual(second.metadata.pathIndices, first.metadata.pathIndices);
+  pool.close();
+  assert.equal(terminated, 2);
+  await assert.rejects(run(), /closed/);
 });
 
 test('an optional FIRE age search reports the earliest qualifying age from complete simulations', async () => {

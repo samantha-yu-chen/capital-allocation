@@ -1,8 +1,9 @@
 # V0.3 implementation work packages
 
-Status: chunks 1–7 implemented and tested. See `handoffs/chunk-7.md` for marginal allocation,
-208 passing tests, real Chrome evidence and the chunk-8 assignment. Prior handoffs preserve the
-tax, ledger, Monte Carlo, property and solver interfaces and their limitations. Chunks 8–10 remain open.
+Status: chunks 1–8 implemented and tested. See `handoffs/chunk-8.md` for named scenarios, versioned
+persistence and the scenario matrix, 230 passing tests, real Chrome evidence and the chunk-9
+assignment. Prior handoffs preserve the tax, ledger, Monte Carlo, property, solver and marginal
+interfaces and their limitations. Chunks 9–10 remain open.
 
 ## Authority and baseline
 
@@ -161,6 +162,8 @@ Done when: all 60 combinations are available and reproducible; saved scenarios r
 
 Checkpoint: named scenarios → matrix runner/cache → comparison screen.
 
+**Delivered.** `src/domain/scenarios.ts` owns named scenarios and the versioned library; `src/engine/scenario.ts` owns the strategies, the matrix and the batch runner; `src/presentation/view/scenario-model.ts` and the built Scenario Comparison screen present them. 230 tests pass. Every "done when" clause has a named test: all 60 combinations evaluate and reproduce, a cell replays the engine's own simulation exactly, the library round-trips and migrates while refusing invalid or unknown documents, scenario independence is asserted rather than assumed, and the spending cases assert both effects. Real Chrome evidence, measured timings and the limitations chunk 9 inherits are in `handoffs/chunk-8.md`.
+
 ## 9. Attribution, sensitivity, and stress analysis
 
 Suggested owner: Codex. Dependencies: 8. Spec: 34, 61, 69–72, 91–92; reference UI tab 8 plus FIRE analysis.
@@ -198,8 +201,8 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 8 to Claude. Use `handoffs/chunk-7.md` for the paste-ready assignment.
-Packages 1–7 supply the shared validated profile, complete tax/property lifetime ledger, common-path
-workers, reverse solvers and marginal comparisons. Build named scenarios, versioned local
-persistence and the Scenario Comparison screen with the required 60-combination matrix, preserving
-all inherited funding, uncertainty, cancellation and reproducibility conventions.
+Next assignment: package 9 to Codex. Use `handoffs/chunk-8.md` for the paste-ready assignment.
+Packages 1–8 supply the shared validated profile, complete tax/property lifetime ledger, common-path
+workers, reverse solvers, marginal comparisons and the named-scenario matrix. Build attribution,
+sensitivity and deterministic stress analysis on the same ledger and common paths, preserving all
+inherited funding, uncertainty, cancellation and reproducibility conventions.

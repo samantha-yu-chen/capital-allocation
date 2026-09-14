@@ -167,6 +167,8 @@ export function bandOptimisedContribution(profile: Profile): { rate: number; rea
  * catches the case that actually bites. It is a probe, never a guarantee — a path outside it that
  * still breaches the allowance is reported as an unsupported cell rather than as a failed plan.
  */
+const probeGenerator = new ParametricReturnGenerator();
+
 function lifetimeSupportsRate(profile: Profile, rate: number, options: LedgerOptions): boolean {
   const candidate = withEmployeeRate(profile, rate);
   const years = candidate.personal.endAge - candidate.personal.currentAge;
@@ -185,8 +187,6 @@ function lifetimeSupportsRate(profile: Profile, rate: number, options: LedgerOpt
     throw error;
   }
 }
-
-const probeGenerator = new ParametricReturnGenerator();
 
 /** The largest employee rate at or below `wanted` the allowance supports across the projection. */
 function feasibleEmployeeRate(profile: Profile, wanted: number, options: LedgerOptions): { rate: number; limited: boolean } {

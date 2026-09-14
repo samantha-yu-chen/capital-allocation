@@ -351,7 +351,8 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const cashBeforeAllocation = opening.accounts.cash + result.cashInflow
       - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
     const investableSurplus = result.cashInflow - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
-    const reserveTarget = emergencyReserveTarget(profile, spending.essentialNominal);
+    const annualEssential = spending.essentialNominal + property.operatingCosts + property.mortgage.payment;
+    const reserveTarget = emergencyReserveTarget(profile, annualEssential);
     const reserveShortfallGate = options.fundEmergencyReserve ? reserveTarget : 0;
     const investable = Math.max(0, Math.min(Math.max(0, investableSurplus), cashBeforeAllocation - reserveShortfallGate));
     const allocatedToCashReserve = Math.max(0, investableSurplus) - investable;
@@ -422,7 +423,6 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       failures.push({ age, code: 'insolvency', shortfall: -netWorth(closing) });
     allFailures.push(...failures);
 
-    const annualEssential = spending.essentialNominal;
     years.push({
       yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
       employmentIncome, otherIncome, statePensionIncome, rentalIncome: property.rentalIncome,

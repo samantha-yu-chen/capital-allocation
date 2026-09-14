@@ -136,3 +136,12 @@ test('a GIA-funded purchase grosses up disposal tax and consumes the deposit onl
   close(y.capitalGainsTax,disposal-60000,1e-6);close(y.closing.mortgageDebt,0);
   close(y.opening.accounts.gia-y.closing.accounts.gia+y.investmentReturn.gia,disposal,1e-6);
 });
+
+
+test('property operating costs and scheduled debt service enter emergency reserve and liquidity coverage',()=>{
+  const p=fixture();p.spending.currentRentMonthlyIncluded=700;
+  const y=runDeterministicProjection(p).years[0]!;
+  const essentials=y.spendingEssentialRequired+y.propertyOperatingCosts+y.mortgageInterest+y.mortgagePrincipalRequired;
+  close(y.emergencyReserveTarget,essentials*p.liquidity.emergencyFundMonths/12);
+  close(y.liquidityCoverageYears,y.accessibleWealth/essentials);
+});

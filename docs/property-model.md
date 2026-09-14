@@ -28,7 +28,7 @@ including retirement, floor/comfort, overrides and phases. During owner occupati
 once, up to that year's total (essentials first). The supplied spending total resumes on sale.
 Rental property never removes personal rent. Users must enter the other household budget without
 the mortgage, maintenance, insurance, service charge and council tax entered in the property form.
-The owner-paid council tax input should be zero if the tenant pays it. Recurring property costs
+Emergency reserves and liquidity coverage include required operating costs and scheduled mortgage service as well as non-housing essentials. The owner-paid council tax input should be zero if the tenant pays it. Recurring property costs
 inflate; gross rent is occupancy-adjusted and management fees apply to collected rent.
 
 ## Tax configuration and sources

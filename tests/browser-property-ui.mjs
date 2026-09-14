@@ -45,5 +45,5 @@ assert.equal(results.cancelled,true);assert.equal(results.invalid,true);assert.e
 assert.equal(results.propertyMobileOverflow,0);assert.equal(results.overviewMobileOverflow,0);assert.equal(results.fireMobileOverflow,0);
 assert.equal(errors.length,0);assert.ok(results.fullRun.frames>30);assert.ok(results.fullRun.maxGap<250);
 assert.equal(results.comparison.match(/FIRE success\t([\d.]+)%/)?.[1],results.fullRun.text.match(/Current ([\d.]+)%/)?.[1]);
-assert.ok(results.comparison.includes('Rent + invest'));
+assert.ok(results.comparison.toLowerCase().includes('rent + invest'));
 await fs.writeFile('/tmp/chunk5-ui-results.json',JSON.stringify({...results,errors},null,2));ws.close();

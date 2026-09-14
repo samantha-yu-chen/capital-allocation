@@ -385,6 +385,17 @@ function GroupExtras(props: { store: ProfileStore; group: FieldGroupId }): React
   }
 }
 
+/**
+ * A short inline row of named profile fields, for screens that need one or two inputs rather than
+ * a whole group. The field registry stays the only description of what a numeric input is.
+ */
+export function ProfileFields(props: { store: ProfileStore; ids: readonly string[]; columns?: 2 | 3 }): ReactNode {
+  const defs = props.ids
+    .map(id => props.store.defs.find(def => def.id === id))
+    .filter((def): def is NumberFieldDef => def !== undefined);
+  return <FieldGrid store={props.store} defs={defs} {...(props.columns ? { columns: props.columns } : {})} />;
+}
+
 export function ProfileForm(props: { store: ProfileStore; groups: readonly FieldGroupId[]; openByDefault?: readonly FieldGroupId[] }): ReactNode {
   const { store } = props;
   const open = new Set(props.openByDefault ?? props.groups);

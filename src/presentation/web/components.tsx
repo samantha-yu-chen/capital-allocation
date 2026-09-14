@@ -7,7 +7,7 @@
  */
 import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
-import type { NumberFieldDef } from '../view/fields.js';
+import type { ControlFieldDef, NumberFieldDef } from '../view/fields.js';
 import { moneyCompact } from '../view/format.js';
 import { bandPath, linearScale, linePath, niceDomain, niceTicks } from '../view/chart.js';
 
@@ -61,7 +61,7 @@ const UNIT: Record<NumberFieldDef['kind'], string> = {
 };
 
 export function NumberField(props: {
-  def: NumberFieldDef; value: string; errors: readonly string[];
+  def: ControlFieldDef; value: string; errors: readonly string[];
   onChange: (text: string) => void; compact?: boolean;
 }): ReactNode {
   const { def } = props;

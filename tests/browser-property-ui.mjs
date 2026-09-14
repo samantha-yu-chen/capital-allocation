@@ -1,18 +1,21 @@
 /** Manual Chrome/CDP acceptance test. Start npm run dev -- --port 5175 and a dedicated
  * headless Chrome with --remote-debugging-port=9225 --user-data-dir=/tmp/capital-chunk5-chrome.
- * Run with Node 24: node tests/browser-property-ui.mjs. Outputs JSON and PNGs into /tmp.
+ * Run with Node 24: node tests/browser-property-ui.mjs. Override APP_PORT / CDP_PORT to use
+ * another pair. Outputs JSON and PNGs into /tmp.
  * Do not edit application source while this runs: Vite reloads reset in-memory profiles.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-const tabs=await (await fetch('http://127.0.0.1:9225/json/list')).json();
+const appPort=process.env.APP_PORT??'5175';
+const cdpPort=process.env.CDP_PORT??'9225';
+const tabs=await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const ws=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
 await new Promise(r=>ws.onopen=r);let id=0;const pending=new Map();const errors=[];
 ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m.result);}else if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);};
 const cdp=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
 const ev=async(expression)=>{const r=await cdp('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
 const wait=async(expr,limit=90000)=>{const start=Date.now();while(Date.now()-start<limit){const r=await ev(expr);if(r)return r;await new Promise(r=>setTimeout(r,150));}throw Error('Timeout: '+expr);};
-const nav=async(path)=>{await cdp('Page.navigate',{url:'http://127.0.0.1:5175'+path});await wait('document.readyState === "complete"');};
+const nav=async(path)=>{await cdp('Page.navigate',{url:`http://127.0.0.1:${appPort}`+path});await wait('document.readyState === "complete"');};
 const click=async(text)=>{await ev(`(()=>{const e=[...document.querySelectorAll('button,label')].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!e)throw Error('Missing '+${JSON.stringify(text)});e.click();})()`);};
 const set=async(id,value)=>{await ev(`(()=>{const e=document.getElementById(${JSON.stringify(id)});if(!e)throw Error('Missing input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(String(value))});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`);};
 const shot=async(name)=>{const r=await cdp('Page.captureScreenshot',{format:'png'});await fs.writeFile('/tmp/'+name+'.png',Buffer.from(r.data,'base64'));};

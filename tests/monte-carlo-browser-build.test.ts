@@ -14,3 +14,15 @@ test('browser entry bundles its coordinator and nested simulation workers withou
     assert.ok(assets.some(name=>name.startsWith('browser-worker-')));
   } finally { await rm(outDir,{recursive:true,force:true}); }
 });
+test('the solver and curve entry bundles its coordinator and the simulation workers it drives', async () => {
+  const outDir=await mkdtemp(join(tmpdir(),'capital-analysis-build-'));
+  try {
+    await build({configFile:false,logLevel:'silent',build:{outDir,emptyOutDir:true,
+      lib:{entry:'src/engine/analysis-browser.ts',formats:['es'],fileName:'analysis'}}});
+    const assets=await readdir(join(outDir,'assets'));
+    // The search coordinator keeps every candidate's ledger work off the UI thread, and drives the
+    // existing simulation pool rather than re-implementing batch execution.
+    assert.ok(assets.some(name=>name.startsWith('analysis.worker-')));
+    assert.ok(assets.some(name=>name.startsWith('browser-worker-')));
+  } finally { await rm(outDir,{recursive:true,force:true}); }
+});

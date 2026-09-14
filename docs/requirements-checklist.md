@@ -2,9 +2,9 @@
 
 This checklist tracks section 88 of the comprehensive spec. “Foundation” means contracts/primitives exist; it does not claim the full lifetime behaviour is implemented. Additional requirements inside the full spec remain authoritative.
 
-After chunk 5 the deterministic ledger, Monte Carlo and integrated single-property engine are implemented, with Overview, FIRE & Monte Carlo and Property & Leverage built in the browser. Solver, marginal-allocation, saved-scenario and attribution work remains open. See `handoffs/chunk-5.md` for 157 passing tests and real-browser property verification, and `property-model.md` for the property accounting, tax sources and boundaries. `docs/v0.3-requirements-checklist.md` holds the longer acceptance analysis for the package-10 audit.
+After chunk 6 the deterministic ledger, Monte Carlo, the integrated single-property engine and the bounded reverse solvers are implemented, with Overview, FIRE & Monte Carlo, FIRE Age Curve, Reverse Solver and Property & Leverage built in the browser. Marginal-allocation, saved-scenario and attribution work remains open. See `handoffs/chunk-6.md` for 184 passing tests and the real-browser solver/curve verification, `handoffs/chunk-5.md` for the property work, and `property-model.md` for the property accounting, tax sources and boundaries. `docs/v0.3-requirements-checklist.md` holds the longer acceptance analysis for the package-10 audit.
 
-| # | MUST requirement | Owning chunks | Status / evidence after chunk 5 |
+| # | MUST requirement | Owning chunks | Status / evidence after chunk 6 |
 | --- | --- | --- | --- |
 | 1 | UK tax model | 1, 2 | Annual primitives, plus one joint annual assessment per projected year in the ledger; `tests/tax.test.ts`, `tax-allocation.test.ts`, and `ledger-reconciliation.test.ts` reproduces the documented £9,927.05 / £3,055.60 reference case |
 | 2 | Scotland support | 1 | Implemented and tested alongside rest of UK; the ledger selects the region's config every year |
@@ -21,9 +21,9 @@ After chunk 5 the deterministic ledger, Monte Carlo and integrated single-proper
 | 13 | FIRE probability | 3, 4 | **Done.** Full-lifecycle path success, bridge/depletion and overlapping observed failure probabilities; golden C/D/E in `monte-carlo.test.ts`. Shown live against the target on the FIRE screen, with the overlap caveat next to the bars; a 10,000-path run in Chrome reproduced 68.98% success, 0.32% bridge and 31.02% depletion |
 | 14 | Sequence risk | 3, 4 | **Done.** First-five-year real drawdown, two-years-spending liquidity, conditional recovery median and censored counts; controlled sequence tests in `monte-carlo.test.ts`. Presented on the FIRE screen with recovered/unrecovered counts and the conditional-median caveat; `presentation-screens.test.ts` |
 | 15 | Pre-pension bridge | 2, 3, 4 | **Done.** Chunk-2 bridge accounting reused; locked-pension probability is 100% failure in golden E. Distinct-path counts tested in `monte-carlo.test.ts`. Bridge length, required bridge capital, its coverage ratio and the bridge-failure probability are all on screen |
-| 16 | FIRE-age probability curve | 6 | Pending |
-| 17 | Reverse savings solver | 6 | Pending |
-| 18 | Reverse gross-salary solver | 6 | Pending |
+| 16 | FIRE-age probability curve | 6 | **Done.** `fireAgeCurve` runs the complete model at every candidate FIRE age on one seed and path index set, reports the earliest age clearing the target, and flags a curve that does not rise with every extra working year. Tested against a direct `runMonteCarlo` at the profile's own FIRE age, for exact replay, for property sensitivity and for cancellation in `solver.test.ts`; drawn on the built FIRE Age Curve screen with the same numbers tabulated beside the chart and a 95% sampling interval per age |
+| 17 | Reverse savings solver | 6 | **Done.** The `savings` mode searches the annual investable surplus, funded by cutting the working-life budget rather than by creating capital, and the solved plan's measured first-year surplus is asserted to equal the answer. `retirement_spending`, `fire_age`, `starting_capital` and `pension_contribution` searches share the same bounded framework; `solver.test.ts` covers already-met targets, bounded infeasibility, spending-search direction, the pension-access boundary and the non-monotone contribution scan |
+| 18 | Reverse gross-salary solver | 6 | **Done.** The `salary` mode searches gross pay through the real marginal tax, NI and pension rules, brackets the answer to £100, re-runs the returned candidate through the complete model to confirm it, and narrows the bound explicitly when the tapered annual allowance stops supporting larger salaries. Section 33's sensitivity cases are each re-solved in full rather than scaled. Shown on the built Reverse Solver screen with the whole evaluation trace |
 | 19 | Marginal pension/ISA/GIA | 7 | Tax primitives and a whole-life ledger to re-run are ready; optimiser pending |
 | 20 | Single-property model | 5 | **Done.** Atomic, tax-grossed-up purchase funding; acquisition/sale taxes and costs; owner/rental operating cash flows; explicit sale proceeds; amortisation, interest-only balloons and arrears in every deterministic/stochastic path. `property.test.ts`, `ledger-reconciliation.test.ts`, `monte-carlo.test.ts`; property changes FIRE success. Tax boundaries in `property-model.md` |
 | 21 | Property leverage | 5 | **Done.** Equity, LTV, debt-service coverage, downside leverage, equity drawdown and full-plan 3/5/7/9% mortgage scenarios on the built Property screen. Golden scenario B and repayment/refinance/balloon tests in `property.test.ts`; view-model checks in `property-presentation.test.ts` |
@@ -34,7 +34,7 @@ After chunk 5 the deterministic ledger, Monte Carlo and integrated single-proper
 | 26 | Seeded reproducibility | 3, 4 | **Done.** Seed/index streams, scenario-independent shocks, full extended metadata, replay and identical local/worker/out-of-order batch results; generator and simulation tests. The full metadata record is shown after every run, and browser/local result equality was confirmed in Chrome for the first time in chunk 4 |
 | 27 | Sensitivity | 9 | Pending |
 | 28 | Income-vs-allocation attribution | 9 | Pending |
-| 29 | Spending sensitivity | 2, 8, 9 | **Engine probability comparisons available.** Shared-path configurable monthly spending and fixed floor/target/comfort runs tested alongside deterministic double effects; sensitivity UI and broader analysis remain chunks 8/9. |
+| 29 | Spending sensitivity | 2, 6, 8, 9 | **Engine probability comparisons available, plus a spending search.** Shared-path configurable monthly spending and fixed floor/target/comfort runs tested alongside deterministic double effects. Chunk 6 adds the bounded `retirement_spending` search and a re-solved −£150/month sensitivity case on the Reverse Solver. The saved side-by-side spending matrix and broader sensitivity analysis remain chunks 8/9. |
 
 ## UI delivery
 
@@ -45,9 +45,9 @@ exists and states which package owns it; it renders no illustrative figures.
 | --- | --- | --- |
 | Overview | 4 | **Built.** Full profile editing with runtime validation, separable liquid/pension/property wealth, the year's cash flow and marginal rate, the reference FIRE ratios, and a browsable annual ledger in today's money or nominal |
 | FIRE & Monte Carlo | 4 | **Built.** Live `runMonteCarloBrowser` runs with progress, cancellation, error states and stale-result invalidation; probabilities, percentiles, age-level fans, sequence risk, diagnostics and reproducibility metadata |
-| FIRE Age Curve | 6 | Reachable, labelled |
+| FIRE Age Curve | 6 | **Built.** Live `fireAgeCurveBrowser` runs with per-age and per-path progress, cancellation, error states and stale-result invalidation; the probability curve, the earliest qualifying age, bridge length, capital at FIRE and terminal wealth per age, and the sampling interval beside every probability |
 | Marginal Allocation | 7 | Reachable, labelled |
-| Reverse Solver | 6 | Reachable, labelled |
+| Reverse Solver | 6 | **Built.** Six searched inputs against the full model, the bracket around each answer, an independent confirmation run, the complete evaluation trace including unsupported candidates, and section 33's sensitivity cases as separate searches. Progress, cancellation and stale invalidation as on FIRE |
 | Scenario Comparison | 8 | Reachable, labelled |
 | Property & Leverage | 5 | **Built.** Validated conditional property form, equity/LTV/coverage/downside, rate scenarios, complete property ledger and cancellable 10,000-pair rent/invest comparison. Verified in Chrome at 1440px and 390px. Overview includes property ledger audit lines; FIRE includes property wealth and mortgage failures |
 | Where It Comes From | 9 | Reachable, labelled |

@@ -37,15 +37,24 @@ export const FIELD_GROUPS: readonly FieldGroup[] = [
 /** How a stored value is shown and typed back. `percent` stores a fraction and shows ×100. */
 export type FieldKind = 'money' | 'monthlyMoney' | 'percent' | 'age' | 'integer' | 'decimal' | 'multiple';
 
-export interface NumberFieldDef {
-  /** Dot-joined path; doubles as the DOM id and the draft key. */
+/**
+ * A numeric input's presentation metadata. Profile fields extend it with a path into the shared
+ * contract; screen-level controls that are not part of the profile (search bounds, an age range)
+ * use it directly, so `NumberField` has exactly one input shape to render.
+ */
+export interface ControlFieldDef {
+  /** Doubles as the DOM id and the draft key. */
   id: string;
   label: string;
-  group: FieldGroupId;
-  path: readonly (string | number)[];
   kind: FieldKind;
   step: number;
   help?: string;
+}
+
+export interface NumberFieldDef extends ControlFieldDef {
+  group: FieldGroupId;
+  /** Dot-joined path into `Profile`; it is also this field's id. */
+  path: readonly (string | number)[];
 }
 
 const id = (path: readonly (string | number)[]): string => path.join('.');
@@ -247,13 +256,13 @@ const displayScale = (kind: FieldKind): number => kind === 'percent' ? 100 : 1;
 /** Trims the binary-representation noise that ×100 introduces (0.85 → 85, not 85.00000000000001). */
 const tidy = (value: number): number => Number.isFinite(value) ? Number(value.toPrecision(12)) : value;
 
-export function toDisplay(def: NumberFieldDef, stored: number): string {
+export function toDisplay(def: ControlFieldDef, stored: number): string {
   if (!Number.isFinite(stored)) return '';
   return String(tidy(stored * displayScale(def.kind)));
 }
 
 /** An unparseable draft becomes NaN so `profileSchema` rejects it; it never falls back to the old value. */
-export function fromDisplay(def: NumberFieldDef, text: string): number {
+export function fromDisplay(def: ControlFieldDef, text: string): number {
   const trimmed = text.trim();
   if (trimmed === '') return Number.NaN;
   const parsed = Number(trimmed);

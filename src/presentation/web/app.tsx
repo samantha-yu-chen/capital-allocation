@@ -17,6 +17,8 @@ import { useMonteCarlo, type Transport } from './use-monte-carlo.js';
 import { OverviewScreen } from './screen-overview.js';
 import { FireScreen, type RunSettings } from './screen-fire.js';
 import { PlannedScreen } from './screen-planned.js';
+import { CurveScreen } from './screen-curve.js';
+import { SolverScreen } from './screen-solver.js';
 
 const defaultConcurrency = (): number =>
   Math.min(4, Math.max(1, typeof navigator === 'undefined' ? 1 : navigator.hardwareConcurrency || 1));
@@ -133,6 +135,8 @@ export function App(): ReactNode {
         <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>
           {active === 'property' ? <PropertyScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'overview' ? <OverviewScreen store={store} ledgerOptions={ledgerOptions} /> : null}
+          {active === 'curve' ? <CurveScreen store={store} ledgerOptions={ledgerOptions} /> : null}
+          {active === 'solver' ? <SolverScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'fire' ? (
             <FireScreen
               store={store}

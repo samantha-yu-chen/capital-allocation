@@ -82,3 +82,38 @@ pension tax-free allowance. Exclude inaccessible pension and unsold property fro
 report their net-worth effect and debt separately. This is an explicit V0.3 valuation approximation,
 not an optimal drawdown policy or a forced transaction in the ledger. Pairwise standard errors
 qualify rankings; static wrapper ordering and arbitrary liquidity prices are prohibited.
+
+## ADR 007: named scenarios, versioned persistence and the scenario matrix (chunk 8)
+
+A scenario is a name, a validated `Profile` and the plan-level run options — the retirement level,
+the household spending override, the emergency-reserve policy and the surplus destination. Solver
+tolerances are transport, and `marginalAction`, `rentInvestment` and `measureAllocation` belong to
+the marginal and property comparisons, so a scenario never carries them and a scenario run rejects a
+request that sets them. A scenario's own options win over the transport defaults: the saved plan is
+the thing being compared.
+
+Persistence is a versioned document (`kind` + `version`) in local storage behind a `ScenarioStorage`
+seam, so the same load path runs under Node. Nothing persisted is trusted: every stored profile is
+re-parsed by `profileSchema`, a schema-1 document is migrated explicitly with its defaults stated,
+and an unknown version, a wrong kind, a duplicate id or an invalid profile is rejected with reasons
+rather than partially loaded. Constructors and mutators re-parse rather than alias, so editing one
+scenario cannot reach into another; the tests assert that instead of relying on structural sharing.
+
+Strategies are profile transforms, never result adjustments. ISA Heavy contributes only what still
+earns the employer match on offer. Pension Tax-Band Optimised solves, with the real annual tax API,
+the smallest contribution that vacates the top non-savings band the plan occupies, then caps it at
+the largest rate the annual allowance supports across the projection — probed with the expected-value
+ledger plus sampled paths, as the solver does. The cap is stated in the cell rather than hidden.
+Balanced keeps the contractual policy. Property buys the configured purchase; a plan that already
+owns a property keeps it under every strategy, and Property and No Property are then reported as
+unsupported rather than inventing or deleting an asset.
+
+Every cell reuses the entered seed, path count, horizon and market assumptions. `assertCommonPaths`
+checks the candidate before it runs and `assertScenarioPaths` checks the returned metadata and path
+indices afterwards; a saved scenario that changes the draw is reported incomparable, not compared.
+Cache keys cover the whole validated profile, every resolved ledger option and the engine,
+simulation, generator and tax-configuration versions. A reduced-count preview must be requested
+explicitly, is keyed separately so it can never satisfy a full-count request, and is labelled
+wherever it appears. A batch runs in the existing coordinator worker and keeps one simulation worker
+set for all of its cells; batches are stateless and aggregation stays in path-index order, so reuse
+cannot change a result. A cancelled batch publishes nothing — no partial matrix.

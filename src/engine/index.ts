@@ -5,5 +5,6 @@ export * from './returns.js';
 export * from './solve.js';
 export * from './solver.js';
 export * from './fire-curve.js';
+export * from './scenario.js';
 export * from './spending.js';
 export * from './monte-carlo/index.js';

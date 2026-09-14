@@ -144,9 +144,9 @@ test('all eight reference destinations are present and unfinished ones name thei
     'overview', 'fire', 'curve', 'marginal', 'solver', 'scenarios', 'property', 'attribution',
   ]);
   assert.deepEqual(TABS.filter(tab => tab.status === 'built').map(tab => tab.id),
-    ['overview', 'fire', 'curve', 'marginal', 'solver', 'property']);
+    ['overview', 'fire', 'curve', 'marginal', 'solver', 'scenarios', 'property']);
   for (const tab of TABS.filter(tab => tab.status === 'planned')) {
-    assert.ok(tab.package >= 7, `${tab.id} must name a later package`);
+    assert.ok(tab.package >= 9, `${tab.id} must name a later package`);
     assert.ok(tab.groundwork.length > 0, `${tab.id} must say what is missing`);
   }
   assert.equal(tabById('fire').label, 'FIRE & Monte Carlo');

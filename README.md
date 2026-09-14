@@ -4,9 +4,9 @@ A locally runnable lifetime capital-allocation and FIRE model for a UK resident,
 rest-of-UK 2026/27 tax rules. The [V0.3 specification](docs/lifetime-capital-allocation-fire-optimisation-spec-v0.3.md)
 is the product authority; [design/](design/) contains the Organic UI reference.
 
-Packages 1–7 provide a reconciled annual ledger, seeded Monte Carlo, integrated property,
-bounded reverse solvers, an age curve and marginal capital allocation. Six of the eight reference
-screens run real engines:
+Packages 1–8 provide a reconciled annual ledger, seeded Monte Carlo, integrated property,
+bounded reverse solvers, an age curve, marginal capital allocation and named scenario comparison.
+Seven of the eight reference screens run real engines:
 
 | Screen | Available functionality |
 | --- | --- |
@@ -16,11 +16,11 @@ screens run real engines:
 | Marginal Allocation | One-off gross earnings or existing after-tax cash across pension, ISA, GIA, cash, mortgage overpayment and property deposit |
 | Reverse Solver | Salary, savings, FIRE age, retirement spending, starting capital and pension-contribution searches, plus worked sensitivity cases |
 | Property & Leverage | Purchase/sale, housing costs, mortgages, rental tax, leverage and paired rent/invest comparison |
-| Scenario Comparison | Planned: package 8, including local persistence and the scenario matrix |
+| Scenario Comparison | Named scenarios with versioned local save/load, the 5 × 3 × 4 salary/spending/strategy matrix, spending and income sensitivity, all on common market paths |
 | Where It Comes From | Planned: package 9, attribution and stress analysis |
 
 See the [work packages](docs/implementation-work-packages.md), [requirements evidence](docs/requirements-checklist.md)
-and [chunk-7 handoff](docs/handoffs/chunk-7.md) for delivery details and remaining scope.
+and [chunk-8 handoff](docs/handoffs/chunk-8.md) for delivery details and remaining scope.
 
 ## Run
 
@@ -33,9 +33,11 @@ npm run dev -- --port 5177 --strictPort
 ```
 
 Open `http://127.0.0.1:5177`. No API keys, accounts, backend servers or external financial services
-are needed. Profile edits are in memory only; refreshing loses them until package 8 adds persistence.
+are needed. Profile edits are still in memory only, but a *named scenario* saved on the Scenario
+Comparison screen is stored in this browser's local storage and survives a refresh. Nothing is sent
+anywhere: the library is a versioned JSON document you can also export and re-import by hand.
 
-`npm run check` runs strict typechecking, all 208 tests and the production build. Individual commands
+`npm run check` runs strict typechecking, all 230 tests and the production build. Individual commands
 are `npm test`, `npm run typecheck` and `npm run build`. `npm run demo`, `npm run ledger` and
 `npm run monte-carlo` print actual tax, annual ledger and simulation outputs. Generated `build/`
 and `dist/` directories are Git-ignored.
@@ -43,8 +45,29 @@ and `dist/` directories are Git-ignored.
 Calculations run in browser workers. Expensive comparisons announce their cost before execution,
 report progress and support cancellation. Cancelled or failed analyses publish nothing, and edits
 invalidate results. The default is 10,000 paths; analyses never lower the count automatically.
-A marginal comparison runs up to seven full simulations, while a complete reverse solve with
-sensitivity cases can take several minutes.
+A marginal comparison runs up to seven full simulations, the required scenario matrix runs sixty,
+and a complete reverse solve with sensitivity cases can take several minutes.
+
+## Scenario comparison
+
+Save the current profile as a named scenario, or create one from a preset — Baseline, ISA Heavy,
+Pension Heavy, Income Growth, Property Heavy, No Property, Aggressive FIRE, Conservative FIRE. Each
+preset is an explicit transform of your plan and says what it changed; a preset this profile cannot
+express states why instead of creating a misleading scenario. The library is versioned: it is
+re-validated on every load, an older document is migrated explicitly, and a document this build
+cannot read is refused with reasons rather than partially loaded.
+
+Four comparisons run on common random numbers: the required matrix of five salaries × three
+spending cases × four capital strategies, the section 61 spending cases, the section 62 income
+bands, and your saved scenarios. Every cell is a complete lifetime simulation at the entered path
+count, reporting take-home, marginal rate, pension and ISA contributions, total invested, FIRE
+success with its sampling interval, and liquid, pension and net wealth at that plan's own FIRE age.
+Spending cases show both halves of their effect — the investable surplus they leave and the capital
+target they create. A lead inside the paired sampling interval is reported as a tie.
+
+The path count is never lowered for you. A reduced-path preview has to be asked for, is labelled a
+preview everywhere it appears, and is cached separately so it can never stand in for a full-count
+result. Cancelling publishes no partial matrix.
 
 ## Marginal allocation
 
@@ -77,15 +100,18 @@ Use a separate headless Chrome profile so testing does not disturb your normal b
   --user-data-dir=/tmp/capital-chunk7-chrome about:blank
 
 # With Vite running on port 5177:
+APP_PORT=5177 CDP_PORT=9227 node tests/browser-scenario-ui.mjs
 APP_PORT=5177 CDP_PORT=9227 node tests/browser-marginal-ui.mjs
 APP_PORT=5177 CDP_PORT=9227 node tests/browser-property-ui.mjs
 APP_PORT=5177 CDP_PORT=9227 node tests/browser-solver-ui.mjs
 ```
 
 These manual harnesses write JSON and desktop/mobile screenshots into `/tmp`; they are separate
-from `npm test`. The marginal harness also runs both worker smoke variants at
-`/tests/browser-worker-smoke.html` and `?property`. Do not edit application source while a harness
-runs: a Vite reload resets the in-memory profile.
+from `npm test`. The scenario and marginal harnesses also run both worker smoke variants at
+`/tests/browser-worker-smoke.html` and `?property`. The scenario harness clears and rewrites the
+saved scenario library in that isolated Chrome profile, so run it against a throwaway
+`--user-data-dir`. Do not edit application source while a harness runs: a Vite reload resets the
+in-memory profile.
 
 ## Engine APIs and assumptions
 
@@ -102,8 +128,9 @@ const result = await compareMarginal(profile, {
 console.log(result.candidates);
 ```
 
-`runDeterministicProjection`, `runMonteCarlo`, `comparePropertyPlans`, `solveTarget`, `runSolver`
-and `fireAgeCurve` expose the other analyses. Browser adapters use worker coordinators and the
+`runDeterministicProjection`, `runMonteCarlo`, `comparePropertyPlans`, `solveTarget`, `runSolver`,
+`fireAgeCurve`, `buildScenarioMatrix` and `runScenarioBatch` expose the other analyses;
+`loadScenarioLibrary` validates and migrates a saved scenario document. Browser adapters use worker coordinators and the
 same engines. Shared validation is in `src/domain/contracts.ts`; testable presentation logic lives
 in `src/presentation/view/`.
 

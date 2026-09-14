@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExampleProfile } from '../src/domain/fixtures.js';
-import { parseProfile, scenarioSchema } from '../src/domain/contracts.js';
+import { parseProfile } from '../src/domain/contracts.js';
+import { createScenario } from '../src/domain/scenarios.js';
 
 test('section 79 fixture is valid, serializable and independent per call', () => {
   const p = createExampleProfile();
@@ -10,7 +11,7 @@ test('section 79 fixture is valid, serializable and independent per call', () =>
   assert.deepEqual(parseProfile(JSON.parse(JSON.stringify(p))), p);
   p.assets.cash = 0;
   assert.equal(createExampleProfile().assets.cash, 10_000);
-  assert.equal(scenarioSchema.parse({ schemaVersion: '1', id: 'baseline', name: 'Baseline', profile: p }).name, 'Baseline');
+  assert.equal(createScenario({ name: 'Baseline', profile: createExampleProfile() }).name, 'Baseline');
 });
 test('invalid financial inputs fail at the boundary', () => {
   for (const invalid of [-1, NaN, Infinity, '55000']) {

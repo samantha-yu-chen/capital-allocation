@@ -577,4 +577,36 @@ function buildMetrics(profile: Profile, years: LedgerYearDetail[], options: Ledg
   };
 }
 
+export interface MarginalIncrement {
+  increment: number;
+  incomeTax: number;
+  employeeNi: number;
+  total: number;
+  /** Combined income tax + employee NI on the increment, as a fraction of gross. */
+  rate: number;
+  extraPensionContribution: number;
+}
+
+/**
+ * Marginal income tax and employee NI on the next slice of gross salary.
+ *
+ * Measured by re-running the real projection, so it is the model's own marginal rate rather than a
+ * parallel tax formula. The pension policy is held constant, so under salary sacrifice the taxable
+ * part of the increment is smaller than the increment itself; callers must label it that way.
+ * Throws whatever the engine throws for an unsupported uplifted profile.
+ */
+export function marginalIncrement(
+  profile: Profile, base: LedgerYearDetail, overrides: Partial<LedgerOptions>, increment: number,
+): MarginalIncrement {
+  if (!(increment > 0)) throw new RangeError('The increment must be positive.');
+  const raised: Profile = { ...profile, income: { ...profile.income, salaryAnnual: profile.income.salaryAnnual + increment } };
+  const uplifted = runDeterministicProjection(raised, overrides).years[0]!;
+  const incomeTax = uplifted.incomeTax - base.incomeTax;
+  const employeeNi = uplifted.employeeNi - base.employeeNi;
+  return {
+    increment, incomeTax, employeeNi, total: incomeTax + employeeNi, rate: (incomeTax + employeeNi) / increment,
+    extraPensionContribution: uplifted.pensionContributionTotal - base.pensionContributionTotal,
+  };
+}
+
 export type { RetirementSpendingLevel };

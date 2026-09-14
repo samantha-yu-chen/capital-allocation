@@ -47,9 +47,9 @@ export const TABS: readonly TabDefinition[] = [
     groundwork: '',
   },
   {
-    id: 'scenarios', label: 'Scenario Comparison', status: 'planned', package: 8,
-    summary: 'Named saved alternatives compared on common market paths.',
-    groundwork: 'Needs scenario persistence and the matrix runner from package 8. The versioned scenario schema already exists in the shared contracts.',
+    id: 'scenarios', label: 'Scenario Comparison', status: 'built', package: 8,
+    summary: 'Named saved alternatives, the required salary × spending × strategy matrix, and spending and income sensitivity on common market paths.',
+    groundwork: '',
   },
   {
     id: 'property', label: 'Property & Leverage', status: 'built', package: 5,

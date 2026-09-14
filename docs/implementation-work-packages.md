@@ -1,6 +1,6 @@
 # V0.3 implementation work packages
 
-Status: chunks 1 and 2 implemented and tested. See `handoffs/chunk-2.md` for the delivered ledger API, calculation conventions, verification and the chunk-3 assignment; `handoffs/chunk-1.md` still documents the contracts and tax engine. Chunks 3–10 remain open.
+Status: chunks 1–3 implemented and tested. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions, the benchmark and the chunk-4 assignment. See `handoffs/chunk-2.md` for the delivered ledger API, calculation conventions, verification and the chunk-3 assignment; `handoffs/chunk-1.md` still documents the contracts and tax engine. Chunks 4–10 remain open.
 
 ## Authority and baseline
 
@@ -64,6 +64,8 @@ Goal: run the same lifetime accounting over market paths and produce defensible 
 Done when: identical inputs reproduce results; zero volatility matches the deterministic ledger; sampling statistics satisfy justified tolerances; certain success, certain failure and locked-wealth fixtures pass. Record a 10,000-path runtime benchmark.
 
 Checkpoint: path generator → lifecycle aggregation → statistical and cross-engine validation.
+
+**Delivered.** `src/engine/monte-carlo/` implements seeded correlated paths, real outcome aggregation, sequence diagnostics and cancellable worker batches. 113 tests pass. A 10,000-path/64-year run completed in 5.949 seconds on four workers. Browser bundles compile; live browser verification remains explicit in the chunk-4 handoff. See `handoffs/chunk-3.md`.
 
 ## 4. Working application shell, Overview, and FIRE screens
 
@@ -179,4 +181,4 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 3 to Codex. Packages 1 and 2 are delivered with a tested foundation, tax engine and deterministic lifetime ledger. Use `handoffs/chunk-2.md` as the integration guide, with `handoffs/chunk-1.md` and `architecture-decisions.md` for the underlying contracts and conventions. `runProjection(profile, path, options)` already accepts any `MarketPath`, so package 3 supplies sampled paths rather than reimplementing lifetime accounting.
+Next assignment: package 4 to Claude. Use `handoffs/chunk-3.md` for the full assignment and integration guide. Packages 1–3 supply the tested tax engine, lifetime ledger and worker-based Monte Carlo analysis. Build the application screens on these APIs; preserve the ledger and stochastic conventions documented in the handoffs.

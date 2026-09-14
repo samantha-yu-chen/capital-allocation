@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.build.json && vite build",
     "test": "tsc -p tsconfig.build.json && node --test build/tests/*.test.js",
     "demo": "tsc -p tsconfig.build.json && node build/src/presentation/cli/tax-example.js",
+    "monte-carlo": "tsc -p tsconfig.build.json && node build/src/presentation/cli/monte-carlo-example.js",
     "ledger": "tsc -p tsconfig.build.json && node build/src/presentation/cli/ledger-example.js",
     "check": "npm run typecheck && npm test && npm run build"
   },

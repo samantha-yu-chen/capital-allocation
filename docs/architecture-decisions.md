@@ -22,3 +22,13 @@ Use strict TypeScript with pure domain functions, React/Vite for web presentatio
 `src/domain/contracts.ts` and `fixtures.ts` are the shared input/result contracts. `src/config/tax/` owns effective-year rules; `src/domain/tax/` owns annual tax calculations. `src/engine/` will own deterministic accounting and simulation implementations in chunks 2/3. `src/presentation/` adapts outputs; it must not duplicate tax formulas.
 
 Return-generator, ledger and simulation interfaces are contracts, not claims that those engines are implemented. New schema versions require explicit migration; unknown fields and unsupported tax years fail rather than silently falling back. Do not import code from another agent's private scratch file. Update the handoff when a public contract changes.
+
+## ADR 004: stochastic model and worker execution (chunk 3)
+
+Use lognormal gross growth calibrated to arithmetic annual return means/standard deviations. The profile correlation matrix describes Gaussian log-growth shocks; arithmetic-return correlation is generally different. Preserve the existing profile schema and document the previously unspecified sampling convention through the generator version. Support positive-semidefinite/singular matrices.
+
+Seed independent path streams by seed and absolute path index, consuming five normal shocks per year regardless of scenario decisions or zero-volatility variables. Every path uses the unchanged lifetime ledger and its failure records. Aggregate in path-index order for scheduling-independent results.
+
+Extend result/metadata interfaces locally in `monte-carlo/`, preserving the shared contracts. Report real closing wealth at age+1 and opening FIRE capital at FIRE age. Diagnostics are associations; direct ledger failure events remain separate.
+
+Use reusable batch workers and a browser coordinator so both accounting and final percentile sorting stay off the UI thread. Reject cancelled/failed runs instead of publishing partial probabilities. Runtime/count limits never silently change simulation count or solver precision.

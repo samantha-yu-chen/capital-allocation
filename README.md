@@ -2,7 +2,7 @@
 
 Lifetime capital allocation and FIRE modelling for a UK resident. The [comprehensive V0.3 spec](docs/lifetime-capital-allocation-fire-optimisation-spec-v0.3.md) is the product authority; [design/](design/) contains the UI reference.
 
-Chunk 1 delivers the TypeScript/React scaffold, validated financial contracts and a versioned 2026/27 UK tax engine. The lifetime ledger, simulations and dashboard are subsequent chunks. See the [assignment plan](docs/implementation-work-packages.md), [requirements checklist](docs/requirements-checklist.md) and [Claude handoff](docs/handoffs/chunk-1.md).
+Chunks 1–3 deliver the TypeScript/React scaffold, validated contracts, 2026/27 UK tax engine, deterministic lifetime ledger and reproducible worker-based Monte Carlo FIRE analysis. Dashboard screens begin in chunk 4. See the [assignment plan](docs/implementation-work-packages.md), [requirements checklist](docs/requirements-checklist.md) and [latest handoff](docs/handoffs/chunk-3.md).
 
 ## Run
 
@@ -12,6 +12,8 @@ Install Node.js 24 with npm (also specified in `.nvmrc`), then:
 npm ci
 npm run check
 npm run demo
+npm run ledger
+npm run monte-carlo
 npm run dev
 ```
 

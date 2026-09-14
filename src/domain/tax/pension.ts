@@ -7,6 +7,8 @@ export const pensionContributionInputSchema = z.strictObject({ employmentIncome:
   /** Contractual contribution basis before sacrifice. Explicitly passed; bonus inclusion is employer-specific. */
   pensionablePay: money, memberAge: age, policy: pensionPolicySchema,
   additionalReliefAtSourceGross: money.default(0),
+  /** One-off employee contribution; matching uses the existing contractual pay cap. */
+  additionalWorkplaceGross: money.default(0),
   /** Caller supplies the lawful retained earnings floor (e.g. minimum-wage hours). */
   minimumRetainedPayAnnual: money.default(0),
 });
@@ -18,7 +20,7 @@ export class PensionLimitError extends RangeError {
 }
 export function calculatePensionContributions(input: PensionContributionInput, config: TaxConfig) {
   const p = pensionContributionInputSchema.parse(input), policy = p.policy;
-  const employeeGross = p.pensionablePay * policy.employeeRate;
+  const employeeGross = p.pensionablePay * policy.employeeRate + p.additionalWorkplaceGross;
   const salarySacrifice = policy.method === 'salary_sacrifice' ? employeeGross : 0;
   const netPayGross = policy.method === 'net_pay' ? employeeGross : 0;
   const reliefAtSourceGross = (policy.method === 'relief_at_source' ? employeeGross : 0) + p.additionalReliefAtSourceGross;
@@ -34,7 +36,7 @@ export function calculatePensionContributions(input: PensionContributionInput, c
   const employerNiSaving = beforeNi.employer - afterNi.employer;
   const employerNiShareback = employerNiSaving * policy.employerNiSharebackRate;
   const employerBase = p.pensionablePay * policy.employerRate;
-  const employerMatch = p.pensionablePay * Math.min(policy.employeeRate, policy.matchUpToRate) * policy.matchRate;
+  const employerMatch = Math.min(employeeGross, p.pensionablePay * policy.matchUpToRate) * policy.matchRate;
   const employerContribution = employerBase + employerMatch + employerNiShareback + salarySacrifice;
   const providerTaxRelief = reliefAtSourceGross * config.pension.reliefAtSourceRate;
   const reliefAtSourceNet = reliefAtSourceGross - providerTaxRelief;

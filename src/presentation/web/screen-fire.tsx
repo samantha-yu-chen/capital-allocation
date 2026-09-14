@@ -298,7 +298,7 @@ function Diagnostics(props: { result: MonteCarloResult }): ReactNode {
           <tbody>
             {rows.map(row => (
               <tr key={row.label}>
-                <th scope="row" style={{ fontWeight: 400 }}>
+                <th scope="row">
                   {row.label}
                   <span className="footnote" style={{ display: 'block' }}>{row.definition}</span>
                 </th>

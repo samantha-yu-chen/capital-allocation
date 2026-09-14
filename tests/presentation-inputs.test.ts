@@ -8,7 +8,7 @@ import {
 } from '../src/presentation/view/fields.js';
 import { runKey, stableStringify } from '../src/presentation/view/run-key.js';
 import { TABS, isTabId, tabById } from '../src/presentation/view/tabs.js';
-import { bandPath, linearScale, linePath, niceTicks } from '../src/presentation/view/chart.js';
+import { bandPath, linearScale, linePath, niceDomain, niceTicks } from '../src/presentation/view/chart.js';
 
 const example = createExampleProfile();
 const defs = fieldsFor(example);
@@ -164,6 +164,14 @@ test('chart geometry maps domains and builds closed bands', () => {
   assert.deepEqual(niceTicks(0, 100, 5), [0, 20, 40, 60, 80, 100]);
   assert.deepEqual(niceTicks(0, 3), [0, 1, 2, 3]);
   assert.ok(niceTicks(0, 1_234_567).every(Number.isFinite));
+
+  // A wealth axis must end on a labelled gridline rather than an unlabelled edge.
+  const axis = niceDomain(0, 5_659_990);
+  assert.equal(axis.domain[0], 0);
+  assert.ok(axis.domain[1] >= 5_659_990, 'the domain must cover the data');
+  assert.equal(axis.domain[1], axis.ticks[axis.ticks.length - 1], 'the top of the axis is a tick');
+  assert.equal(axis.ticks[0], 0);
+  assert.ok(axis.ticks.length >= 3, `too few gridlines: ${axis.ticks.join(',')}`);
   assert.deepEqual(niceTicks(7, 7), [7]);
 
   assert.equal(linePath([{ x: 0, y: 1 }, { x: 2, y: 3 }]), 'M0 1 L2 3');

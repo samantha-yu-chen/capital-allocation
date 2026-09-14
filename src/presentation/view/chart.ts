@@ -15,20 +15,41 @@ export function linearScale(domain: readonly [number, number], range: readonly [
   return value => r0 + ((value - d0) / span) * (r1 - r0);
 }
 
-/** Round, human-readable tick values covering [min, max]; always at least two ticks. */
-export function niceTicks(min: number, max: number, target = 5): number[] {
-  if (!Number.isFinite(min) || !Number.isFinite(max) || target < 2) return [min, max];
-  if (min === max) return [min];
-  const raw = (max - min) / (target - 1);
+/** The round step a "nice" axis should use across [min, max]. */
+export function tickStep(min: number, max: number, target = 5): number {
+  const raw = (max - min) / Math.max(1, target - 1);
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   // Snap to the nearest of 1, 2, 5 or 10 in the decade, using geometric midpoints as the cut points.
   const normalised = raw / magnitude;
-  const step = (normalised < 1.4142 ? 1 : normalised < 3.1623 ? 2 : normalised < 7.0711 ? 5 : 10) * magnitude;
+  return (normalised < 1.4142 ? 1 : normalised < 3.1623 ? 2 : normalised < 7.0711 ? 5 : 10) * magnitude;
+}
+
+/** Round, human-readable tick values inside [min, max]; always at least two ticks. */
+export function niceTicks(min: number, max: number, target = 5): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || target < 2) return [min, max];
+  if (min === max) return [min];
+  const step = tickStep(min, max, target);
   const ticks: number[] = [];
   for (let tick = Math.ceil(min / step) * step; tick <= max + step / 1e6; tick += step) {
     ticks.push(Number(tick.toPrecision(12)));
   }
   return ticks.length >= 2 ? ticks : [min, max];
+}
+
+/**
+ * An axis whose ends are themselves round numbers, so the top and bottom of the plot are labelled
+ * gridlines rather than an unlabelled edge.
+ */
+export function niceDomain(min: number, max: number, target = 5): { domain: [number, number]; ticks: number[] } {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
+    return { domain: [min, min === max ? min + 1 : max], ticks: [min] };
+  }
+  const step = tickStep(min, max, target);
+  const low = Math.floor(min / step) * step;
+  const high = Math.ceil(max / step) * step;
+  const ticks: number[] = [];
+  for (let tick = low; tick <= high + step / 1e6; tick += step) ticks.push(Number(tick.toPrecision(12)));
+  return { domain: [Number(low.toPrecision(12)), Number(high.toPrecision(12))], ticks };
 }
 
 const round = (value: number): string => (Math.round(value * 100) / 100).toString();

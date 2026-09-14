@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 import type { NumberFieldDef } from '../view/fields.js';
 import { moneyCompact } from '../view/format.js';
-import { bandPath, linearScale, linePath, niceTicks } from '../view/chart.js';
+import { bandPath, linearScale, linePath, niceDomain, niceTicks } from '../view/chart.js';
 
 export function Card(props: {
   kicker?: string; title?: string; elevation?: 'sm' | 'md' | 'lg'; muted?: boolean;
@@ -218,8 +218,9 @@ export function FanChart(props: {
   const highest = Math.max(...points.map(point => point.p90));
   const lowest = Math.min(0, ...points.map(point => point.p10));
   const x = linearScale([Math.min(...ages), Math.max(...ages)], [padding.left, width - padding.right]);
-  const y = linearScale([lowest, highest === lowest ? lowest + 1 : highest], [height - padding.bottom, padding.top]);
-  const ticks = niceTicks(lowest, highest, 5);
+  const vertical = niceDomain(lowest, highest, 5);
+  const y = linearScale(vertical.domain, [height - padding.bottom, padding.top]);
+  const ticks = vertical.ticks;
   const ageTicks = niceTicks(Math.min(...ages), Math.max(...ages), 8).filter(age => age >= ages[0]! && age <= ages[ages.length - 1]!);
   const outer = bandPath(points.map(point => ({ x: x(point.age), low: y(point.p10), high: y(point.p90) })));
   const inner = bandPath(points.map(point => ({ x: x(point.age), low: y(point.p25), high: y(point.p75) })));

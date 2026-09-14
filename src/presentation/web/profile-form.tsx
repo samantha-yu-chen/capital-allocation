@@ -1,3 +1,4 @@
+import { toggleProperty, togglePurchase, toggleSale, addRefinance } from '../view/property-model.js';
 /**
  * The editable profile, rendered from the field registry.
  *
@@ -13,7 +14,7 @@ import { FIELD_GROUPS } from '../view/fields.js';
 import { CheckboxField, NumberField, SelectField } from './components.js';
 import type { ProfileStore } from './profile-state.js';
 
-const EXCLUDED_FROM_GRID = new Set(['correlation', 'phases', 'capitalNeeds', 'breakdown']);
+const EXCLUDED_FROM_GRID = new Set(['correlation', 'phases', 'capitalNeeds', 'breakdown', 'rateChanges']);
 
 const isGridField = (def: NumberFieldDef): boolean => !def.path.some(part => typeof part === 'string' && EXCLUDED_FROM_GRID.has(part));
 
@@ -256,6 +257,35 @@ function WithdrawalOrder(props: { store: ProfileStore }): ReactNode {
 function GroupExtras(props: { store: ProfileStore; group: FieldGroupId }): ReactNode {
   const { store, group } = props;
   switch (group) {
+    case 'property':
+      return <div className="stack-tight">
+        <CheckboxField label="Include a property" checked={store.base.property !== null}
+          onChange={enabled => store.edit(p => toggleProperty(p, enabled))} />
+        {store.base.property ? <>
+          <SelectField label="Property use" value={store.base.property.use}
+            options={[{value:'owner_occupied' as const,label:'Owner occupied'},{value:'rental' as const,label:'Rental'}]}
+            onChange={use=>store.edit(p=>({...p,property:{...p.property!,use}}))}/>
+          <SelectField label="Mortgage type" value={store.base.property.mortgageType}
+            options={[{value:'repayment' as const,label:'Repayment'},{value:'interest_only' as const,label:'Interest only (balloon at term)'}]}
+            onChange={mortgageType=>store.edit(p=>({...p,property:{...p.property!,mortgageType}}))}/>
+          <SelectField label="Property tax location" value={store.base.property.taxLocation ?? (store.base.personal.taxRegion==='scotland'?'scotland':'england_ni')}
+            options={[{value:'scotland' as const,label:'Scotland (LBTT)'},{value:'england_ni' as const,label:'England / Northern Ireland (SDLT)'},{value:'manual' as const,label:'Wales / special case: enter tax manually'}]}
+            onChange={taxLocation=>store.edit(p=>({...p,property:{...p.property!,taxLocation}}))}/>
+          <SelectField label="Buyer status" value={store.base.property.buyerStatus ?? 'standard'}
+            options={[{value:'standard' as const,label:'Standard / replacement main home'},{value:'first_time' as const,label:'Eligible first-time owner occupier'},{value:'additional' as const,label:'Additional dwelling'}]}
+            onChange={buyerStatus=>store.edit(p=>({...p,property:{...p.property!,buyerStatus}}))}/>
+          <CheckboxField label="Plan a purchase (otherwise already owned)" checked={store.base.property.purchase!==null}
+            onChange={enabled=>store.edit(p=>togglePurchase(p,enabled))}/>
+          <CheckboxField label="Schedule a sale to release equity" checked={store.base.property.sale!==null}
+            onChange={enabled=>store.edit(p=>toggleSale(p,enabled))}/>
+          <p className="field-help">A purchase uses its price and deposit; existing value and debt apply only to an already owned property. First-time relief and additional-dwelling eligibility are your explicit assumptions. Owner-occupied sales assume full private residence relief. No automatic equity release.</p>
+          {store.base.property.rateChanges.map((_,i)=><div key={i}>
+            <FieldGrid store={store} defs={store.defs.filter(d=>d.path[1]==='rateChanges'&&d.path[2]===i)}/>
+            <button type="button" className="btn btn-secondary" onClick={()=>store.edit(p=>({...p,property:{...p.property!,rateChanges:p.property!.rateChanges.filter((_,j)=>j!==i)}}))}>Remove refinance {i+1}</button>
+          </div>)}
+          <button type="button" className="btn btn-secondary" onClick={()=>store.edit(addRefinance)}>Add refinance rate</button>
+        </> : null}
+      </div>;
     case 'personal':
       return (
         <div className="field-grid">
@@ -376,8 +406,9 @@ export function ProfileForm(props: { store: ProfileStore; groups: readonly Field
                 {group.label}
               </legend>
               {group.note ? <p className="field-help" style={{ margin: 0 }}>{group.note}</p> : null}
+              {groupId === 'property' ? <GroupExtras store={store} group={groupId} /> : null}
               {defs.length ? <FieldGrid store={store} defs={defs} columns={groupId === 'portfolios' ? 3 : 2} /> : null}
-              <GroupExtras store={store} group={groupId} />
+              {groupId !== 'property' ? <GroupExtras store={store} group={groupId} /> : null}
               {groupId === 'market' ? null : <GroupIssues store={store} group={groupId} />}
             </fieldset>
           </details>

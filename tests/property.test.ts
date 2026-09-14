@@ -28,6 +28,7 @@ test('mortgage golden: monthly repayment, zero rate, interest-only balloon and r
   close(mortgageYear(240000,0,25,'repayment').principal,9600,1e-7);
   close(mortgageYear(240000,.05,25,'interest_only').interest,12000,1e-7);
   close(mortgageYear(240000,.05,1,'interest_only').payment,252000,1e-7);
+  close(mortgageYear(240000,.05,0,'interest_only').payment,252000,1e-7);
   assert.ok(mortgageYear(y.closingDebt,.09,24,'repayment').payment>y.payment);
 });
 test('scenario B: £300k / £60k, 5% appreciation is £15k and 25%; -10% is -50%',()=>{
@@ -71,7 +72,7 @@ test('housing rent removed once through current, retirement, phases and sale; re
 test('unfunded purchase is atomic and fails without inventing a house or spending deposit',()=>{
   const p=fixture();p.assets.cash=0;p.assets.isa=0;p.assets.gia.marketValue=0;p.assets.gia.costBasis=0;
   p.property!.purchase={age:31,price:300000,deposit:60000,transactionCosts:2000};
-  const r=runDeterministicProjection(p);assert.equal(r.success,false);
+  const r=runDeterministicProjection(p);assert.equal(r.success,false);assert.ok(r.metrics.totalShortfallNominal>0);
   assert.ok(r.years.every(y=>y.closing.propertyValue===0&&y.closing.mortgageDebt===0&&y.propertyPurchaseFunding===0));
 });
 test('unpaid mortgage interest remains debt; equity cannot silently fund the bridge',()=>{
@@ -119,4 +120,19 @@ test('negative equity sale retains any unfunded residual debt and records mortga
   p.property!.marketValue=100000;p.property!.sale={age:32,sellingCostRate:.02};
   const y=runDeterministicProjection(p).years[1]!;
   close(y.closing.propertyValue,0);assert.ok(y.closing.mortgageDebt>0);assert.ok(y.failures.some(f=>f.code==='mortgage_shortfall'));
+});
+
+test('a GIA-funded purchase grosses up disposal tax and consumes the deposit only once',()=>{
+  const p=fixture();p.personal.targetFireAge=31;p.personal.endAge=32;p.assets.cash=0;p.assets.isa=0;
+  p.assets.gia.marketValue=100000;p.assets.gia.costBasis=0;p.gia.dividendYield=0;p.gia.turnoverRate=0;
+  p.property!.purchase={age:31,price:60000,deposit:60000,transactionCosts:0};
+  p.property!.maintenanceAnnual=0;p.property!.insuranceAnnual=0;p.property!.councilTaxAnnual=0;p.property!.serviceChargeAnnual=0;
+  p.spending.retirement.essentialMonthly=0;p.spending.retirement.discretionaryMonthly=0;p.spending.retirementFloorAnnual=0;
+  p.market.cash.meanNominal=0;
+  const y=runDeterministicProjection(p).years[0]!;
+  // £3k exemption, £37,700 basic band at 18%, remainder at 24%; solve W - CGT(W) = £60k.
+  const disposal=(60000-3000*.24-37700*(.24-.18))/.76;
+  close(y.giaDisposalProceeds,disposal,1e-6);close(y.propertyPurchaseFunding,60000);
+  close(y.capitalGainsTax,disposal-60000,1e-6);close(y.closing.mortgageDebt,0);
+  close(y.opening.accounts.gia-y.closing.accounts.gia+y.investmentReturn.gia,disposal,1e-6);
 });

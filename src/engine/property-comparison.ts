@@ -22,7 +22,9 @@ function observation(p: DeterministicProjection) {
     peak=Math.max(peak,wealth);
     if(peak>0)maxDrawdown=Math.max(maxDrawdown,(peak-wealth)/peak);
     minLiquid=Math.min(minLiquid,y.accessibleWealth/y.closingInflationIndex);
-    maxDebt=Math.max(maxDebt,y.closing.mortgageDebt/y.closingInflationIndex);
+    maxDebt=Math.max(maxDebt,y.opening.mortgageDebt/y.inflationIndex,
+      (y.propertyPurchasePrice-y.propertyPurchaseFunding+y.propertyAcquisitionCosts)/y.inflationIndex,
+      y.closing.mortgageDebt/y.closingInflationIndex);
   }
   return {success:p.success,terminal:p.metrics.terminalNetWorthReal,liquid:last.accessibleWealth/last.closingInflationIndex,
     minLiquid,maxDebt,maxDrawdown, mortgageFailure:p.failures.some(f=>f.code==='mortgage_shortfall')};

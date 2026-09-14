@@ -6,6 +6,8 @@ export const PROPERTY_TAX_VERSION = 'residential-2026-27-v1';
 export function mortgageYear(debt: number, annualRate: number, remainingYears: number, type: Property['mortgageType']) {
   if (debt < 0 || annualRate < 0 || !Number.isFinite(debt + annualRate + remainingYears)) throw new RangeError('Invalid mortgage');
   const months = Math.max(0, Math.round(remainingYears * 12));
+  if (months === 0) return { monthlyPayment: 0, interest: debt * annualRate, principal: debt,
+    payment: debt * (1 + annualRate), closingDebt: 0 };
   const r = annualRate / 12;
   const monthlyPayment = months === 0 ? 0 : type === 'interest_only' ? debt * r
     : r === 0 ? debt / months : debt * r / -Math.expm1(-months * Math.log1p(r));
@@ -24,7 +26,8 @@ export function mortgageYear(debt: number, annualRate: number, remainingYears: n
  * Manual covers Wales and exceptional transactions; entered amount excludes legal/other costs.
  */
 export function purchaseTax(property: Property, incomeRegion: Profile['personal']['taxRegion']): number {
-  const price = property.purchase?.price ?? 0;
+  if (!property.purchase) return 0;
+  const price = property.purchase.price;
   const location = property.taxLocation ?? (incomeRegion === 'scotland' ? 'scotland' : 'england_ni');
   if (location === 'manual') return property.purchaseTaxOverride ?? 0;
   const status = property.buyerStatus ?? 'standard';

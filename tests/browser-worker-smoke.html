@@ -1,9 +1,12 @@
-<!doctype html><title>Monte Carlo worker verification</title><pre id="result">Running browser worker checks…</pre><script type="module">
+<!doctype html><meta charset="utf-8"><title>Monte Carlo worker verification</title><pre id="result">Running browser worker checks…</pre><script type="module">
 import {createExampleProfile} from '/src/domain/fixtures.ts';
+import {defaultProperty} from '/src/presentation/view/property-model.ts';
 import {runMonteCarloBrowser} from '/src/engine/monte-carlo/browser.ts';
 import {runMonteCarlo} from '/src/engine/monte-carlo/simulation.ts';
 try {
- const p=createExampleProfile();p.simulation.count=12;
+ const p=createExampleProfile();
+ if(new URLSearchParams(location.search).has('property')){p.property=defaultProperty(p);p.spending.currentRentMonthlyIncluded=700;}
+ p.simulation.count=12;
  let ticks=0;const timer=setInterval(()=>ticks++,10);
  const a=await runMonteCarloBrowser(p,{concurrency:2,batchSize:3});
  const b=await runMonteCarlo(p,{batchSize:5});
@@ -14,6 +17,6 @@ try {
  p.simulation.count=10000;
  const start=performance.now();const full=await runMonteCarloBrowser(p,{concurrency:4});
  clearInterval(timer);
- document.querySelector('#result').textContent=JSON.stringify({passed:true,equality:true,cancelled,count:full.metadata.simulationCount,success:full.successProbability,seconds:(performance.now()-start)/1000,uiTimerTicks:ticks},null,2);
+ document.querySelector('#result').textContent=JSON.stringify({passed:true,property:p.property!==null,equality:true,cancelled,count:full.metadata.simulationCount,success:full.successProbability,seconds:(performance.now()-start)/1000,uiTimerTicks:ticks},null,2);
 }catch(e){document.querySelector('#result').textContent='FAILED '+e.stack;}
 </script>

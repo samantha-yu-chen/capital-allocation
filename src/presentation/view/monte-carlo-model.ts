@@ -22,7 +22,7 @@ export const WEALTH_CATEGORIES: readonly WealthCategory[] = [
   { id: 'liquid', label: 'Liquid (cash + ISA + GIA)', description: 'The capital that can fund spending before pension access.' },
   { id: 'pension', label: 'Pension (workplace + SIPP)', description: 'Both pension balances together.' },
   { id: 'locked', label: 'Pension-category metric', description: 'Mirrors the ledger’s pension-category figure at every age. After the access age it no longer implies the pension is inaccessible.' },
-  { id: 'propertyEquity', label: 'Property equity', description: 'Zero throughout until package 5 integrates property into the ledger.' },
+  { id: 'propertyEquity', label: 'Property equity', description: 'Property value less mortgage debt. Excluded from liquid capital until an explicit sale.' },
 ];
 
 export interface WealthPoint extends Percentiles {

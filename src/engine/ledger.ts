@@ -50,6 +50,7 @@ export const defaultLedgerOptions = (): LedgerOptions => ({
 
 /** Every §6 line item plus the intermediate values needed to audit the year. Extends the shared contract. */
 export interface LedgerYearDetail extends LedgerYear {
+  propertyPurchaseShortfall: number;
   propertyPurchasePrice: number;
   propertyAcquisitionCosts: number;
   propertyPurchaseFunding: number;
@@ -345,7 +346,8 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const capitalNeedsFunded = fund(capitalNeedsRequired);
     const purchaseFunded = fund(property.purchaseFunding);
     const propertyFunded = operatingFunded + interestFunded + principalFunded + saleDeficitFunded + purchaseFunded;
-    const shortfall = clampZero(need - spendingFunded - capitalNeedsFunded - propertyFunded);
+    const propertyPurchaseShortfall = failedPurchase?.age === age ? failedPurchase.shortfall : 0;
+    const shortfall = clampZero(need - spendingFunded - capitalNeedsFunded - propertyFunded) + propertyPurchaseShortfall;
     const cashBeforeAllocation = opening.accounts.cash + result.cashInflow
       - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
     const investableSurplus = result.cashInflow - result.cashOutflowBeforeSpending - spendingFunded - capitalNeedsFunded - propertyFunded;
@@ -433,7 +435,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       propertyOperatingCosts: property.operatingCosts, mortgageInterest: property.mortgage.interest,
       mortgagePrincipal: principalFunded,
       propertyTransactionCashFlow: Math.max(0, property.saleCash) - saleDeficitFunded - purchaseFunded,
-      propertyPurchasePrice: property.price, propertyAcquisitionCosts: property.acquisitionCosts,
+      propertyPurchaseShortfall, propertyPurchasePrice: property.price, propertyAcquisitionCosts: property.acquisitionCosts,
       propertyPurchaseFunding: purchaseFunded, propertySaleCosts: property.saleCosts,
       propertyAppreciation: property.owned ? property.value * marketYear.property : 0,
       propertyOperatingCostsFunded: operatingFunded, mortgageInterestFunded: interestFunded,

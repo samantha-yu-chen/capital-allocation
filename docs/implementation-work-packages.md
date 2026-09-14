@@ -1,6 +1,6 @@
 # V0.3 implementation work packages
 
-Status: chunks 1–5 implemented and tested. See `handoffs/chunk-5.md` for property integration and the chunk-6 assignment. See `handoffs/chunk-4.md` for the application shell, the Overview and FIRE screens, the browser verification and the chunk-5 assignment. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions and the benchmark; `handoffs/chunk-2.md` for the ledger API and calculation conventions; `handoffs/chunk-1.md` for the contracts and tax engine. Chunks 6–10 remain open.
+Status: chunks 1–6 implemented and tested. See `handoffs/chunk-6.md` for the reverse solvers, the FIRE age curve and the chunk-7 assignment. See `handoffs/chunk-5.md` for property integration. See `handoffs/chunk-4.md` for the application shell, the Overview and FIRE screens, the browser verification and the chunk-5 assignment. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions and the benchmark; `handoffs/chunk-2.md` for the ledger API and calculation conventions; `handoffs/chunk-1.md` for the contracts and tax engine. Chunks 6–10 remain open.
 
 ## Authority and baseline
 
@@ -117,6 +117,8 @@ Done when: returned solutions satisfy the target on re-evaluation; infeasible se
 
 Checkpoint: savings/salary searches → other searches and age curve → screens.
 
+**Delivered.** `src/engine/solver.ts` searches six inputs — gross salary, annual savings, FIRE age, retirement spending, extra starting capital and the employee pension contribution — scoring every candidate with the complete lifetime model on the profile's own seed and path indices. `src/engine/fire-curve.ts` runs every candidate FIRE age the same way. Already-met targets, bounds nothing reaches, unsupported candidates, non-monotone inputs and an exhausted evaluation budget are all explicit result states, and every returned candidate is re-run from scratch to confirm it. The FIRE Age Curve and Reverse Solver screens run both engines in a coordinator worker with progress, cancellation and stale-result invalidation. 184 tests pass; real Chrome verification covers a 10,000-path curve and solver run, cancellation and responsive layout. See `handoffs/chunk-6.md`.
+
 ## 7. Marginal capital allocation engine and screen
 
 Suggested owner: Codex. Dependencies: 6. Spec: 2, 38, 43, 57–59, 77, 82; reference UI tab 4.
@@ -185,4 +187,4 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 6 to Claude. Use `handoffs/chunk-5.md` for the paste-ready assignment. Packages 1–5 supply tax, reconciled lifetime accounting including property, seeded Monte Carlo workers and three built screens. Implement bounded reverse solvers and the FIRE Age Curve using these engines and the existing React-free view-model pattern.
+Next assignment: package 7 to Codex. Use `handoffs/chunk-6.md` for the paste-ready assignment. Packages 1–6 supply tax, reconciled lifetime accounting including property, seeded Monte Carlo workers, bounded reverse solvers and five built screens. Implement the marginal capital allocation engine and its screen using these engines, the common-path convention the solvers already rely on, and the existing React-free view-model pattern.

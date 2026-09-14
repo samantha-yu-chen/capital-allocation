@@ -91,3 +91,23 @@ there is no deposit credit. The comparison returns terminal wealth distributions
 liquidity, full-horizon net-worth drawdown and debt exposure. It requires a planned purchase;
 an existing owner has no unspent deposit. Worker cancellation terminates computation; edits
 invalidate results. Count, seed, profile, resolved options and versions are recorded.
+
+## Marginal debt/deposit actions (chunk 7)
+
+An optional one-off `LedgerOptions.marginalAction` compares existing mortgage overpayment or a
+larger deposit on the configured purchase. Overpayment requires an already-owned property and
+cannot exceed its debt. Payments are recast over the remaining original term at the configured
+rate; principal stays an explicit cash outflow, and there is no lender fee or penalty model.
+
+The deposit destination adds the entire after-tax budget to the configured real purchase deposit,
+keeping purchase price, transaction costs, tax and ownership use unchanged and reducing borrowing.
+A future deposit budget remains ordinary cash until acquisition and is not a guaranteed inflation-
+matching or ring-fenced asset. The full ledger must fund the eventual purchase commitment, including
+taxes/costs; an unfunded purchase still fails atomically. A missing planned purchase or a budget
+exceeding remaining deposit capacity is explicitly infeasible.
+
+Residential finance relief is shared between the marginal funding assessment and the annual ledger
+through `rentalFinanceReduction`, using the configured UK basic rate. The ledger uses actual interest
+after recasting, so overpayment cannot retain relief for interest no longer paid. The new actions
+preserve per-account, financial and net-worth reconciliation and do not change rent replacement,
+property appreciation, sale or equity-access policy.

@@ -2,7 +2,7 @@
  *
  * Start `npm run dev -- --port 5176 --strictPort` and a dedicated headless Chrome with
  * --headless=new --remote-debugging-port=9226 --user-data-dir=/tmp/capital-chunk6-chrome, then run
- * with Node 24: `node tests/browser-solver-ui.mjs`. Override APP_PORT / CDP_PORT to use others.
+ * with Node 24: `node tests/browser-marginal-ui.mjs`. Override APP_PORT / CDP_PORT to use others.
  * Outputs JSON and PNGs into /tmp. Do not edit application source while this runs: a Vite reload
  * resets the deliberately in-memory profile.
  */
@@ -106,6 +106,39 @@ await set('personal.targetSuccessProbability',85);
 await wait('![...document.querySelectorAll("button")].some(b=>b.textContent==="Computing…")');
 assert.equal(await ev('!!document.querySelector("[data-testid=marginal-result]")'),false);
 results.inflightInvalidation=true;
+// Real property-sensitive marginal outcomes, retaining 10,000 paths.
+await cdp('Emulation.setDeviceMetricsOverride', {width:1440,height:950,deviceScaleFactor:1,mobile:false});
+await tab('overview');
+await set('assets.cash',200000);
+await tab('property');
+await click('Include a property');
+await wait('!!document.getElementById("property.purchase.deposit")');
+await tab('marginal');
+await set('marginal.amount',10000);
+started=Date.now();
+await click('Compare allocation');
+await wait('!!document.querySelector("[data-testid=marginal-result]")',300000);
+results.depositSeconds=(Date.now()-started)/1000;
+results.depositText=await text();
+const cardText=label=>ev(`(()=>{const e=[...document.querySelectorAll('[data-testid=marginal-result] .split > .card')].find(c=>c.querySelector('.card-kicker').textContent===${JSON.stringify(label)});return e.innerText;})()`);
+assert.match(await cardText('Property deposit'),/Mean usable wealth/);
+assert.match(await cardText('Property deposit'),/MEAN DEBT/);
+await shot('chunk7-deposit-desktop');
+await tab('property');
+await click('Plan a purchase (otherwise already owned)');
+await tab('marginal');
+await set('marginal.amount',10000);
+started=Date.now();
+await click('Compare allocation');
+await wait('!!document.querySelector("[data-testid=marginal-result]")',300000);
+results.mortgageSeconds=(Date.now()-started)/1000;
+results.mortgageText=await text();
+assert.match(await cardText('Mortgage overpayment'),/Mean usable wealth/);
+await cdp('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:true});
+assert.equal(await ev('document.documentElement.scrollWidth>innerWidth'),false);
+await ev(`(()=>{const e=[...document.querySelectorAll('[data-testid=marginal-result] .split > .card')].find(c=>c.querySelector('.card-kicker').textContent==='Mortgage overpayment');e.scrollIntoView();})()`);
+await shot('chunk7-mortgage-mobile');
+console.log('property allocation seconds',results.depositSeconds,results.mortgageSeconds);
 assert.equal(errors.length,0,JSON.stringify(errors));
 await fs.writeFile('/tmp/chunk7-ui-results.json',JSON.stringify(results,null,2));
 console.log(JSON.stringify({grossSeconds:results.grossSeconds,cashSeconds:results.cashSeconds,frames:results.frames,passed:true}));

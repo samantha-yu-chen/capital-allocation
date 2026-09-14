@@ -1,6 +1,8 @@
 # V0.3 implementation work packages
 
-Status: chunks 1–6 implemented and tested. See `handoffs/chunk-6.md` for the reverse solvers, the FIRE age curve and the chunk-7 assignment. See `handoffs/chunk-5.md` for property integration. See `handoffs/chunk-4.md` for the application shell, the Overview and FIRE screens, the browser verification and the chunk-5 assignment. See `handoffs/chunk-3.md` for Monte Carlo APIs, assumptions and the benchmark; `handoffs/chunk-2.md` for the ledger API and calculation conventions; `handoffs/chunk-1.md` for the contracts and tax engine. Chunks 6–10 remain open.
+Status: chunks 1–7 implemented and tested. See `handoffs/chunk-7.md` for marginal allocation,
+208 passing tests, real Chrome evidence and the chunk-8 assignment. Prior handoffs preserve the
+tax, ledger, Monte Carlo, property and solver interfaces and their limitations. Chunks 8–10 remain open.
 
 ## Authority and baseline
 
@@ -134,6 +136,15 @@ Done when: all six destinations are computed or explicitly ineligible; no fixed 
 
 Checkpoint: candidate funding and constraints → comparison/ranking → screen.
 
+**Delivered.** `marginal-funding.ts` and the lifetime ledger compare one-off gross earnings or
+existing after-tax cash across pension, ISA, GIA, cash, mortgage overpayment and property deposit.
+`compareMarginal` reruns full common paths and ranks after-tax usable wealth only under explicit
+probability, reserve, liquidity and debt constraints, with paired sampling uncertainty and
+infeasible reasons. The Marginal Allocation screen uses the coordinator/worker pool, announces
+cost, reports progress and discards cancelled/stale results. 208 tests pass; Chrome acceptance
+covers both funding bases, actual property destinations, responsive 10,000-path work, cancellation
+and desktop/mobile layout. See `handoffs/chunk-7.md`.
+
 ## 8. Named scenarios and Scenario Comparison screen
 
 Suggested owner: Claude. Dependencies: 7. Spec: 61–66, 81, 88; reference UI tab 6.
@@ -187,4 +198,8 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 7 to Codex. Use `handoffs/chunk-6.md` for the paste-ready assignment. Packages 1–6 supply tax, reconciled lifetime accounting including property, seeded Monte Carlo workers, bounded reverse solvers and five built screens. Implement the marginal capital allocation engine and its screen using these engines, the common-path convention the solvers already rely on, and the existing React-free view-model pattern.
+Next assignment: package 8 to Claude. Use `handoffs/chunk-7.md` for the paste-ready assignment.
+Packages 1–7 supply the shared validated profile, complete tax/property lifetime ledger, common-path
+workers, reverse solvers and marginal comparisons. Build named scenarios, versioned local
+persistence and the Scenario Comparison screen with the required 60-combination matrix, preserving
+all inherited funding, uncertainty, cancellation and reproducibility conventions.

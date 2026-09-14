@@ -59,3 +59,19 @@ Savings/dividend nil-rate allowances do not remove income from band occupancy, a
 Tests pin cumulative salary-band calculations, both sides of key boundaries, the taper's effective marginal rates, all three contribution methods, RAS at Scottish starter/intermediate rates, employer NI thresholds, carry-forward/MPAA, and source examples for dividend/CGT tax.
 
 For the example salary with 5% salary sacrifice and 5% employer contribution in Scotland, tax is £9,927.05, employee NI £3,055.60, net annual income £39,267.35 and pension funding £5,500. These are calculated annual-model outputs, not a forecast payslip. The £19,800 spending input leaves £19,467.35 before allocation.
+
+## One-off workplace funding (chunk 7)
+
+`PensionContributionInput` / `NetIncomeInput` accept `additionalWorkplaceGross`, default zero.
+It adds one employee workplace contribution to the normal pensionable-pay contribution. Matching
+uses the combined employee amount but remains limited by the original contractual pensionable-pay
+match cap; employer base contributions stay fixed. Salary sacrifice uses the same NI/shareback and
+threshold-income addback treatment as ordinary payroll. Additional RAS remains separate and does
+not generate an employer match. Existing calls have unchanged results.
+
+The marginal engine treats extra earnings as a one-off non-pensionable bonus and solves full annual
+settled liabilities, not a single marginal tax rate. Existing cash uses additional RAS with provider
+and additional relief settled and recycled in the same year. Tax boundaries are reported on their
+actual bases (taxable income, adjusted net income or post-sacrifice employment income), with RAS
+band extensions respected, rather than mislabelling them as gross salary thresholds. Inherited
+annual-allowance excess and delayed low-earner net-pay top-up limitations still apply.

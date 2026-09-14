@@ -356,6 +356,26 @@ export const MARGINAL_AMOUNT_FIELD: ControlFieldDef = {
   id: 'marginal.amount', label: 'One-off increment', kind: 'money', step: 100,
   help: 'Applied once in the current model year; existing after-tax cash is transferred, not added.',
 };
+/** Spec section 62's income-uplift bands. The spending cases are profile fields already. */
+export const SCENARIO_SALARY_FIELDS: readonly ControlFieldDef[] = [55_000, 65_000, 75_000, 90_000, 120_000]
+  .map((_, index): ControlFieldDef => ({
+    id: `scenario.salary${index + 1}`, label: `Salary band ${index + 1}`, kind: 'money', step: 1000,
+    ...(index === 0 ? { help: 'The five gross salaries the matrix compares. Every band runs the complete model at the entered seed and path count.' } : {}),
+  }));
+export const SCENARIO_SALARY_DEFAULTS: readonly number[] = [55_000, 65_000, 75_000, 90_000, 120_000];
+
+export const SCENARIO_PREVIEW_FIELD: ControlFieldDef = {
+  id: 'scenario.previewPaths', label: 'Preview paths', kind: 'integer', step: 100,
+  help: 'Only used when you explicitly ask for a preview. A preview is labelled as one and is never presented as a full-count result.',
+};
+export const SCENARIO_FIRE_FROM_FIELD: ControlFieldDef = {
+  id: 'scenario.fireFromAge', label: 'FIRE age search from', kind: 'age', step: 1,
+  help: 'Every whole age in the range is another complete simulation for every cell.',
+};
+export const SCENARIO_FIRE_TO_FIELD: ControlFieldDef = {
+  id: 'scenario.fireToAge', label: 'FIRE age search to', kind: 'age', step: 1,
+};
+
 export const MARGINAL_DEBT_FIELD: ControlFieldDef = {
   id: 'marginal.maximumDebt', label: 'Maximum acceptable debt, today', kind: 'money', step: 1000,
   help: 'A hard ceiling across every sampled path. Enter the debt exposure you accept.',

@@ -20,6 +20,7 @@ import { FireScreen, type RunSettings } from './screen-fire.js';
 import { PlannedScreen } from './screen-planned.js';
 import { CurveScreen } from './screen-curve.js';
 import { SolverScreen } from './screen-solver.js';
+import { ScenariosScreen } from './screen-scenarios.js';
 
 const defaultConcurrency = (): number =>
   Math.min(4, Math.max(1, typeof navigator === 'undefined' ? 1 : navigator.hardwareConcurrency || 1));
@@ -139,6 +140,7 @@ export function App(): ReactNode {
           {active === 'overview' ? <OverviewScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'curve' ? <CurveScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'solver' ? <SolverScreen store={store} ledgerOptions={ledgerOptions} /> : null}
+          {active === 'scenarios' ? <ScenariosScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'fire' ? (
             <FireScreen
               store={store}

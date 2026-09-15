@@ -380,3 +380,8 @@ export const MARGINAL_DEBT_FIELD: ControlFieldDef = {
   id: 'marginal.maximumDebt', label: 'Maximum acceptable debt, today', kind: 'money', step: 1000,
   help: 'A hard ceiling across every sampled path. Enter the debt exposure you accept.',
 };
+
+export const STRESS_AGE_FIELD: ControlFieldDef = {
+  id: 'attribution.stressAge', label: 'Stress start age', kind: 'age', step: 1,
+  help: 'Each shock starts in [age, age + 1). Multi-year stresses stop at the horizon. Choose a working age to test lost salary.',
+};

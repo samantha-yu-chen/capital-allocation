@@ -4,9 +4,9 @@ A locally runnable lifetime capital-allocation and FIRE model for a UK resident,
 rest-of-UK 2026/27 tax rules. The [V0.3 specification](docs/lifetime-capital-allocation-fire-optimisation-spec-v0.3.md)
 is the product authority; [design/](design/) contains the Organic UI reference.
 
-Packages 1–8 provide a reconciled annual ledger, seeded Monte Carlo, integrated property,
-bounded reverse solvers, an age curve, marginal capital allocation and named scenario comparison.
-Seven of the eight reference screens run real engines:
+Packages 1–9 provide a reconciled annual ledger, seeded Monte Carlo, integrated property,
+bounded reverse solvers, an age curve, marginal capital allocation, named scenario comparison,
+attribution, sensitivity and deterministic stresses. All eight reference screens run real engines:
 
 | Screen | Available functionality |
 | --- | --- |
@@ -17,10 +17,10 @@ Seven of the eight reference screens run real engines:
 | Reverse Solver | Salary, savings, FIRE age, retirement spending, starting capital and pension-contribution searches, plus worked sensitivity cases |
 | Property & Leverage | Purchase/sale, housing costs, mortgages, rental tax, leverage and paired rent/invest comparison |
 | Scenario Comparison | Named scenarios with versioned local save/load, the 5 × 3 × 4 salary/spending/strategy matrix, spending and income sensitivity, all on common market paths |
-| Where It Comes From | Planned: package 9, attribution and stress analysis |
+| Where It Comes From | Full-count intervention comparisons, nine sensitivity families, seven deterministic stresses, funding diagnostics and traceable engine results |
 
 See the [work packages](docs/implementation-work-packages.md), [requirements evidence](docs/requirements-checklist.md)
-and [chunk-8 handoff](docs/handoffs/chunk-8.md) for delivery details and remaining scope.
+and [chunk-9 handoff](docs/handoffs/chunk-9.md) for delivery details and remaining scope.
 
 ## Run
 
@@ -37,7 +37,7 @@ are needed. Profile edits are still in memory only, but a *named scenario* saved
 Comparison screen is stored in this browser's local storage and survives a refresh. Nothing is sent
 anywhere: the library is a versioned JSON document you can also export and re-import by hand.
 
-`npm run check` runs strict typechecking, all 230 tests and the production build. Individual commands
+`npm run check` runs strict typechecking, all 245 tests and the production build. Individual commands
 are `npm test`, `npm run typecheck` and `npm run build`. `npm run demo`, `npm run ledger` and
 `npm run monte-carlo` print actual tax, annual ledger and simulation outputs. Generated `build/`
 and `dist/` directories are Git-ignored.
@@ -47,6 +47,26 @@ report progress and support cancellation. Cancelled or failed analyses publish n
 invalidate results. The default is 10,000 paths; analyses never lower the count automatically.
 A marginal comparison runs up to seven full simulations, the required scenario matrix runs sixty,
 and a complete reverse solve with sensitivity cases can take several minutes.
+
+## Attribution, sensitivity and stress analysis
+
+Where It Comes From reruns your full plan for explicit changes to income, expenses, FIRE timing,
+allocation, portfolio risk and configured property leverage. It reports the largest tested
+income/expenses/allocation improvement only beyond sampling uncertainty. Effects are not additive
+and are not shares of a causal decomposition. Success, terminal wealth and accessible capital are
+separate objectives.
+
+Sensitivity covers equity return and volatility, inflation, spending, salary growth, FIRE age,
+mortgage rates, property growth and hypothetical additional tax on taxable pension withdrawals.
+Each case uses the full entered path count and matching underlying Gaussian shocks. The batch
+reuses one worker pool and caches identical complete versioned inputs; it can take several minutes.
+
+Seven synthetic stress paths cover two crash styles, high inflation, a lost decade, mortgage and
+property shocks, and job loss. Choose the start age; each shock applies to the specified annual
+interval through the same lifetime ledger. Assumptions, funding failures and complete stress
+ledgers are auditable. These are single assumed paths, not historical backtests or probabilities.
+The pension tax tests add a hypothetical 5pp/10pp charge on taxable withdrawals; configured tax laws
+are unchanged. Ineligible cases show reasons and no invented figures.
 
 ## Scenario comparison
 

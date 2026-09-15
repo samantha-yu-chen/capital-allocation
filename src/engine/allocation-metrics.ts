@@ -11,7 +11,7 @@ export function allocationAges(profile: Profile): number[] {
  * current other/state pension income, no contributions, actual GIA basis/losses and remaining lump sum.
  * Unsold property is excluded; mortgage debt is reported and constrained separately.
  */
-export function usableWealth(profile: Profile, sheet: BalanceSheet, age: number, index: number): number {
+export function usableWealth(profile: Profile, sheet: BalanceSheet, age: number, index: number, pensionWithdrawalSurtaxRate = 0): number {
   const config = scaleTaxConfig(getTaxConfig(profile.personal.taxRegion, profile.personal.taxYear), index);
   const background = (profile.income.otherNonSavingsAnnual + (age >= profile.income.statePensionAge ? profile.income.statePensionAnnual : 0)) * index;
   const gross = age >= profile.pension.accessAge ? sheet.accounts.pension + sheet.accounts.sipp : 0;
@@ -21,7 +21,7 @@ export function usableWealth(profile: Profile, sheet: BalanceSheet, age: number,
   const gain = sheet.accounts.gia - sheet.giaCostBasis;
   const cgt = calculateCapitalGainsTax({ realisedGains: Math.max(0, gain), currentYearLosses: Math.max(0, -gain),
     carriedLosses: sheet.giaCarriedLosses, remainingBasicRateBand: after.remainingBasicRateBandForGains }, config);
-  return (accessibleWealth(sheet) + gross - (after.totalIncomeTax - before.totalIncomeTax) - cgt.tax) / index;
+  return (accessibleWealth(sheet) + gross - (after.totalIncomeTax - before.totalIncomeTax) - cgt.tax - split.taxable * pensionWithdrawalSurtaxRate) / index;
 }
 export interface AllocationSample {
   usable: number[]; accessible: number[]; netWorth: number[]; debt: number[];
@@ -35,7 +35,7 @@ export function allocationSample(profile: Profile, projection: DeterministicProj
     const sheet = terminal ? y.closing : y.opening;
     const index = terminal ? y.closingInflationIndex : y.inflationIndex;
     debt.push(sheet.mortgageDebt / index);
-    usable.push(usableWealth(profile, sheet, age, index));
+    usable.push(usableWealth(profile, sheet, age, index, projection.assumptions.options.pensionWithdrawalSurtaxRate));
     accessible.push(accessibleWealth(sheet) / index);
     netWorth.push((accessibleWealth(sheet) + sheet.accounts.pension + sheet.accounts.sipp + sheet.propertyValue - sheet.mortgageDebt) / index);
   }

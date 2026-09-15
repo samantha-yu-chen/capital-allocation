@@ -19,7 +19,7 @@ import {
   type RetirementSpendingLevel, type SpendingOptions, type SpendingYear,
 } from './spending.js';
 
-export const ENGINE_VERSION = 'deterministic-ledger-v3-marginal-property-' + PROPERTY_TAX_VERSION;
+export const ENGINE_VERSION = 'deterministic-ledger-v4-stress-property-' + PROPERTY_TAX_VERSION;
 
 /** Raised for validated profiles whose features this chunk deliberately does not model. */
 export class UnsupportedProfileError extends Error {
@@ -30,6 +30,8 @@ export class UnsupportedProfileError extends Error {
 }
 
 export interface LedgerOptions extends SpendingOptions {
+  /** Hypothetical additional tax on taxable pension withdrawals, not enacted tax policy. */
+  pensionWithdrawalSurtaxRate: number;
   marginalAction: MarginalAction | null;
   measureAllocation: boolean;
   /** Explicit rent-comparison cash investment action, in today's GBP; never creates capital. */
@@ -47,7 +49,7 @@ export interface LedgerOptions extends SpendingOptions {
 }
 
 export const defaultLedgerOptions = (): LedgerOptions => ({
-  retirementLevel: 'target', monthlyHouseholdOverride: null, marginalAction: null, measureAllocation: false, fundEmergencyReserve: true, rentInvestment: null,
+  pensionWithdrawalSurtaxRate: 0, retirementLevel: 'target', monthlyHouseholdOverride: null, marginalAction: null, measureAllocation: false, fundEmergencyReserve: true, rentInvestment: null,
   surplusAllocation: 'isa_then_gia', solverTolerance: 1e-6, solverMaxIterations: 60,
 });
 
@@ -97,6 +99,7 @@ export interface LedgerYearDetail extends LedgerYear {
   giaRealisedLosses: number;
   giaTaxableGains: number;
   giaCgtExemptionUsed: number;
+  pensionWithdrawalSurtax: number;
   pensionWithdrawalTaxFree: number;
   pensionWithdrawalTaxable: number;
   pensionContributionEmployer: number;
@@ -200,6 +203,7 @@ export function runDeterministicProjection(profile: Profile, overrides: Partial<
  */
 export function runProjection(profile: Profile, path: MarketPath, overrides: Partial<LedgerOptions> = {}): DeterministicProjection {
   const options: LedgerOptions = { ...defaultLedgerOptions(), ...overrides };
+  if (!Number.isFinite(options.pensionWithdrawalSurtaxRate) || options.pensionWithdrawalSurtaxRate < 0 || options.pensionWithdrawalSurtaxRate > .2) throw new RangeError('Pension withdrawal surtax must be between 0 and 20%');
   const totalYears = profile.personal.endAge - profile.personal.currentAge;
   if (path.years.length < totalYears)
     throw new RangeError(`Market path supplies ${path.years.length} years; the projection needs ${totalYears}`);
@@ -219,6 +223,10 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
   for (let t = 0; t < totalYears; t += 1) {
     const age = profile.personal.currentAge + t;
     const marketYear = path.years[t]!;
+    if (marketYear.yearIndex !== t || [marketYear.equities, marketYear.bonds, marketYear.cash, marketYear.property, marketYear.inflation].some(v => !Number.isFinite(v) || v <= -1) ||
+        (marketYear.employmentMultiplier !== undefined && (!Number.isFinite(marketYear.employmentMultiplier) || marketYear.employmentMultiplier < 0 || marketYear.employmentMultiplier > 1)) ||
+        (marketYear.mortgageAnnualRate !== undefined && (!Number.isFinite(marketYear.mortgageAnnualRate) || marketYear.mortgageAnnualRate < 0 || marketYear.mortgageAnnualRate > 1))) throw new RangeError('Invalid annual market/stress path');
+    const employmentMultiplier = marketYear.employmentMultiplier ?? 1;
     const inflationIndex = indices[t]!;
     const closingInflationIndex = inflationIndex * (1 + marketYear.inflation);
     // `constant_real` (the only supported policy): keep this year's structure in real terms.
@@ -229,10 +237,10 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const phase: LedgerYear['phase'] = working ? 'accumulation'
       : age < profile.pension.accessAge ? 'bridge' : 'retirement';
     const realGrowth = (1 + profile.income.salaryGrowthReal) ** t;
-    const salaryNominal = working ? profile.income.salaryAnnual * realGrowth * inflationIndex : 0;
-    const bonusNominal = working ? profile.income.bonusAnnual * realGrowth * inflationIndex : 0;
+    const salaryNominal = working ? profile.income.salaryAnnual * realGrowth * inflationIndex * employmentMultiplier : 0;
+    const bonusNominal = working ? profile.income.bonusAnnual * realGrowth * inflationIndex * employmentMultiplier : 0;
     // Post-FIRE employment is not pensionable: the contribution policy follows the salary.
-    const retirementEmployment = working ? 0 : profile.income.retirementEmploymentAnnual * inflationIndex;
+    const retirementEmployment = working ? 0 : profile.income.retirementEmploymentAnnual * inflationIndex * employmentMultiplier;
     let employmentIncome = salaryNominal + bonusNominal + retirementEmployment;
     const pensionablePay = salaryNominal;
     const otherIncome = profile.income.otherNonSavingsAnnual * inflationIndex;
@@ -248,7 +256,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
     const basisAfterTurnover = opening.giaCostBasis + giaTurnoverRealisedGain;
 
     const spending = spendingForYear(profile, { age, inflationIndex, realSalaryGrowthMultiple: realGrowth }, options);
-    const property = propertyYear(profile, opening, age, inflationIndex, cancelledPurchase);
+    const property = propertyYear(profile, opening, age, inflationIndex, cancelledPurchase, marketYear.mortgageAnnualRate);
     // The included rent component belongs to every supplied spending schedule. Remove it once,
     // bounded by that schedule's total (essentials first), only during owner occupation.
     const rentRemoved = Math.min(spending.totalNominal, property.rentRemoved);
@@ -337,11 +345,12 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       const { eligible: eligibleFinanceCosts, reduction: rentalFinanceRelief } = rentalFinanceReduction(financeCosts,
         rentalTaxableProfit, net.tax.adjustedNetIncome - savingsInterestTaxed - giaDividendsTaxed,
         net.tax.personalAllowance, net.tax.totalIncomeTax, config.ukBands[0]!.rate);
-      const totalTax = net.tax.totalIncomeTax - rentalFinanceRelief + net.ni.employee + cgt.tax;
+      const pensionWithdrawalSurtax = split.taxable * options.pensionWithdrawalSurtaxRate;
+      const totalTax = pensionWithdrawalSurtax + net.tax.totalIncomeTax - rentalFinanceRelief + net.ni.employee + cgt.tax;
       const cashInflow = employmentIncome + otherIncome + statePensionIncome + split.gross + isaWithdrawal + giaProceeds + property.rentalIncome + Math.max(0, property.saleCash);
       const cashOutflowBeforeSpending = net.pension.personalCashReduction + totalTax;
       return {
-        pensionFromPension, pensionFromSipp, split, disposal, realisedGains, net, cgt, totalTax,
+        pensionFromPension, pensionFromSipp, split, disposal, realisedGains, net, cgt, totalTax, pensionWithdrawalSurtax,
         cashInflow, cashOutflowBeforeSpending, rentalFinanceRelief, eligibleFinanceCosts,
         available: cashAllowed + cashInflow - cashOutflowBeforeSpending,
       };
@@ -481,7 +490,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       mortgageOverpayment, marginalFunding: marginal, yearIndex: t, age, phase, inflationIndex, closingInflationIndex, opening, closing,
       employmentIncome, otherIncome, statePensionIncome, rentalIncome: property.rentalIncome,
       contributions, withdrawalsGross, investmentReturn,
-      incomeTax: result.net.tax.totalIncomeTax - result.rentalFinanceRelief, employeeNi: result.net.ni.employee,
+      incomeTax: result.net.tax.totalIncomeTax - result.rentalFinanceRelief + result.pensionWithdrawalSurtax, employeeNi: result.net.ni.employee,
       capitalGainsTax: result.cgt.tax,
       // Chunk 1 rejects contributions above the available allowance instead of modelling a charge.
       pensionAllowanceCharge: 0,
@@ -512,7 +521,7 @@ export function runProjection(profile: Profile, path: MarketPath, overrides: Par
       giaDisposalProceeds: giaProceeds,
       giaRealisedGains: result.realisedGains, giaRealisedLosses: result.disposal.realisedLoss,
       giaTaxableGains: result.cgt.taxableGains, giaCgtExemptionUsed: result.cgt.exemptionUsed,
-      pensionWithdrawalTaxFree: result.split.taxFree, pensionWithdrawalTaxable: result.split.taxable,
+      pensionWithdrawalSurtax: result.pensionWithdrawalSurtax, pensionWithdrawalTaxFree: result.split.taxFree, pensionWithdrawalTaxable: result.split.taxable,
       pensionContributionEmployer: result.net.pension.employerContribution,
       pensionContributionMember: result.net.pension.memberGross,
       pensionContributionTotal: result.net.pension.totalPensionAdded,

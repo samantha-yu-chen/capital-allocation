@@ -1,3 +1,4 @@
+import { AttributionScreen } from './screen-attribution.js';
 import { MarginalScreen } from './screen-marginal.js';
 import { PropertyScreen } from './screen-property.js';
 /**
@@ -135,6 +136,7 @@ export function App(): ReactNode {
         </div>
 
         <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>
+          {active === 'attribution' ? <AttributionScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'marginal' ? <MarginalScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'property' ? <PropertyScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'overview' ? <OverviewScreen store={store} ledgerOptions={ledgerOptions} /> : null}

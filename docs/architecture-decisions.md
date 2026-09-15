@@ -117,3 +117,40 @@ explicitly, is keyed separately so it can never satisfy a full-count request, an
 wherever it appears. A batch runs in the existing coordinator worker and keeps one simulation worker
 set for all of its cells; batches are stateless and aggregation stays in path-index order, so reuse
 cannot change a result. A cancelled batch publishes nothing — no partial matrix.
+
+## ADR 008: intervention comparisons and synthetic annual stress paths (chunk 9)
+
+Attribution means a finite set of explicit one-at-a-time interventions against the entered plan.
+It is not a causal percentage decomposition or a Shapley allocation: intervention sizes differ,
+interactions are not simulated as a combined plan, and effects must not be summed. The objective
+is full-horizon funding success; terminal wealth, downside, property equity and accessible wealth
+at the candidate's own target FIRE age remain separate outcomes.
+
+Sensitivity changes nominal arithmetic means or volatility while retaining the same Gaussian
+normal draws, seed, absolute path indices, horizon and correlation matrix. `assertSensitivityPaths`
+wraps the inherited `assertCommonPaths` and `assertScenarioPaths` checks: only market moments may
+differ, and actual returned profiles/options/versions/counts are checked. It does not relax the
+strict common-path rules used by scenario or marginal comparisons. Difference uncertainty uses
+the sum of marginal standard errors, an upper bound on the paired-difference standard error under
+any covariance. A finding requires exceeding 1.96 times this conservative bound.
+
+Synthetic stress paths begin from `deterministicPath` and replace only the specified annual
+observations. Two optional `MarketYear` fields carry an employment multiplier and absolute mortgage
+rate override. Employment scales salary, bonus and retirement employment, including pensionable
+pay; other and state income remain. A mortgage override recasts that year's remaining-term payments;
+the contractual rate schedule resumes when the override ends. All path values are validated in
+the ledger. Effects on wealth/debt persist naturally after the shock window; the *override* does
+not persist. A stress is a single assumed path, with no probability or actual historical backtest.
+
+`LedgerOptions.pensionWithdrawalSurtaxRate` defaults to zero. This is an explicitly hypothetical
+additional charge on the taxable part of a pension withdrawal, between 0 and 20pp, applied inside
+the same gross-up funding solver and included in income/total tax and reconciliation. It does not
+replace tax bands or tax-free-cash rules. Snapshot usable-wealth valuation includes it too. The
+analysis tests +5pp and +10pp relative to the entered option and labels them as assumptions. The
+ledger version changes; default-zero numerical outcomes remain unchanged.
+
+One coordinator owns one reusable simulation pool for the whole attribution batch. Cache keys
+include the complete profile, every resolved ledger option, and engine, simulation, generator,
+tax, attribution and stress versions. Cache writes commit only after the entire analysis succeeds;
+failed/cancelled batches publish nothing. Each evaluated cell retains its complete Monte Carlo
+result and exact inputs so every reported figure can be recomputed independently.

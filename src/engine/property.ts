@@ -43,7 +43,7 @@ export function purchaseTax(property: Property, incomeRegion: Profile['personal'
   return tax;
 }
 
-export function propertyYear(profile: Profile, opening: BalanceSheet, age: number, index: number, cancelledPurchase: boolean) {
+export function propertyYear(profile: Profile, opening: BalanceSheet, age: number, index: number, cancelledPurchase: boolean, rateOverride?: number) {
   const p = cancelledPurchase ? null : profile.property;
   const buying = !!p?.purchase && p.purchase.age === age;
   const selling = !!p?.sale && p.sale.age === age;
@@ -58,6 +58,7 @@ export function propertyYear(profile: Profile, opening: BalanceSheet, age: numbe
   const saleCash = selling ? value - saleCosts - debt : 0;
   let annualRate = p?.mortgageAnnualRate ?? 0;
   for (const change of [...(p?.rateChanges ?? [])].sort((a,b) => a.age-b.age)) if (age >= change.age) annualRate = change.annualRate;
+  annualRate = rateOverride ?? annualRate;
   const mortgage = owned || (!selling && debt > 0)
     ? mortgageYear(debt, annualRate, (p?.mortgageTermYears ?? 0) - (age - startAge), p?.mortgageType ?? 'repayment')
     : mortgageYear(0, 0, 1, 'repayment');

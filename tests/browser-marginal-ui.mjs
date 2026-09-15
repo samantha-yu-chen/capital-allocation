@@ -13,6 +13,9 @@ const cdpPort = process.env.CDP_PORT ?? '9226';
 const tabs = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl);
 await new Promise(r => { ws.onopen = r; });
+// A dropped debugger connection otherwise looks like a silently unsettled await.
+let finished = false;
+ws.onclose = () => { if (!finished) { console.error('CDP CONNECTION CLOSED'); process.exit(1); } };
 let id = 0; const pending = new Map(); const errors = [];
 ws.onmessage = e => {
   const m = JSON.parse(e.data);
@@ -142,4 +145,4 @@ console.log('property allocation seconds',results.depositSeconds,results.mortgag
 assert.equal(errors.length,0,JSON.stringify(errors));
 await fs.writeFile('/tmp/chunk7-ui-results.json',JSON.stringify(results,null,2));
 console.log(JSON.stringify({grossSeconds:results.grossSeconds,cashSeconds:results.cashSeconds,frames:results.frames,passed:true}));
-ws.close();
+finished = true; ws.close();

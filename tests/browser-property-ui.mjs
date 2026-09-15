@@ -11,6 +11,9 @@ const cdpPort=process.env.CDP_PORT??'9225';
 const tabs=await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const ws=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
 await new Promise(r=>ws.onopen=r);let id=0;const pending=new Map();const errors=[];
+// A dropped debugger connection otherwise looks like a silently unsettled await.
+let finished = false;
+ws.onclose = () => { if (!finished) { console.error('CDP CONNECTION CLOSED'); process.exit(1); } };
 ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m.result);}else if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);};
 const cdp=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
 const ev=async(expression)=>{const r=await cdp('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
@@ -49,4 +52,4 @@ assert.equal(results.propertyMobileOverflow,0);assert.equal(results.overviewMobi
 assert.equal(errors.length,0);assert.ok(results.fullRun.frames>30);assert.ok(results.fullRun.maxGap<250);
 assert.equal(results.comparison.match(/FIRE success\t([\d.]+)%/)?.[1],results.fullRun.text.match(/Current ([\d.]+)%/)?.[1]);
 assert.ok(results.comparison.toLowerCase().includes('rent + invest'));
-await fs.writeFile('/tmp/chunk5-ui-results.json',JSON.stringify({...results,errors},null,2));ws.close();
+await fs.writeFile('/tmp/chunk5-ui-results.json',JSON.stringify({...results,errors},null,2));finished = true; ws.close();

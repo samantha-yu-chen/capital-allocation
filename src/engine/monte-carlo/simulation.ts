@@ -12,6 +12,7 @@ import type { Distribution } from './statistics.js';
 
 export const SIMULATION_VERSION = 'monte-carlo-v1';
 export const ledgerOptionsSchema = z.strictObject({
+  pensionWithdrawalSurtaxRate: z.number().finite().min(0).max(.2),
   marginalAction: marginalActionSchema.nullable(), measureAllocation: z.boolean(),
   retirementLevel: z.enum(['floor', 'target', 'comfort']), monthlyHouseholdOverride: z.number().finite().nonnegative().nullable(),
   rentInvestment: z.strictObject({age:z.number().int().min(18).max(120),amount:z.number().finite().nonnegative()}).nullable(),

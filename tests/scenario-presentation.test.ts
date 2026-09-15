@@ -9,9 +9,9 @@ import {
   SCENARIO_FIRE_FROM_FIELD, SCENARIO_FIRE_TO_FIELD, SCENARIO_PREVIEW_FIELD, SCENARIO_SALARY_FIELDS,
 } from '../src/presentation/view/fields.js';
 import {
-  cacheNote, defaultScenarioSettings, dominanceNote, libraryRows, matrixGrid, scenarioConclusion,
-  scenarioCostWarning, scenarioPlan, scenarioProgressLine, scenarioRows, scenarioSummary,
-  spendingEffectRows, strategyLabel,
+  SALARY_SEARCH_EVALUATIONS, cacheNote, defaultScenarioSettings, dominanceNote, libraryRows, matrixGrid,
+  requiredSalaryNotes, requiredSalaryText, scenarioConclusion, scenarioCostWarning, scenarioPlan,
+  scenarioProgressLine, scenarioRows, scenarioSummary, spendingEffectRows, strategyLabel,
 } from '../src/presentation/view/scenario-model.js';
 
 const small = (count = 6): Profile => {
@@ -118,6 +118,59 @@ test('the spending table shows the surplus and the capital target from one run',
   assert.ok(value(rows[0]!.capitalTarget) < value(rows[2]!.capitalTarget), 'the capital target rises as spending rises');
   assert.ok(value(rows[0]!.retirementSpending) < value(rows[2]!.retirementSpending));
   assert.equal(rows[0]!.fireAge, '—', 'no age is claimed when no search was run');
+  assert.equal(rows[0]!.requiredSalary, '—', 'no salary is claimed when no search was run');
+  assert.deepEqual(rows[0]!.requiredSalaryNotes, []);
+});
+
+test('section 61 completes with a required salary solved for each spending case', async () => {
+  const profile = small(6);
+  const model = plan(profile, { view: 'spending', salaryEnabled: true });
+  assert.equal(model.issues.length, 0);
+  // The cost is announced as a ceiling before the run, and the path count is untouched.
+  assert.equal(model.simulations, 3 * (1 + SALARY_SEARCH_EVALUATIONS + 1));
+  assert.match(model.announcement, /required-salary solve/);
+  assert.match(model.announcement, /never reduced to finish sooner/);
+  assert.equal(model.previewPaths, null);
+  assert.equal(model.request.salarySearch!.maxEvaluations, SALARY_SEARCH_EVALUATIONS);
+
+  const result = await runScenarioBatch(profile, { ...model.request, salarySearch: { targetProbability: null, bound: null, maxEvaluations: 6 } });
+  const rows = spendingEffectRows(result);
+  assert.equal(rows.length, 3);
+  rows.forEach((row, index) => {
+    const required = result.cells[index]!.requiredSalary!;
+    assert.notEqual(row.requiredSalary, '—', 'a completed search must publish what it found');
+    if (required.status === 'infeasible' || required.requiredSalary === null)
+      assert.match(row.requiredSalary, /^None up to £/, 'an unreached target reports the bound it tested');
+    else if (required.status === 'already_met') assert.match(row.requiredSalary, /already met/);
+    else assert.match(row.requiredSalary, /^£[\d,]+/);
+    assert.ok(row.requiredSalaryNotes.some(note => /complete simulation/.test(note)),
+      'the row states how many complete simulations the search spent');
+  });
+
+  // The same figures reach the full scenario table, not only the section 61 card.
+  const all = scenarioRows(result);
+  assert.deepEqual(all.map(r => r.requiredSalary), rows.map(r => r.requiredSalary));
+});
+
+test('an unconfirmed or unsupported required salary is never shown as a settled figure', () => {
+  const base = {
+    status: 'solved' as const, targetProbability: 0.9, currentSalary: 55_000, currentProbability: 0.6,
+    requiredSalary: 87_600, requiredProbability: 0.91, confirmedProbability: 0.88, confirmed: false,
+    excludedSalary: 87_500, bound: { value: 255_000, probability: 0.99 }, precision: 100,
+    standardError: 0.004, message: null, evaluations: 12, notes: [],
+  };
+  assert.match(requiredSalaryText(base), /confirmation run did not clear the target/);
+  assert.equal(requiredSalaryText({ ...base, confirmed: true }), '£87,600');
+  assert.match(requiredSalaryText({ ...base, status: 'already_met', requiredSalary: null }), /already met/);
+  assert.equal(requiredSalaryText({ ...base, status: 'infeasible', requiredSalary: null }), 'None up to £255,000');
+  assert.equal(
+    requiredSalaryText({ ...base, status: 'unsupported', requiredSalary: null, message: 'No salary to search.' }),
+    'No salary to search.');
+  assert.equal(requiredSalaryText(null), '—');
+
+  const notes = requiredSalaryNotes({ ...base, confirmed: true });
+  assert.ok(notes.some(note => /£87,500/.test(note) && /£87,600/.test(note)), 'the bracket is shown, not just the answer');
+  assert.ok(notes.some(note => /independent re-run/.test(note)));
 });
 
 test('a lead inside the sampling interval is reported as a tie, and unsupported cells keep their reason', async () => {

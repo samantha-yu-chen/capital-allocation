@@ -11,7 +11,7 @@ import type { LedgerOptions, MonteCarloResult } from '../../engine/index.js';
 import { referenceFireNumber, retirementAnnualReal } from '../../engine/index.js';
 import { money, moneyCompact, percent } from '../view/format.js';
 import {
-  WEALTH_CATEGORIES, diagnosticRows, distributionRows, metadataRows, observedFailureRows,
+  WEALTH_CATEGORIES, confidenceBand, diagnosticRows, distributionRows, metadataRows, observedFailureRows,
   sequenceRows, successSplit, wealthSeries, type WealthCategoryId,
 } from '../view/monte-carlo-model.js';
 import { Banner, BarList, Card, FanChart, Line, Progress, ProportionBar, SelectField, Stat } from './components.js';
@@ -140,6 +140,13 @@ function Headline(props: { result: MonteCarloResult; profile: Profile; seconds: 
         <span className={meets ? 'tag tag-accent-2' : 'tag tag-accent'}>
           {meets ? 'Meets the target' : 'Below the target'} of {percent(target, 0)}
         </span>
+        <span className="tag tag-outline" data-testid="confidence-band">
+          {confidenceBand(result.successProbability).label}
+        </span>
+        <p className="footnote">
+          The band is a section 16 reading label only. Your own {percent(target, 0)} target is the figure every
+          solver, curve and constraint is measured against.
+        </p>
         <p className="card-body">
           The share of sampled paths that funded every required year from today to age {props.profile.personal.endAge},
           including the pre-pension bridge. A sampled model result, not a forecast or a guarantee.

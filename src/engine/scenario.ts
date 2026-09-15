@@ -39,7 +39,7 @@ import {
   SIMULATION_VERSION, abortIfNeeded, ledgerOptionsSchema, runMonteCarlo,
   type MonteCarloResult, type SimulationProgress,
 } from './monte-carlo/simulation.js';
-import { assertCommonPaths, type EvaluateProfile } from './solver.js';
+import { SOLVER_VERSION, assertCommonPaths, solveTarget, type EvaluateProfile, type SolverResult, type SolverStatus } from './solver.js';
 import { fireAgeCurve, type FireAgeCurveResult } from './fire-curve.js';
 
 export const SCENARIO_VERSION = 'scenario-matrix-v1';
@@ -514,10 +514,23 @@ export const engineVersions = (profile: Profile): EngineVersions => ({
  * and the versions make a rebuilt engine, a new tax configuration or a new return generator produce
  * a different key rather than silently reusing an old number.
  */
-export const scenarioCellKey = (profile: Profile, options: LedgerOptions, fireAgeSearch: FireAgeSearch | null = null): string =>
-  stableStringify({ profile, options, versions: engineVersions(profile), fireAgeSearch });
+export const scenarioCellKey = (
+  profile: Profile, options: LedgerOptions,
+  fireAgeSearch: FireAgeSearch | null = null, salarySearch: SalarySearch | null = null,
+): string =>
+  stableStringify({ profile, options, versions: engineVersions(profile), fireAgeSearch, salarySearch, solverVersion: SOLVER_VERSION });
 
 export interface FireAgeSearch { fromAge: number; toAge: number }
+
+/**
+ * Section 61's required-salary column.
+ *
+ * Each cell re-solves the gross salary its own plan needs to reach the target probability, using the
+ * same bounded solver the Reverse Solver screen uses — the answer is searched against the complete
+ * model, never scaled from another cell. `maxEvaluations` caps the full simulations one cell may
+ * spend before the search reports what it did and did not test.
+ */
+export interface SalarySearch { targetProbability: number | null; bound: number | null; maxEvaluations: number }
 
 export interface ScenarioDeterministic {
   age: number;
@@ -572,6 +585,34 @@ export interface ScenarioFireAge {
   monotone: boolean;
 }
 
+/**
+ * One completed required-salary search for a cell.
+ *
+ * `requiredSalary` is the smallest salary the search actually tested that cleared the target; it is
+ * null when the status is `already_met` (the plan needs no more pay) or `infeasible` (nothing inside
+ * the bound cleared it). `confirmed` records an independent re-run of the returned salary through
+ * the complete model.
+ */
+export interface ScenarioRequiredSalary {
+  status: SolverStatus;
+  targetProbability: number;
+  currentSalary: number;
+  currentProbability: number | null;
+  requiredSalary: number | null;
+  requiredProbability: number | null;
+  confirmedProbability: number | null;
+  confirmed: boolean;
+  /** The largest tested salary below the answer that did not clear the target. */
+  excludedSalary: number | null;
+  bound: { value: number; probability: number | null };
+  precision: number;
+  standardError: number | null;
+  message: string | null;
+  /** Complete lifetime simulations this search spent, excluding the confirmation run. */
+  evaluations: number;
+  notes: string[];
+}
+
 export interface ScenarioCell {
   id: string;
   label: string;
@@ -586,6 +627,7 @@ export interface ScenarioCell {
   deterministic: ScenarioDeterministic | null;
   simulation: ScenarioSimulation | null;
   fireAge: ScenarioFireAge | null;
+  requiredSalary: ScenarioRequiredSalary | null;
 }
 
 export interface ScenarioBatchRequest {
@@ -594,6 +636,8 @@ export interface ScenarioBatchRequest {
   previewPaths?: number | null;
   /** Optional per-cell earliest-qualifying-age search. Each age is another complete simulation. */
   fireAgeSearch?: FireAgeSearch | null;
+  /** Optional per-cell required-salary solve (section 61). Each evaluation is a complete simulation. */
+  salarySearch?: SalarySearch | null;
   /** Transport-level ledger options. `marginalAction` and `rentInvestment` must stay null. */
   ledgerOptions?: Partial<LedgerOptions>;
 }
@@ -635,6 +679,7 @@ export interface ScenarioBatchResult {
     preview: boolean;
     pathIndices: { start: number; endExclusive: number } | null;
     fireAgeSearch: FireAgeSearch | null;
+    salarySearch: SalarySearch | null;
     baseOptions: LedgerOptions;
     moneyBasis: 'today';
     evaluated: number;
@@ -706,6 +751,16 @@ const fireAgeSummary = (curve: FireAgeCurveResult, search: FireAgeSearch): Scena
   fromAge: search.fromAge, toAge: search.toAge, monotone: curve.monotone,
 });
 
+const requiredSalarySummary = (result: SolverResult): ScenarioRequiredSalary => ({
+  status: result.status, targetProbability: result.targetProbability,
+  currentSalary: result.currentValue, currentProbability: result.currentProbability,
+  requiredSalary: result.requiredValue, requiredProbability: result.requiredProbability,
+  confirmedProbability: result.confirmedProbability, confirmed: result.confirmed,
+  excludedSalary: result.excludedValue, bound: result.bound, precision: result.precision,
+  standardError: result.standardError, message: result.message,
+  evaluations: result.evaluations.length, notes: result.notes,
+});
+
 /**
  * Run a batch of scenario cells on common market paths.
  *
@@ -726,6 +781,16 @@ export async function runScenarioBatch(
   const search = request.fireAgeSearch ?? null;
   if (search && (!Number.isInteger(search.fromAge) || !Number.isInteger(search.toAge) || search.toAge < search.fromAge))
     throw new RangeError('The FIRE age search range must be whole ages with toAge >= fromAge');
+  const salarySearch = request.salarySearch ?? null;
+  if (salarySearch) {
+    if (!Number.isInteger(salarySearch.maxEvaluations) || salarySearch.maxEvaluations < 3)
+      throw new RangeError('The required-salary search needs at least three evaluations per cell');
+    if (salarySearch.targetProbability !== null &&
+        (!Number.isFinite(salarySearch.targetProbability) || salarySearch.targetProbability < 0 || salarySearch.targetProbability > 1))
+      throw new RangeError('The required-salary target probability must be a fraction between 0 and 1');
+    if (salarySearch.bound !== null && (!Number.isFinite(salarySearch.bound) || salarySearch.bound < 0))
+      throw new RangeError('The required-salary bound must be a salary of zero or more');
+  }
   const evaluate = controls.evaluate ?? ((profile, inner) => runMonteCarlo(profile, {
     ledgerOptions: inner.ledgerOptions,
     ...(inner.signal ? { signal: inner.signal } : {}),
@@ -744,16 +809,17 @@ export async function runScenarioBatch(
     if (item.status === 'unsupported') {
       cells.push({ id: item.id, label: item.label, group: item.group, axes: item.axes, status: 'unsupported',
         reason: item.reason, note: item.note, key: null, fromCache: false, plan: null,
-        deterministic: null, simulation: null, fireAge: null });
+        deterministic: null, simulation: null, fireAge: null, requiredSalary: null });
       continue;
     }
     const profile = preview === null ? item.plan.profile
       : parseProfile({ ...item.plan.profile, simulation: { ...item.plan.profile.simulation, count: preview } });
     const options = ledgerOptionsSchema.parse({ ...baseOptions, ...item.plan.options }) as LedgerOptions;
-    const key = scenarioCellKey(profile, options, search);
+    const key = scenarioCellKey(profile, options, search, salarySearch);
     const unsupported = (reason: string): void => {
       cells.push({ id: item.id, label: item.label, group: item.group, axes: item.axes, status: 'unsupported',
-        reason, note: item.note, key, fromCache: false, plan: null, deterministic: null, simulation: null, fireAge: null });
+        reason, note: item.note, key, fromCache: false, plan: null, deterministic: null, simulation: null,
+        fireAge: null, requiredSalary: null });
     };
 
     const cached = controls.cache?.get(key);
@@ -809,12 +875,48 @@ export async function runScenarioBatch(
     }
     abortIfNeeded(controls.signal);
 
+    // Section 61's required salary: a complete bounded re-solve of this cell's own plan, never a
+    // scaled or interpolated answer taken from another cell.
+    let requiredSalary: ScenarioRequiredSalary | null = null;
+    if (salarySearch) {
+      try {
+        const solved = await solveTarget(profile, {
+          mode: 'salary', ledgerOptions: options, maxEvaluations: salarySearch.maxEvaluations,
+          ...(salarySearch.targetProbability === null ? {} : { targetProbability: salarySearch.targetProbability }),
+          ...(salarySearch.bound === null ? {} : { bound: salarySearch.bound }),
+        }, {
+          evaluate,
+          ...(controls.signal ? { signal: controls.signal } : {}),
+          ...(controls.onProgress ? {
+            onProgress: progress => controls.onProgress?.({
+              stage: `${item.label}: required salary (${progress.stage})`,
+              casesCompleted: completed, casesPlanned: planned, paths: progress.paths,
+            }),
+          } : {}),
+        });
+        requiredSalary = requiredSalarySummary(solved);
+      } catch (error) {
+        abortIfNeeded(controls.signal);
+        if (!(error instanceof PensionLimitError) && !(error instanceof UnsupportedScenarioError)) throw error;
+        // The cell's own simulation succeeded; only the extra search could not be run. Discarding
+        // the cell would throw away a real result, so the search reports why it has no answer.
+        requiredSalary = {
+          status: 'unsupported', targetProbability: salarySearch.targetProbability ?? profile.personal.targetSuccessProbability,
+          currentSalary: profile.income.salaryAnnual, currentProbability: null, requiredSalary: null,
+          requiredProbability: null, confirmedProbability: null, confirmed: false, excludedSalary: null,
+          bound: { value: salarySearch.bound ?? 0, probability: null }, precision: 0, standardError: null,
+          message: message(error), evaluations: 0, notes: [],
+        };
+      }
+    }
+    abortIfNeeded(controls.signal);
+
     const cell: ScenarioCell = {
       id: item.id, label: item.label, group: item.group, axes: item.axes, status: 'evaluated', reason: null,
       note: item.note, key, fromCache: false,
       plan: { salaryAnnual: profile.income.salaryAnnual, employeeRate: profile.pension.employeeRate,
         hasProperty: profile.property !== null, options: item.plan.options },
-      deterministic, simulation: simulationSummary(profile, result), fireAge,
+      deterministic, simulation: simulationSummary(profile, result), fireAge, requiredSalary,
     };
     controls.cache?.set(key, cell);
     cells.push(cell);
@@ -829,7 +931,7 @@ export async function runScenarioBatch(
     metadata: {
       scenarioVersion: SCENARIO_VERSION, versions: engineVersions(base), seed: base.simulation.seed,
       simulationCount, enteredSimulationCount: base.simulation.count, preview: preview !== null,
-      pathIndices, fireAgeSearch: search, baseOptions, moneyBasis: 'today',
+      pathIndices, fireAgeSearch: search, salarySearch, baseOptions, moneyBasis: 'today',
       evaluated: cells.filter(c => c.status === 'evaluated').length,
       unsupported: cells.filter(c => c.status === 'unsupported').length,
       cacheHits,

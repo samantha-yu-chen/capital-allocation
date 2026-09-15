@@ -43,6 +43,34 @@ export function wealthSeries(result: MonteCarloResult, category: WealthCategoryI
   });
 }
 
+/**
+ * Spec section 16's presentation labels for a success probability.
+ *
+ * These are *labels for a band*, not thresholds the engine acts on: the user's own target
+ * (`personal.targetSuccessProbability`) remains the only figure any solver, curve or constraint
+ * compares against. The band exists so a bare percentage is not read without context, and it never
+ * replaces the number or its sampling interval.
+ */
+export type ConfidenceBandId = 'fragile' | 'moderate' | 'strong' | 'high_confidence' | 'very_conservative';
+
+export interface ConfidenceBand { id: ConfidenceBandId; label: string; from: number; to: number | null }
+
+export const CONFIDENCE_BANDS: readonly ConfidenceBand[] = [
+  { id: 'fragile', label: 'Fragile', from: 0, to: 0.7 },
+  { id: 'moderate', label: 'Moderate', from: 0.7, to: 0.8 },
+  { id: 'strong', label: 'Strong', from: 0.8, to: 0.9 },
+  { id: 'high_confidence', label: 'High confidence', from: 0.9, to: 0.95 },
+  { id: 'very_conservative', label: 'Very conservative', from: 0.95, to: null },
+];
+
+/** Half-open bands: a probability on a boundary belongs to the higher band, and 100% is the top one. */
+export function confidenceBand(probability: number): ConfidenceBand {
+  if (!Number.isFinite(probability) || probability < 0 || probability > 1)
+    throw new RangeError('A success probability must be a fraction between 0 and 1');
+  return CONFIDENCE_BANDS.find(band => probability >= band.from && (band.to === null || probability < band.to))
+    ?? CONFIDENCE_BANDS[CONFIDENCE_BANDS.length - 1]!;
+}
+
 export const FAILURE_LABELS: Record<FailureCode, string> = {
   pre_pension_liquidity: 'Pre-pension liquidity (bridge) failure',
   portfolio_depletion: 'Portfolio depletion',
@@ -168,7 +196,11 @@ export function metadataRows(result: MonteCarloResult): MetadataRow[] {
     { label: 'Return generator', value: meta.returnGeneratorVersion },
     { label: 'Market assumptions', value: meta.assumptionVersion },
     { label: 'Tax configuration', value: meta.taxConfigVersion },
-    { label: 'Tax policy', value: meta.taxPolicy },
+    // Spec §36: V0.3 may assume the current tax structure continues, but the output must say so.
+    {
+      label: 'Tax policy',
+      value: `${meta.taxPolicy} — the configured ${meta.profile.personal.taxYear} rules are held constant in real terms for the whole projection. Future changes to tax law are not modelled; Where It Comes From tests a hypothetical extra charge on taxable pension withdrawals as one example of what such a change could cost.`,
+    },
     { label: 'Money basis', value: `${meta.moneyBasis} (today’s money; outputs are not deflated again)` },
     { label: 'Age timing', value: meta.ageTiming },
     { label: 'Percentile method', value: meta.percentileMethod },

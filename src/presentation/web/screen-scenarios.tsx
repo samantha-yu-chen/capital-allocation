@@ -55,6 +55,7 @@ export function ScenariosScreen({ store, ledgerOptions }: { store: ProfileStore;
   const key = useMemo(
     () => profile ? stableStringify({ profile, options, settings, cases: plan?.cases.map(c => c.id) ?? [],
       preview: plan?.previewPaths ?? null, search: plan?.request.fireAgeSearch ?? null,
+      salarySearch: plan?.request.salarySearch ?? null,
       plans: plan?.cases.map(c => c.status === 'planned' ? c.plan : c.reason) ?? [] }) : null,
     [profile, options, settings, plan],
   );
@@ -124,6 +125,9 @@ export function ScenariosScreen({ store, ledgerOptions }: { store: ProfileStore;
             onChange={fireAgeEnabled => setSettings(s => ({ ...s, fireAgeEnabled }))} />
           {settings.fireAgeEnabled ? control(SCENARIO_FIRE_FROM_FIELD, range.fromAge) : null}
           {settings.fireAgeEnabled ? control(SCENARIO_FIRE_TO_FIELD, range.toAge) : null}
+          <CheckboxField label="Solve the required gross salary per scenario (section 61)" checked={settings.salaryEnabled}
+            help="Off by default: each scenario runs its own bounded salary search against the complete model, up to 25 more complete simulations."
+            onChange={salaryEnabled => setSettings(s => ({ ...s, salaryEnabled }))} />
           <CheckboxField label="Run a reduced-path preview instead" checked={settings.previewEnabled}
             help="A preview is labelled a preview everywhere it appears and is never presented as a full-count result."
             onChange={previewEnabled => setSettings(s => ({ ...s, previewEnabled }))} />
@@ -314,12 +318,16 @@ function ScenarioResult({ result, target }: { result: ScenarioBatchResult; targe
           </p>
           <div className="table-scroll">
             <table className="table" data-testid="spending-effects">
-              <thead><tr><th>Case</th><th>Investable surplus</th><th>Total invested</th><th>Retirement budget</th><th>Reference FIRE number</th><th>FIRE success</th><th>Earliest qualifying age</th></tr></thead>
+              <thead><tr><th>Case</th><th>Investable surplus</th><th>Total invested</th><th>Retirement budget</th><th>Reference FIRE number</th><th>FIRE success</th><th>Earliest qualifying age</th><th>Required salary</th></tr></thead>
               <tbody>
                 {spending.map(row => (
                   <tr key={row.label}>
                     <th>{row.monthly}</th><td>{row.surplus}</td><td>{row.totalInvested}</td>
                     <td>{row.retirementSpending}</td><td>{row.capitalTarget}</td><td>{row.probability}</td><td>{row.fireAge}</td>
+                    <td data-testid="spending-required-salary">
+                      {row.requiredSalary}
+                      {row.requiredSalaryNotes.map(note => <span className="footnote" key={note}><br />{note}</span>)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -354,7 +362,7 @@ function ScenarioResult({ result, target }: { result: ScenarioBatchResult; targe
           <table className="table" data-testid="scenario-rows">
             <thead>
               <tr>
-                <th>Scenario</th><th>FIRE success</th><th>FIRE age</th><th>Take-home</th><th>Marginal rate</th>
+                <th>Scenario</th><th>FIRE success</th><th>FIRE age</th><th>Required salary</th><th>Take-home</th><th>Marginal rate</th>
                 <th>Pension contribution</th><th>ISA contribution</th><th>Total invested</th>
                 <th>Liquid @ FIRE</th><th>Pension @ FIRE</th><th>Net worth @ FIRE</th><th>Median terminal</th><th>P10 terminal</th>
               </tr>
@@ -364,7 +372,7 @@ function ScenarioResult({ result, target }: { result: ScenarioBatchResult; targe
                 <tr key={row.id}>
                   <th>{row.label}{row.note ? <><br /><span className="footnote">{row.note}</span></> : null}
                     {row.status === 'unsupported' ? <><br /><span className="footnote">Unsupported: {row.reason}</span></> : null}</th>
-                  <td>{row.probability}</td><td>{row.fireAge}</td><td>{row.takeHome}</td><td>{row.marginalRate}</td>
+                  <td>{row.probability}</td><td>{row.fireAge}</td><td>{row.requiredSalary}</td><td>{row.takeHome}</td><td>{row.marginalRate}</td>
                   <td>{row.pensionContribution}</td><td>{row.isaContribution}</td><td>{row.totalInvested}</td>
                   <td>{row.liquidAtFire}</td><td>{row.pensionAtFire}</td><td>{row.netWorthAtFire}</td>
                   <td>{row.terminalMedian}</td><td>{row.terminalP10}</td>

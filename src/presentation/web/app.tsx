@@ -113,6 +113,12 @@ export function App(): ReactNode {
           tax rules for {shown.personal.taxYear} and a parametric Monte Carlo market model. Sampled results are
           not forecasts.
         </p>
+        {/* Spec §36: V0.3 may hold the tax structure constant, but must disclose that it does. */}
+        <p className="sidebar-note">
+          Those tax rules are held constant in real terms for the whole projection — bands, allowances and
+          thresholds move with inflation and never otherwise change. Real tax law will change over a lifetime,
+          and that risk is not modelled.
+        </p>
       </header>
 
       <main className="main" id="main">

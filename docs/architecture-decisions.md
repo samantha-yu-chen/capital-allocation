@@ -154,3 +154,39 @@ include the complete profile, every resolved ledger option, and engine, simulati
 tax, attribution and stress versions. Cache writes commit only after the entire analysis succeeds;
 failed/cancelled batches publish nothing. Each evaluated cell retains its complete Monte Carlo
 result and exact inputs so every reported figure can be recomputed independently.
+
+## ADR 009: a solve inside a scenario cell, and labels that are only labels (chunk 10)
+
+Spec section 61 asks each spending case for a **required salary**, from the model. The obvious
+shortcut — solve it once for the entered plan and scale the other two cases by their spending ratio
+— is wrong for the same reason the rest of this codebase re-runs rather than scales: the answer
+passes through marginal tax, NI, the pension annual allowance, ISA capacity, the emergency reserve
+and pension access, none of which is linear in spending. So a scenario cell may now perform a
+complete bounded solve of its own plan, reusing `solveTarget` in `salary` mode rather than growing a
+second search implementation. The cell's own resolved `LedgerOptions` — including its household
+spending override — are what the solve runs against, so each case really is solving its own plan.
+
+This makes one cell cost up to twenty-six complete simulations instead of one, which forces three
+decisions. The search is **opt-in**, like the earliest-qualifying-age search beside it. Its cost is
+announced as a *ceiling* before the run — a solve that settles early spends fewer, and stating the
+smaller expected number would understate what the user might wait for. And it runs through the same
+`evaluate` seam as every other cell, so the coordinator's single simulation worker pool serves the
+whole batch, solves included, rather than standing up a pool per search.
+
+`salarySearch` and `SOLVER_VERSION` join `scenarioCellKey`. A cell computed without the search must
+never satisfy a request that needs it, and a rebuilt solver must not silently reuse an answer the
+old one produced. As everywhere else, a cancelled batch commits nothing: the cache write happens
+after the cell is complete, so an aborted solve leaves no half-searched salary behind.
+
+What the cell reports is what the search established, never a clamped number. A target nothing
+inside the bound reaches says "None up to £X" and names the bound it actually tested. An answer is
+shown with the bracket either side of it, the independent confirmation re-run, and the number of
+complete simulations spent — so a figure that took six evaluations cannot be mistaken for one that
+took twenty-five.
+
+Section 16's five probability labels — Fragile, Moderate, Strong, High confidence, Very
+conservative — live in the view layer and nowhere else. They are contiguous half-open bands over
+[0, 1], so no probability falls between two labels and a boundary belongs to the higher band. No
+engine reads them: `personal.targetSuccessProbability` remains the only figure any solver, curve or
+constraint compares against, and the screen says so beside the label. A band is a reading aid for a
+bare percentage, not a second, hidden target.

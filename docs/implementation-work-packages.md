@@ -1,9 +1,10 @@
 # V0.3 implementation work packages
 
-Status: chunks 1–8 implemented and tested. See `handoffs/chunk-8.md` for named scenarios, versioned
-persistence and the scenario matrix, 230 passing tests, real Chrome evidence and the chunk-9
-assignment. Prior handoffs preserve the tax, ledger, Monte Carlo, property, solver and marginal
-interfaces and their limitations. Chunks 9–10 remain open.
+Status: **all ten packages delivered.** See `handoffs/chunk-10.md` for the release handoff — the
+completed section 88 audit, 251 passing tests, measured Chrome evidence, benchmark numbers with
+their hardware and concurrency, and the limitations that remain. Prior handoffs preserve the tax,
+ledger, Monte Carlo, property, solver, marginal, scenario and attribution interfaces and their
+support boundaries; none of them is superseded.
 
 ## Authority and baseline
 
@@ -191,9 +192,17 @@ supported cell against `runMonteCarlo`, complete cache keys and cancellation pub
 ADR 008 records the design. Real Chrome evidence, measured timings and the limitations chunk 10
 inherits are in `handoffs/chunk-9.md`.
 
-## 10. Full-product acceptance and release handoff
+## 10. Full-product acceptance and release handoff — **delivered**
 
 Suggested owner: Claude. Dependencies: 9. Spec: 85–89 and the complete requirements checklist; all eight tabs.
+
+Delivered. The audit re-derived every section 88 MUST from the source and a named test rather than
+from a status line, and found two in-scope spec details with nothing behind them: section 61's
+required-salary column and section 16's presentation labels. Both were built rather than deferred,
+with six new tests. One overstated claim about per-year tax-region selection was corrected and given
+the test it had been missing. `handoffs/chunk-10.md` records the measured evidence;
+`v0.3-requirements-checklist.md` is the long-form audit, including the eleven cross-cutting
+ambiguities it closed.
 
 Goal: deliver a locally runnable V0.3 with all required features connected and verified.
 
@@ -213,9 +222,5 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 10. Use `handoffs/chunk-9.md` for the paste-ready assignment.
-Packages 1–9 supply the shared validated profile, complete tax/property lifetime ledger, common-path
-workers, reverse solvers, marginal comparisons, the named-scenario matrix and attribution, sensitivity
-and deterministic stress analysis. All eight screens now run real engines, so package 10 is an audit
-and integration package: verify every section 88 MUST against implementation and tests rather than
-against these status lines, fix the gaps it finds, and produce the release handoff.
+No package remains. `handoffs/chunk-10.md` is the release handoff; it names the limitations that a
+future assignment would start from, and repeats that the section 89 deferred list stays deferred.

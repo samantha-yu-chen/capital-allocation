@@ -4,8 +4,8 @@ import { createExampleProfile } from '../src/domain/fixtures.js';
 import { defaultLedgerOptions, runDeterministicProjection, runMonteCarlo } from '../src/engine/index.js';
 import { computeOverview, ledgerRow, marginalOnIncrement } from '../src/presentation/view/overview-model.js';
 import {
-  WEALTH_CATEGORIES, diagnosticRows, distributionRows, metadataRows, observedFailureRows,
-  sequenceRows, successSplit, wealthSeries,
+  CONFIDENCE_BANDS, WEALTH_CATEGORIES, confidenceBand, diagnosticRows, distributionRows, metadataRows,
+  observedFailureRows, sequenceRows, successSplit, wealthSeries,
 } from '../src/presentation/view/monte-carlo-model.js';
 import { money, moneyCompact, moneySigned, percent, ratio } from '../src/presentation/view/format.js';
 import { writePath } from '../src/presentation/view/fields.js';
@@ -13,6 +13,32 @@ import { writePath } from '../src/presentation/view/fields.js';
 const example = createExampleProfile();
 const close = (actual: number, expected: number, tolerance: number, message: string) =>
   assert.ok(Math.abs(actual - expected) <= tolerance, `${message}: ${actual} vs ${expected}`);
+
+test('section 16 confidence bands label a probability without becoming the target', () => {
+  // Spec §16's five labels, as half-open bands. A boundary belongs to the higher band.
+  assert.deepEqual(CONFIDENCE_BANDS.map(b => b.label),
+    ['Fragile', 'Moderate', 'Strong', 'High confidence', 'Very conservative']);
+  const label = (p: number) => confidenceBand(p).label;
+  assert.equal(label(0), 'Fragile');
+  assert.equal(label(0.6899), 'Fragile');
+  assert.equal(label(0.7), 'Moderate');
+  assert.equal(label(0.7999), 'Moderate');
+  assert.equal(label(0.8), 'Strong');
+  assert.equal(label(0.8999), 'Strong');
+  assert.equal(label(0.9), 'High confidence');
+  assert.equal(label(0.9499), 'High confidence');
+  assert.equal(label(0.95), 'Very conservative');
+  assert.equal(label(1), 'Very conservative');
+  // Every band is contiguous, so no probability falls between two labels.
+  CONFIDENCE_BANDS.forEach((band, index) => {
+    const previous = CONFIDENCE_BANDS[index - 1];
+    if (previous) assert.equal(band.from, previous.to);
+  });
+  // The label is presentation only: the engine target is still the profile's own figure.
+  assert.equal(example.personal.targetSuccessProbability, 0.9);
+  assert.throws(() => confidenceBand(1.2), /between 0 and 1/);
+  assert.throws(() => confidenceBand(Number.NaN), /between 0 and 1/);
+});
 
 test('Overview reproduces the specification section 80 current position', () => {
   const model = computeOverview(example);

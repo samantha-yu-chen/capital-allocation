@@ -51,10 +51,15 @@ export interface ScenarioSettings {
   strategy: CapitalStrategyId;
   previewEnabled: boolean;
   fireAgeEnabled: boolean;
+  /** Section 61's required-salary column. Each cell costs a complete bounded solve. */
+  salaryEnabled: boolean;
 }
 
 export const defaultScenarioSettings = (): ScenarioSettings =>
-  ({ view: 'matrix', strategy: 'balanced', previewEnabled: false, fireAgeEnabled: false });
+  ({ view: 'matrix', strategy: 'balanced', previewEnabled: false, fireAgeEnabled: false, salaryEnabled: false });
+
+/** Evaluations one required-salary solve may spend, matching the Reverse Solver's own default. */
+export const SALARY_SEARCH_EVALUATIONS = 24;
 
 /** The purchase the property strategies model: the entered one, or the shared default to edit. */
 export const scenarioPropertyPlan = (profile: Profile): StrategyContext['property'] =>
@@ -129,21 +134,29 @@ export function scenarioPlan(
   if (valid && settings.view === 'library' && scenarios.length === 0)
     issues.push({ id: null, message: 'Save at least one named scenario before comparing saved scenarios.' });
 
+  const salarySearch = settings.salaryEnabled
+    ? { targetProbability: null, bound: null, maxEvaluations: SALARY_SEARCH_EVALUATIONS } : null;
+
   const runnable = cases.filter(c => c.status === 'planned').length;
   const paths = previewPaths ?? profile.simulation.count;
   const agesPerCell = fireAgeSearch ? Math.max(0, fireAgeSearch.toAge - fireAgeSearch.fromAge + 1) : 0;
-  const simulations = runnable * (1 + agesPerCell);
+  // A solve may stop early; the announcement states the ceiling so the cost is never understated.
+  const salaryPerCell = salarySearch ? salarySearch.maxEvaluations + 1 : 0;
+  const simulations = runnable * (1 + agesPerCell + salaryPerCell);
   const projections = simulations * paths;
   const request: ScenarioBatchRequest = {
-    cases, previewPaths, fireAgeSearch,
+    cases, previewPaths, fireAgeSearch, salarySearch,
     ledgerOptions: { solverTolerance: ledgerOptions.solverTolerance, solverMaxIterations: ledgerOptions.solverMaxIterations },
   };
   const previewNote = previewPaths === null
     ? `The entered path count of ${count(profile.simulation.count)} is used in full; it is never reduced to finish sooner.`
     : `PREVIEW: you asked for ${count(previewPaths)} paths instead of the entered ${count(profile.simulation.count)}. Its numbers are labelled a preview and must not be read as a full-count result.`;
+  const salaryNote = salarySearch
+    ? ` Up to ${count(salaryPerCell)} of those per scenario are the required-salary solve, which searches gross pay against the complete model and confirms the answer; a solve that settles early spends fewer.`
+    : '';
   return {
     cases, request, issues, projections, simulations, salaries, spending, previewPaths,
-    announcement: `${count(runnable)} scenario${runnable === 1 ? '' : 's'} × ${count(1 + agesPerCell)} complete simulation${agesPerCell ? 's each' : ''} = ${count(simulations)} simulations, or ${count(projections)} lifetime projections. ${previewNote}`,
+    announcement: `${count(runnable)} scenario${runnable === 1 ? '' : 's'} × up to ${count(1 + agesPerCell + salaryPerCell)} complete simulation${agesPerCell + salaryPerCell ? 's each' : ''} = ${count(simulations)} simulations, or ${count(projections)} lifetime projections.${salaryNote} ${previewNote}`,
   };
 }
 
@@ -167,6 +180,8 @@ export interface ScenarioRow {
   strategy: string;
   probability: string;
   fireAge: string;
+  requiredSalary: string;
+  requiredSalaryNotes: string[];
   takeHome: string;
   marginalRate: string;
   pensionContribution: string;
@@ -185,6 +200,37 @@ export interface ScenarioRow {
 
 const dash = '—';
 
+/**
+ * Section 61's required-salary cell.
+ *
+ * Every status says what the search actually established. An unreached target reports the bound it
+ * tested rather than a clamped number, and an unconfirmed answer says so instead of being shown as
+ * a settled figure.
+ */
+export function requiredSalaryText(required: ScenarioCell['requiredSalary']): string {
+  if (!required) return dash;
+  if (required.status === 'unsupported') return required.message ?? 'Not supported for this plan';
+  if (required.status === 'already_met') return `${money(required.currentSalary)} (already met)`;
+  if (required.status === 'infeasible' || required.requiredSalary === null) return `None up to ${money(required.bound.value)}`;
+  return required.confirmed
+    ? money(required.requiredSalary!)
+    : `${money(required.requiredSalary!)} (confirmation run did not clear the target)`;
+}
+
+export function requiredSalaryNotes(required: ScenarioCell['requiredSalary']): string[] {
+  if (!required) return [];
+  const lines: string[] = [];
+  if (required.currentProbability !== null && required.standardError !== null)
+    lines.push(`Entered salary ${money(required.currentSalary)} reaches ${probabilityWithUncertainty(required.currentProbability, required.standardError)} against a ${percent(required.targetProbability, 0)} target.`);
+  if (required.requiredSalary !== null && required.excludedSalary !== null)
+    lines.push(`Bracketed between ${money(required.excludedSalary)} (did not clear) and ${money(required.requiredSalary)} (cleared), to the nearest ${money(required.precision)}.`);
+  if (required.requiredSalary !== null && required.confirmedProbability !== null)
+    lines.push(`An independent re-run of ${money(required.requiredSalary)} reached ${percent(required.confirmedProbability, 2)}.`);
+  lines.push(`${count(required.evaluations)} complete simulation${required.evaluations === 1 ? '' : 's'} searched this cell.`);
+  if (required.message) lines.push(required.message);
+  return [...lines, ...required.notes];
+}
+
 export function scenarioRows(result: ScenarioBatchResult): ScenarioRow[] {
   return result.cells.map((cell): ScenarioRow => {
     const d = cell.deterministic, s = cell.simulation;
@@ -199,6 +245,8 @@ export function scenarioRows(result: ScenarioBatchResult): ScenarioRow[] {
           ? `None in ${cell.fireAge.fromAge}–${cell.fireAge.toAge}`
           : String(cell.fireAge.earliestQualifyingAge)
         : s ? `At ${s.fireAge}` : dash,
+      requiredSalary: requiredSalaryText(cell.requiredSalary),
+      requiredSalaryNotes: requiredSalaryNotes(cell.requiredSalary),
       takeHome: d ? money(d.takeHome) : dash,
       marginalRate: d && Number.isFinite(d.marginalRate) ? percent(d.marginalRate, 1) : dash,
       pensionContribution: d ? money(d.pensionTotal) : dash,
@@ -228,6 +276,9 @@ export interface SpendingEffectRow {
   capitalTarget: string;
   probability: string;
   fireAge: string;
+  /** Section 61's required-salary column, solved per case against the complete model. */
+  requiredSalary: string;
+  requiredSalaryNotes: string[];
 }
 
 /** Spec section 61: both halves of the spending effect, side by side, from the same run. */
@@ -240,6 +291,8 @@ export function spendingEffectRows(result: ScenarioBatchResult): SpendingEffectR
       retirementSpending: money(d.retirementSpendingReal), capitalTarget: money(d.referenceFireNumber),
       probability: cell.simulation ? probabilityWithUncertainty(cell.simulation.probability, cell.simulation.standardError) : dash,
       fireAge: cell.fireAge ? (cell.fireAge.earliestQualifyingAge === null ? `None in ${cell.fireAge.fromAge}–${cell.fireAge.toAge}` : String(cell.fireAge.earliestQualifyingAge)) : dash,
+      requiredSalary: requiredSalaryText(cell.requiredSalary),
+      requiredSalaryNotes: requiredSalaryNotes(cell.requiredSalary),
     };
   });
 }

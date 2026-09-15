@@ -12,6 +12,7 @@ import {
   buildLibraryCases, buildScenarioMatrix, buildSpendingCases, capitalStrategy, engineVersions,
   memoryScenarioCache, runScenarioBatch, scenarioCellKey, scenarioPreset,
 } from '../src/engine/scenario.js';
+import { SOLVER_VERSION, solveTarget } from '../src/engine/solver.js';
 import { defaultLedgerOptions, runDeterministicProjection } from '../src/engine/ledger.js';
 import { runMonteCarlo, simulateBatch } from '../src/engine/monte-carlo/simulation.js';
 import { createWorkerPool } from '../src/engine/monte-carlo/worker-pool.js';
@@ -447,4 +448,92 @@ test('an optional FIRE age search reports the earliest qualifying age from compl
   assert.ok(fire.earliestQualifyingAge === null || (fire.earliestQualifyingAge >= 45 && fire.earliestQualifyingAge <= 47));
   assert.equal(result.metadata.fireAgeSearch!.toAge, 47);
   assert.ok(result.cells[0]!.key!.includes('fireAgeSearch'));
+});
+
+// ---------------------------------------------------------------------------
+// Section 61's required salary
+// ---------------------------------------------------------------------------
+
+test('each spending case re-solves its own required salary instead of scaling another cell', async () => {
+  const profile = small(6);
+  const cases = buildSpendingCases(profile, SPENDING, 'balanced', context(profile));
+  const search = { targetProbability: null, bound: null, maxEvaluations: 6 };
+  const result = await runScenarioBatch(profile, { cases, salarySearch: search });
+
+  const solved = result.cells.map(cell => cell.requiredSalary!);
+  assert.equal(solved.length, 3);
+  assert.ok(solved.every(item => item !== null));
+  for (const item of solved) {
+    assert.equal(item.currentSalary, profile.income.salaryAnnual);
+    assert.equal(item.targetProbability, profile.personal.targetSuccessProbability);
+    assert.ok(item.evaluations > 0, 'a search must record the simulations it actually ran');
+    // Nothing is ever reported at a precision the search did not test.
+    if (item.requiredSalary !== null) assert.equal(item.requiredSalary % item.precision, 0);
+    if (item.status === 'infeasible') assert.equal(item.requiredSalary, null);
+  }
+
+  // The answer must equal an independent bounded solve of that cell's own plan and options.
+  const planned = cases.filter(c => c.status === 'planned') as Extract<typeof cases[number], { status: 'planned' }>[];
+  for (const [index, item] of planned.entries()) {
+    const direct = await solveTarget(item.plan.profile, {
+      mode: 'salary', maxEvaluations: 6,
+      ledgerOptions: { ...defaultLedgerOptions(), ...item.plan.options },
+    });
+    assert.equal(solved[index]!.requiredSalary, direct.requiredValue, `${item.label} required salary`);
+    assert.equal(solved[index]!.status, direct.status);
+    assert.equal(solved[index]!.confirmed, direct.confirmed);
+    assert.equal(solved[index]!.excludedSalary, direct.excludedValue);
+    assert.equal(solved[index]!.bound.value, direct.bound.value);
+  }
+
+  // A leaner household spends less, so it can never need more salary than a richer one.
+  const answers = solved.map(item => item.requiredSalary ?? Number.POSITIVE_INFINITY);
+  assert.ok(answers[0]! <= answers[1]!, 'the £1,300 case cannot need more salary than £1,650');
+  assert.ok(answers[1]! <= answers[2]!, 'the £1,650 case cannot need more salary than £2,000');
+
+  assert.deepEqual(result.metadata.salarySearch, search);
+  assert.ok(result.cells[0]!.key!.includes('salarySearch'));
+  assert.ok(result.cells[0]!.key!.includes(SOLVER_VERSION));
+});
+
+test('the required-salary search changes the cache key and validates its own inputs', async () => {
+  const profile = small(6);
+  const options = defaultLedgerOptions();
+  const base = scenarioCellKey(profile, options);
+  const search = { targetProbability: null, bound: null, maxEvaluations: 24 };
+  assert.notEqual(scenarioCellKey(profile, options, null, search), base);
+  assert.notEqual(
+    scenarioCellKey(profile, options, null, { ...search, maxEvaluations: 12 }),
+    scenarioCellKey(profile, options, null, search),
+  );
+  assert.notEqual(
+    scenarioCellKey(profile, options, null, { ...search, targetProbability: 0.8 }),
+    scenarioCellKey(profile, options, null, search),
+  );
+
+  const cases = buildSpendingCases(profile, [1_300], 'balanced', context(profile));
+  await assert.rejects(
+    runScenarioBatch(profile, { cases, salarySearch: { ...search, maxEvaluations: 2 } }), /at least three/);
+  await assert.rejects(
+    runScenarioBatch(profile, { cases, salarySearch: { ...search, targetProbability: 1.5 } }), /between 0 and 1/);
+  await assert.rejects(
+    runScenarioBatch(profile, { cases, salarySearch: { ...search, bound: -1 } }), /zero or more/);
+});
+
+test('cancelling during a required-salary search publishes no cells', async () => {
+  const profile = small(6);
+  const cases = buildSpendingCases(profile, SPENDING, 'balanced', context(profile));
+  const controller = new AbortController();
+  let evaluations = 0;
+  const evaluate = async (candidate: Profile, inner: { ledgerOptions: ReturnType<typeof defaultLedgerOptions> }) => {
+    evaluations += 1;
+    if (evaluations === 3) controller.abort();
+    return runMonteCarlo(candidate, { ledgerOptions: inner.ledgerOptions });
+  };
+  const cache = memoryScenarioCache();
+  await assert.rejects(
+    runScenarioBatch(profile, { cases, salarySearch: { targetProbability: null, bound: null, maxEvaluations: 6 } },
+      { cache, evaluate, signal: controller.signal }),
+    (error: Error) => error.name === 'AbortError');
+  assert.equal(cache.size(), 0, 'a cancelled search must not commit a cell');
 });

@@ -438,6 +438,58 @@ test('one worker set serves a whole batch and still returns identical results', 
   await assert.rejects(run(), /closed/);
 });
 
+test('one unsupported candidate does not destroy a pool the batch still needs', async () => {
+  // The failure this reproduces: `runMonteCarlo` aborts its own controller the moment one batch
+  // fails, which cancels the sibling batches still in flight. If an abort tore the pool down, the
+  // first unsupported candidate of a bounded solve would leave every later simulation in the same
+  // batch failing with "Worker pool is closed" — which is exactly what the section 61 search hit,
+  // because it evaluates its far salary bound first and that bound exceeds the tapered allowance.
+  const profile = small(12);
+  let created = 0, terminated = 0, failNext = false, posted = 0;
+  const pool = createWorkerPool(3, () => {
+    created += 1;
+    let reply: ((message: { result: ReturnType<typeof simulateBatch> } | { error: { name: string; message: string } }) => void) | null = null;
+    let cancelled = false;
+    return {
+      // Deliberately asynchronous and unevenly timed: the first batch of a failing run answers
+      // quickly with the unsupported candidate while its siblings are still in flight, which is
+      // the ordering that used to close the pool.
+      post: request => {
+        const index = posted++;
+        const fails = failNext && index === 0;
+        setTimeout(() => {
+          if (cancelled) return;
+          if (fails) reply?.({ error: { name: 'PensionLimitError', message: 'Contribution exceeds the available annual allowance' } });
+          else reply?.({ result: simulateBatch(request) });
+        }, fails ? 5 : 60);
+      },
+      listen: handler => { reply = handler as typeof reply; },
+      terminate: () => { terminated += 1; cancelled = true; },
+    };
+  });
+  const options = defaultLedgerOptions();
+  const run = () => runMonteCarlo(profile, { concurrency: 3, batchSize: 2, executeBatch: pool.executeBatch, ledgerOptions: options });
+
+  const before = await run();
+  assert.equal(created, 3);
+  assert.equal(terminated, 0, 'a completed simulation terminates nothing');
+
+  posted = 0;
+  failNext = true;
+  await assert.rejects(run(), /annual allowance/, 'the candidate error must reach the caller unchanged');
+  failNext = false;
+
+  // The pool survived: cancelled siblings were replaced rather than the pool being closed.
+  assert.ok(terminated > 0, 'the workers running cancelled sibling batches are actually stopped');
+  assert.equal(created, 3 + terminated, 'every terminated worker is replaced');
+  const after = await run();
+  assert.equal(after.successProbability, before.successProbability, 'the pool still produces identical results');
+  assert.deepEqual(after.metadata.pathIndices, before.metadata.pathIndices);
+
+  pool.close();
+  await assert.rejects(run(), /closed/, 'only the owner closes the pool');
+});
+
 test('an optional FIRE age search reports the earliest qualifying age from complete simulations', async () => {
   const profile = small(6);
   const cases = buildSpendingCases(profile, [1_300], 'balanced', context(profile));

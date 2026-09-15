@@ -9,12 +9,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const appPort = process.env.APP_PORT ?? '5176';
-let finished = false;
-ws.onclose = () => { if (!finished) { console.error('CDP CONNECTION CLOSED'); process.exit(1); } };
 const cdpPort = process.env.CDP_PORT ?? '9226';
 const tabs = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl);
 await new Promise(r => { ws.onopen = r; });
+// A dropped debugger connection otherwise looks like a silently unsettled await.
+let finished = false;
+ws.onclose = () => { if (!finished) { console.error('CDP CONNECTION CLOSED'); process.exit(1); } };
 let id = 0; const pending = new Map(); const errors = [];
 ws.onmessage = e => {
   const m = JSON.parse(e.data);

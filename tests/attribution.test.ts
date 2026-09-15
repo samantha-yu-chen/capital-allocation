@@ -79,3 +79,29 @@ test('cancellation after real progress publishes no result or cache entries',asy
  await assert.rejects(runAttribution(p,{stressAge:45},{cache,signal:controller.signal,evaluate:(p,c)=>runMonteCarlo(p,{...c,batchSize:2}),onProgress:r=>{if(r.paths.completed>0){progress=true;controller.abort();}}}),{name:'AbortError'});
  assert.ok(progress);assert.equal(cache.size,0);
 });
+
+test('sensitivity directions change engine wealth, debt service and income on a funded fixture',()=>{
+ const p=createExampleProfile();p.assets.cash=200000;p.assets.isa=500000;p.personal.endAge=70;p.property=home();
+ const cases=buildAnalysisCases(p);const get=(id:string)=>{const c=cases.find(c=>c.id===id)!;return runDeterministicProjection(c.profile,c.options);};
+ for(const axis of ['equity-return','salary-growth','fire-age','property-growth'])assert.ok(get(axis+'-high').metrics.terminalNetWorthReal>get(axis+'-low').metrics.terminalNetWorthReal,axis);
+ for(const axis of ['inflation','mortgage-rate','spending'])assert.ok(get(axis+'-high').metrics.terminalNetWorthReal<get(axis+'-low').metrics.terminalNetWorthReal,axis);
+ assert.ok(get('mortgage-rate-high').years[0]!.mortgageInterest>get('mortgage-rate-low').years[0]!.mortgageInterest);
+ assert.ok(get('salary-growth-high').years[1]!.salaryNominal>get('salary-growth-low').years[1]!.salaryNominal);
+ // Volatility does not alter the expected-value path; it changes sampled returns instead.
+ assert.equal(get('equity-volatility-high').metrics.terminalNetWorthReal,get('equity-volatility-low').metrics.terminalNetWorthReal);
+ const gen=new ParametricReturnGenerator();
+ const sample=(id:string)=>{const c=cases.find(c=>c.id===id)!;return Array.from({length:2000},(_,pathIndex)=>gen.generatePath({years:1,seed:p.simulation.seed,pathIndex,assumptions:c.profile.market}).years[0]!.equities).sort((a,b)=>a-b);};
+ const lo=sample('equity-volatility-low'),hi=sample('equity-volatility-high');assert.ok(hi[200]!<lo[200]!);assert.ok(hi[1800]!>lo[1800]!);
+});
+test('mortgage stress records payment failure on a leveraged bridge',()=>{
+ const p=createExampleProfile();p.personal.targetFireAge=31;p.assets.cash=0;p.assets.isa=10000;p.assets.gia.marketValue=0;p.assets.gia.costBasis=0;p.assets.pension=1e6;p.property=home();
+ const r=runStress(p,'mortgage_shock',31).projection;
+ assert.ok(r.failures.some(f=>f.code==='mortgage_shortfall'));assert.ok(r.failures.some(f=>f.code==='pre_pension_liquidity'));assert.equal(r.success,false);
+});
+
+test('failed batch discards completed cache candidates and wrong evaluator metadata is rejected',async()=>{
+ const p=createExampleProfile();p.simulation.count=2;const cache=new Map();let calls=0;
+ await assert.rejects(runAttribution(p,{stressAge:45},{cache,evaluate:async(p,c)=>{calls++;if(calls>1)throw Error('transport failed');return runMonteCarlo(p,c);}}),/transport failed/);
+ assert.equal(cache.size,0);assert.equal(calls,2);
+ await assert.rejects(runAttribution(p,{stressAge:45},{evaluate:async(p,c)=>{const r=await runMonteCarlo(p,c);r.metadata.returnGeneratorVersion='wrong';return r;}}),/versioned/);
+});

@@ -57,9 +57,9 @@ export const TABS: readonly TabDefinition[] = [
     groundwork: '',
   },
   {
-    id: 'attribution', label: 'Where It Comes From', status: 'planned', package: 9,
+    id: 'attribution', label: 'Where It Comes From', status: 'built', package: 9,
     summary: 'Which lever moves the outcome most, plus sensitivity and deterministic stress paths.',
-    groundwork: 'Needs the attribution and stress runners from package 9.',
+    groundwork: '',
   },
 ];
 

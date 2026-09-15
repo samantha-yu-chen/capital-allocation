@@ -50,3 +50,9 @@ export function moneySigned(value: number): string {
   if (!Number.isFinite(value)) return '—';
   return value > 0 ? `+${money(value)}` : money(value);
 }
+
+/** A probability difference expressed in percentage points. */
+export const percentagePoints = (fraction: number, digits = 2): string => Number.isFinite(fraction) ? `${(fraction * 100).toFixed(digits)} pp` : '—';
+
+/** Binomial sampling SE, separate from model uncertainty. */
+export const sampledProbability = (p: number, n: number): string => `${percent(p, 2)} ± ${percent(Math.sqrt(p * (1 - p) / n), 2)} SE`;

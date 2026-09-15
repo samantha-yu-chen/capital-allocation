@@ -1,3 +1,4 @@
+import type { AttributionRequest, AttributionResult, AttributionProgress } from './attribution.js';
 import type { MarginalRequest, MarginalResult, MarginalProgress } from './marginal.js';
 /**
  * Browser transport for the reverse solvers and the FIRE age curve.
@@ -17,12 +18,15 @@ import type { ScenarioBatchRequest, ScenarioBatchResult, ScenarioProgress } from
 export interface AnalysisTransport { concurrency: number; batchSize: number }
 
 export type AnalysisRequest =
+  | { kind: 'attribution'; profile: Profile; request: AttributionRequest; transport: AnalysisTransport }
   | { kind: 'marginal'; profile: Profile; request: MarginalRequest; transport: AnalysisTransport }
   | { kind: 'solver'; profile: Profile; request: SolverRequest; includeSensitivity: boolean; transport: AnalysisTransport }
   | { kind: 'curve'; profile: Profile; request: FireAgeCurveRequest; transport: AnalysisTransport }
   | { kind: 'scenarios'; profile: Profile; request: ScenarioBatchRequest; transport: AnalysisTransport };
 
 export type AnalysisReply =
+  | { type: 'attribution-progress'; progress: AttributionProgress }
+  | { type: 'attribution-done'; result: AttributionResult }
   | { type: 'marginal-progress'; progress: MarginalProgress }
   | { type: 'marginal-done'; result: MarginalResult }
   | { type: 'scenarios-progress'; progress: ScenarioProgress }
@@ -94,4 +98,8 @@ export function runScenariosBrowser(
 ): Promise<ScenarioBatchResult> {
   return runInWorker<ScenarioProgress, ScenarioBatchResult>({ kind: 'scenarios', profile, request,
     transport: controls.transport ?? defaultTransport() }, controls, 'scenarios-done', 'scenarios-progress');
+}
+
+export function runAttributionBrowser(profile: Profile, request: AttributionRequest, controls: Controls<AttributionProgress>): Promise<AttributionResult> {
+ return runInWorker<AttributionProgress, AttributionResult>({kind: 'attribution', profile, request, transport: controls.transport ?? defaultTransport()}, controls, 'attribution-done', 'attribution-progress');
 }

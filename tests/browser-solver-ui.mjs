@@ -9,6 +9,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const appPort = process.env.APP_PORT ?? '5176';
+let finished = false;
+ws.onclose = () => { if (!finished) { console.error('CDP CONNECTION CLOSED'); process.exit(1); } };
 const cdpPort = process.env.CDP_PORT ?? '9226';
 const tabs = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl);
@@ -180,4 +182,4 @@ assert.equal(errors.length, 0, JSON.stringify(errors));
 
 await fs.writeFile('/tmp/chunk6-ui-results.json', JSON.stringify(results, null, 2));
 console.log('chunk 6 browser acceptance passed');
-ws.close();
+finished = true; ws.close();

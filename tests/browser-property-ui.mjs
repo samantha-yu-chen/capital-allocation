@@ -7,6 +7,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const appPort=process.env.APP_PORT??'5175';
+let finished = false;
+ws.onclose = () => { if (!finished) { console.error('CDP CONNECTION CLOSED'); process.exit(1); } };
 const cdpPort=process.env.CDP_PORT??'9225';
 const tabs=await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const ws=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
@@ -49,4 +51,4 @@ assert.equal(results.propertyMobileOverflow,0);assert.equal(results.overviewMobi
 assert.equal(errors.length,0);assert.ok(results.fullRun.frames>30);assert.ok(results.fullRun.maxGap<250);
 assert.equal(results.comparison.match(/FIRE success\t([\d.]+)%/)?.[1],results.fullRun.text.match(/Current ([\d.]+)%/)?.[1]);
 assert.ok(results.comparison.toLowerCase().includes('rent + invest'));
-await fs.writeFile('/tmp/chunk5-ui-results.json',JSON.stringify({...results,errors},null,2));ws.close();
+await fs.writeFile('/tmp/chunk5-ui-results.json',JSON.stringify({...results,errors},null,2));finished = true; ws.close();

@@ -133,6 +133,8 @@ export async function runAttribution(input: Profile, request: AttributionRequest
       throw e;
     }
     abortIfNeeded(controls.signal);
+    const versions = engineVersions(item.profile);
+    if (result.metadata.engineVersion !== versions.engineVersion || result.metadata.returnGeneratorVersion !== versions.generatorVersion || result.metadata.simulationVersion !== versions.simulationVersion || result.metadata.taxConfigVersion !== versions.taxConfigVersion) throw new Error('Evaluator changed versioned engine assumptions');
     if (stableStringify(result.metadata.ledgerOptions) !== stableStringify(item.options)) throw new Error('Evaluator changed ledger options');
     if (!reference) reference = result;
     assertSensitivityPaths(profile,item.profile,reference,result);

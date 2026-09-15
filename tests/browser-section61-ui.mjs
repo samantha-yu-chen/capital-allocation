@@ -127,7 +127,8 @@ console.log(JSON.stringify(rows, null, 2));
 
 // Column order: case, surplus, total invested, retirement budget, reference FIRE number,
 // FIRE success, earliest qualifying age, required salary.
-assert.deepEqual(rows.map(r => r[0]), ['£1,300/mo', '£1,650/mo', '£2,000/mo']);
+// The design system uppercases row headings, so this probe ignores case like the others do.
+assert.deepEqual(rows.map(r => r[0].toLowerCase()), ['£1,300/mo', '£1,650/mo', '£2,000/mo']);
 assert.ok(amount(rows[0][1]) > amount(rows[2][1]), 'surplus must fall as the spending case rises');
 assert.ok(amount(rows[0][4]) < amount(rows[2][4]), 'the reference FIRE number must rise as the spending case rises');
 

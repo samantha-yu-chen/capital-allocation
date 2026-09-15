@@ -157,6 +157,8 @@ export interface BalanceSheet {
   propertyValue: number; mortgageDebt: number; pensionTaxFreeCashUsed: number;
 }
 export interface MarketYear {
+  /** Annual stress overrides; omitted means ordinary contractual income/rates. */
+  employmentMultiplier?: number; mortgageAnnualRate?: number;
   yearIndex: number; equities: number; bonds: number; cash: number; property: number; inflation: number;
 }
 export interface MarketPath { pathIndex: number; years: readonly MarketYear[] }

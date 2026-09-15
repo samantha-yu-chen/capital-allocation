@@ -179,6 +179,18 @@ Done when: charts and explanatory text trace to computed results; stress paths u
 
 Checkpoint: sensitivity/stress runners → attribution calculations → integrated analysis UI.
 
+**Delivered.** `src/engine/stress.ts` owns the seven synthetic deterministic paths; `src/engine/attribution.ts`
+owns the intervention and sensitivity case set, `assertSensitivityPaths` and the all-or-nothing batch
+runner; `src/presentation/view/attribution-model.ts` owns the effects, conclusion, stress cards and
+diagnostics, and the built Where It Comes From screen presents them. 245 tests pass. Every "done when"
+clause has a named test: `attribution-presentation.test.ts` asserts that every reported figure traces
+to retained engine output and that equal or noisy effects never become findings, and `attribution.test.ts`
+asserts shock timing and recovery, stressed bridge and mortgage failures, reconciliation under property
+and mortgage shocks, each sensitivity direction, preserved Gaussian shocks, exact replay of every
+supported cell against `runMonteCarlo`, complete cache keys and cancellation publishing nothing.
+ADR 008 records the design. Real Chrome evidence, measured timings and the limitations chunk 10
+inherits are in `handoffs/chunk-9.md`.
+
 ## 10. Full-product acceptance and release handoff
 
 Suggested owner: Claude. Dependencies: 9. Spec: 85–89 and the complete requirements checklist; all eight tabs.
@@ -201,8 +213,9 @@ Use the spec's permitted V0.3 simplifications: deterministic salary growth, a pa
 
 Do not add live bank/broker connections, multiple properties, couples tax optimisation, international tax, estate planning, stochastic employment loss, historical bootstrap, regime switching, dynamic withdrawal strategies or AI financial recommendations. Optional expense shocks can follow the mandatory release. Deterministic job-loss stress testing is still in scope.
 
-Next assignment: package 9 to Codex. Use `handoffs/chunk-8.md` for the paste-ready assignment.
-Packages 1–8 supply the shared validated profile, complete tax/property lifetime ledger, common-path
-workers, reverse solvers, marginal comparisons and the named-scenario matrix. Build attribution,
-sensitivity and deterministic stress analysis on the same ledger and common paths, preserving all
-inherited funding, uncertainty, cancellation and reproducibility conventions.
+Next assignment: package 10. Use `handoffs/chunk-9.md` for the paste-ready assignment.
+Packages 1–9 supply the shared validated profile, complete tax/property lifetime ledger, common-path
+workers, reverse solvers, marginal comparisons, the named-scenario matrix and attribution, sensitivity
+and deterministic stress analysis. All eight screens now run real engines, so package 10 is an audit
+and integration package: verify every section 88 MUST against implementation and tests rather than
+against these status lines, fix the gaps it finds, and produce the release handoff.

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExampleProfile } from '../src/domain/fixtures.js';
 import { runDeterministicProjection } from '../src/engine/index.js';
+import { calculateNetIncome, getTaxConfig, taxInputFromProfile } from '../src/domain/tax/index.js';
 import { close, profileWith, strippedProfile } from './ledger-helpers.js';
 
 test('GIA defers tax on unrealised growth and taxes only realised gains', () => {
@@ -110,6 +111,40 @@ test('surplus is retained in cash until the emergency reserve is covered', () =>
   // Once the reserve is covered, investing resumes.
   const later = projection.years.find(y => y.allocatedToIsa > 0);
   assert.ok(later !== undefined && later.age > 31, 'investment should resume after the reserve is filled');
+});
+
+test('the tax region chosen on the profile reaches every projected year of the ledger', () => {
+  // Spec §88 item 2. The tax unit tests prove the two band tables differ; this proves the *ledger*
+  // uses the profile's own one, so a hard-coded region fails here and not only in a unit test.
+  // Salary is the only income, so the first year's tax is exactly the annual API's answer.
+  const only = (region: 'scotland' | 'rest_of_uk') => profileWith(p => {
+    p.personal.taxRegion = region;
+    p.assets.cash = 0;
+    p.assets.isa = 0;
+    p.assets.gia = { marketValue: 0, costBasis: 0, carriedLosses: 0 };
+    p.liquidity.emergencyFundMonths = 0;
+  });
+  const scotland = only('scotland'), restOfUk = only('rest_of_uk');
+  const scottish = runDeterministicProjection(scotland), uk = runDeterministicProjection(restOfUk);
+
+  for (const [label, profile, projection] of
+    [['Scottish', scotland, scottish], ['rest-of-UK', restOfUk, uk]] as const) {
+    const expected = calculateNetIncome(taxInputFromProfile(profile),
+      getTaxConfig(profile.personal.taxRegion, profile.personal.taxYear));
+    close(projection.years[0]!.incomeTax, expected.tax.totalIncomeTax, 1e-6, `${label} first-year income tax`);
+    close(projection.years[0]!.employeeNi, expected.ni.employee, 1e-6, `${label} first-year NI`);
+  }
+
+  // The regions really are distinguishable through the ledger, in the first year and a later one.
+  const later = scottish.years.findIndex(y => y.age === 40);
+  for (const index of [0, later]) {
+    const s = scottish.years[index]!, u = uk.years[index]!;
+    assert.equal(s.age, u.age, 'the two runs must line up year by year');
+    assert.notEqual(s.incomeTax, u.incomeTax, `age ${s.age} produced identical income tax in both regions`);
+  }
+
+  // NI is not devolved, so it must NOT move with the region. A wrong config would change both.
+  close(scottish.years[later]!.employeeNi, uk.years[later]!.employeeNi, 1e-9, 'employee NI is not devolved');
 });
 
 test('known capital needs are funded in the year they fall due', () => {

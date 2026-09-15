@@ -188,6 +188,12 @@ test('Monte Carlo display model reads the result without re-deriving it', async 
   assert.equal(value('Percentile method'), 'linear-(n-1)p');
   assert.ok(value('Money basis')!.startsWith('today'));
   assert.equal(value('Path index range'), '[0, 40)');
+  // Spec §36: holding the tax structure constant is permitted, but the output must disclose it.
+  const taxPolicy = value('Tax policy')!;
+  assert.ok(taxPolicy.startsWith(result.metadata.taxPolicy), 'the policy token is still reported verbatim');
+  assert.match(taxPolicy, /held constant in real terms for the whole projection/);
+  assert.match(taxPolicy, /Future changes to tax law are not modelled/);
+  assert.ok(taxPolicy.includes(profile.personal.taxYear), 'the disclosure names the configured tax year');
 });
 
 test('the requested path count is what runs', async () => {

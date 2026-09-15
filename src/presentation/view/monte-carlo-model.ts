@@ -196,7 +196,11 @@ export function metadataRows(result: MonteCarloResult): MetadataRow[] {
     { label: 'Return generator', value: meta.returnGeneratorVersion },
     { label: 'Market assumptions', value: meta.assumptionVersion },
     { label: 'Tax configuration', value: meta.taxConfigVersion },
-    { label: 'Tax policy', value: meta.taxPolicy },
+    // Spec §36: V0.3 may assume the current tax structure continues, but the output must say so.
+    {
+      label: 'Tax policy',
+      value: `${meta.taxPolicy} — the configured ${meta.profile.personal.taxYear} rules are held constant in real terms for the whole projection. Future changes to tax law are not modelled; Where It Comes From tests a hypothetical extra charge on taxable pension withdrawals as one example of what such a change could cost.`,
+    },
     { label: 'Money basis', value: `${meta.moneyBasis} (today’s money; outputs are not deflated again)` },
     { label: 'Age timing', value: meta.ageTiming },
     { label: 'Percentile method', value: meta.percentileMethod },

@@ -879,21 +879,35 @@ export async function runScenarioBatch(
     // scaled or interpolated answer taken from another cell.
     let requiredSalary: ScenarioRequiredSalary | null = null;
     if (salarySearch) {
-      const solved = await solveTarget(profile, {
-        mode: 'salary', ledgerOptions: options, maxEvaluations: salarySearch.maxEvaluations,
-        ...(salarySearch.targetProbability === null ? {} : { targetProbability: salarySearch.targetProbability }),
-        ...(salarySearch.bound === null ? {} : { bound: salarySearch.bound }),
-      }, {
-        evaluate,
-        ...(controls.signal ? { signal: controls.signal } : {}),
-        ...(controls.onProgress ? {
-          onProgress: progress => controls.onProgress?.({
-            stage: `${item.label}: required salary (${progress.stage})`,
-            casesCompleted: completed, casesPlanned: planned, paths: progress.paths,
-          }),
-        } : {}),
-      });
-      requiredSalary = requiredSalarySummary(solved);
+      try {
+        const solved = await solveTarget(profile, {
+          mode: 'salary', ledgerOptions: options, maxEvaluations: salarySearch.maxEvaluations,
+          ...(salarySearch.targetProbability === null ? {} : { targetProbability: salarySearch.targetProbability }),
+          ...(salarySearch.bound === null ? {} : { bound: salarySearch.bound }),
+        }, {
+          evaluate,
+          ...(controls.signal ? { signal: controls.signal } : {}),
+          ...(controls.onProgress ? {
+            onProgress: progress => controls.onProgress?.({
+              stage: `${item.label}: required salary (${progress.stage})`,
+              casesCompleted: completed, casesPlanned: planned, paths: progress.paths,
+            }),
+          } : {}),
+        });
+        requiredSalary = requiredSalarySummary(solved);
+      } catch (error) {
+        abortIfNeeded(controls.signal);
+        if (!(error instanceof PensionLimitError) && !(error instanceof UnsupportedScenarioError)) throw error;
+        // The cell's own simulation succeeded; only the extra search could not be run. Discarding
+        // the cell would throw away a real result, so the search reports why it has no answer.
+        requiredSalary = {
+          status: 'unsupported', targetProbability: salarySearch.targetProbability ?? profile.personal.targetSuccessProbability,
+          currentSalary: profile.income.salaryAnnual, currentProbability: null, requiredSalary: null,
+          requiredProbability: null, confirmedProbability: null, confirmed: false, excludedSalary: null,
+          bound: { value: salarySearch.bound ?? 0, probability: null }, precision: 0, standardError: null,
+          message: message(error), evaluations: 0, notes: [],
+        };
+      }
     }
     abortIfNeeded(controls.signal);
 

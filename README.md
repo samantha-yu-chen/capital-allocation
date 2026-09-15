@@ -4,9 +4,11 @@ A locally runnable lifetime capital-allocation and FIRE model for a UK resident,
 rest-of-UK 2026/27 tax rules. The [V0.3 specification](docs/lifetime-capital-allocation-fire-optimisation-spec-v0.3.md)
 is the product authority; [design/](design/) contains the Organic UI reference.
 
-Packages 1–9 provide a reconciled annual ledger, seeded Monte Carlo, integrated property,
-bounded reverse solvers, an age curve, marginal capital allocation, named scenario comparison,
-attribution, sensitivity and deterministic stresses. All eight reference screens run real engines:
+All ten work packages are delivered. Packages 1–9 provide a reconciled annual ledger, seeded Monte
+Carlo, integrated property, bounded reverse solvers, an age curve, marginal capital allocation,
+named scenario comparison, attribution, sensitivity and deterministic stresses; package 10 is the
+acceptance audit that re-derived every section 88 requirement from the code and a named test, closed
+the gaps it found and measured the release. All eight reference screens run real engines:
 
 | Screen | Available functionality |
 | --- | --- |
@@ -16,11 +18,14 @@ attribution, sensitivity and deterministic stresses. All eight reference screens
 | Marginal Allocation | One-off gross earnings or existing after-tax cash across pension, ISA, GIA, cash, mortgage overpayment and property deposit |
 | Reverse Solver | Salary, savings, FIRE age, retirement spending, starting capital and pension-contribution searches, plus worked sensitivity cases |
 | Property & Leverage | Purchase/sale, housing costs, mortgages, rental tax, leverage and paired rent/invest comparison |
-| Scenario Comparison | Named scenarios with versioned local save/load, the 5 × 3 × 4 salary/spending/strategy matrix, spending and income sensitivity, all on common market paths |
+| Scenario Comparison | Named scenarios with versioned local save/load, the 5 × 3 × 4 salary/spending/strategy matrix, spending and income sensitivity with an optional per-case required-salary solve, all on common market paths |
 | Where It Comes From | Full-count intervention comparisons, nine sensitivity families, seven deterministic stresses, funding diagnostics and traceable engine results |
 
-See the [work packages](docs/implementation-work-packages.md), [requirements evidence](docs/requirements-checklist.md)
-and [chunk-9 handoff](docs/handoffs/chunk-9.md) for delivery details and remaining scope.
+See the [work packages](docs/implementation-work-packages.md), the
+[requirements evidence](docs/requirements-checklist.md), the longer
+[section 88 audit](docs/v0.3-requirements-checklist.md) and the
+[release handoff](docs/handoffs/chunk-10.md) for delivery details, measured performance and the
+limitations that remain.
 
 ## Run
 
@@ -37,7 +42,7 @@ are needed. Profile edits are still in memory only, but a *named scenario* saved
 Comparison screen is stored in this browser's local storage and survives a refresh. Nothing is sent
 anywhere: the library is a versioned JSON document you can also export and re-import by hand.
 
-`npm run check` runs strict typechecking, all 245 tests and the production build. Individual commands
+`npm run check` runs strict typechecking, all 251 tests and the production build. Individual commands
 are `npm test`, `npm run typecheck` and `npm run build`. `npm run demo`, `npm run ledger` and
 `npm run monte-carlo` print actual tax, annual ledger and simulation outputs. Generated `build/`
 and `dist/` directories are Git-ignored.
@@ -85,6 +90,13 @@ success with its sampling interval, and liquid, pension and net wealth at that p
 Spending cases show both halves of their effect — the investable surplus they leave and the capital
 target they create. A lead inside the paired sampling interval is reported as a tie.
 
+Section 61's table also has a required-salary column. It is off by default because each case re-solves
+its own gross salary through the same bounded search the Reverse Solver uses — up to 25 further
+complete simulations per case, announced as a ceiling before the run starts. The answer is bracketed
+to £100, re-run independently to confirm it, and shown with the simulations it spent; a target that
+nothing inside the bound reaches says so and names the bound it tested rather than reporting a
+clamped number. Nothing here scales one case's answer from another's.
+
 The path count is never lowered for you. A reduced-path preview has to be asked for, is labelled a
 preview everywhere it appears, and is cached separately so it can never stand in for a full-count
 result. Cancelling publishes no partial matrix.
@@ -117,21 +129,32 @@ Use a separate headless Chrome profile so testing does not disturb your normal b
 ```sh
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
   --headless=new --remote-debugging-port=9227 \
-  --user-data-dir=/tmp/capital-chunk7-chrome about:blank
+  --user-data-dir=/tmp/capital-chrome about:blank
 
 # With Vite running on port 5177:
-APP_PORT=5177 CDP_PORT=9227 node tests/browser-scenario-ui.mjs
-APP_PORT=5177 CDP_PORT=9227 node tests/browser-marginal-ui.mjs
 APP_PORT=5177 CDP_PORT=9227 node tests/browser-property-ui.mjs
+APP_PORT=5177 CDP_PORT=9227 node tests/browser-marginal-ui.mjs
+APP_PORT=5177 CDP_PORT=9227 node tests/browser-attribution-ui.mjs
+APP_PORT=5177 CDP_PORT=9227 node tests/browser-scenario-ui.mjs
+APP_PORT=5177 CDP_PORT=9227 node tests/browser-section61-ui.mjs
 APP_PORT=5177 CDP_PORT=9227 node tests/browser-solver-ui.mjs
 ```
 
 These manual harnesses write JSON and desktop/mobile screenshots into `/tmp`; they are separate
-from `npm test`. The scenario and marginal harnesses also run both worker smoke variants at
-`/tests/browser-worker-smoke.html` and `?property`. The scenario harness clears and rewrites the
-saved scenario library in that isolated Chrome profile, so run it against a throwaway
+from `npm test`. Every one of them also runs both worker smoke variants at
+`/tests/browser-worker-smoke.html` and `?property`. The scenario and section 61 harnesses clear and
+rewrite the saved scenario library in that isolated Chrome profile, so run them against a throwaway
 `--user-data-dir`. Do not edit application source while a harness runs: a Vite reload resets the
 in-memory profile.
+
+Start each harness against a freshly launched Chrome, and **read the exit code and the elapsed time
+together**: a harness that exits non-zero in under a second has failed to launch — a bad port, no
+Chrome, or a broken harness — rather than failed an assertion.
+
+`browser-section61-ui.mjs` lowers the entered path count first, the way a user would, because three
+bounded salary solves at 10,000 paths take roughly twenty minutes; `SEARCH_PATHS` sets that count and
+`FULL_COUNT=1` leaves the entered 10,000 paths alone. Nothing in the product lowers a path count on
+its own, and the harness records which of the two it ran.
 
 ## Engine APIs and assumptions
 

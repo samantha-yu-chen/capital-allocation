@@ -1,6 +1,6 @@
 # Handoff — UX-7: one story for the two success numbers
 
-Baseline: `171b6e0` (the UX-6 merge). Ticket: `docs/ux-improvement-plan.md` § UX-7.
+Baseline: `dc1d722` (the UX-6 merge). Ticket: `docs/ux-improvement-plan.md` § UX-7.
 Presentation-only package: `git diff --stat` over the branch touches no file under `src/engine/`, and
 no seed, path count, tier, starter value or `profileSchema` rule moved. No numeric output changed —
 every figure on every screen is the same figure it was, with the same formatting.

@@ -72,13 +72,13 @@ edit rather than being applied quietly.
 
 ## Measured results
 
-`npm run check` equivalent, all green:
+`npm ci && npm run check` in this worktree on the Homebrew Node 24, all green:
 
 | Step | Result |
 | --- | --- |
-| `tsc --noEmit` | clean |
-| `tsc -p tsconfig.build.json && node --test build/tests/*.test.js` | **269 pass, 0 fail** (258 before; 11 new) |
-| `vite build` | built in 964 ms |
+| `npm run typecheck` | clean |
+| `npm test` | **269 pass, 0 fail** (258 before; 11 new) |
+| `npm run build` | built in 997 ms |
 
 New suite `tests/presentation-provenance.test.ts` (11 tests): the starter is byte-identical to the
 fixture (AC 4); an untouched profile is entirely default and every registry entry is described;
@@ -145,10 +145,10 @@ the reader's, not as the default. Fixed in `5c31ba7`; the harness asserts it.
    edited, which is accurate but not always what a reader means by "changed". UX-9 introduces chosen
    starter situations and its AC 3 asks provenance to compare against the chosen starter; that is the
    right place to generalise `createStarterProfile()` into "the starter in force".
-5. **`npm` itself is still unusable on this machine** (the Node 24 install at
-   `/tmp/node-v24.21.0-darwin-arm64` has a truncated `lib/node_modules/npm`). The three stages of
-   `npm run check` were run individually with `node_modules/.bin/tsc` and `node_modules/.bin/vite`
-   against a `node_modules` symlinked from the primary checkout.
+5. **UX-1's npm limitation is gone.** `origin/main` moved to the Homebrew Node 24 at
+   `/opt/homebrew/opt/node@24/bin` while this package was in progress; that commit is merged in here,
+   and the gate above was rerun as a real `npm ci && npm run check` in this worktree rather than
+   stage by stage. The `/tmp` install should not be used.
 
 ## Paste-ready assignment — UX-3 (M): plain-language layer
 

@@ -197,7 +197,7 @@ Regressions, same browser and server:
 | `tests/browser-tier-filter-ui.mjs` | PASS; 13 / 30 / 85 inputs, validation still unmaskable, mobile overflow 0/0/0 |
 | `tests/browser-provenance-ui.mjs` | PASS; markers, per-field, per-group and whole-profile resets unchanged |
 | `tests/browser-property-ui.mjs` | passed; full run 4.66 s, 282 frames, max gap 16.8 ms; mobile overflow 0/0/0 |
-| `tests/browser-solver-ui.mjs` | see the note in "Limitations" below |
+| `tests/browser-solver-ui.mjs` | passed; FIRE 68.98%, curve 42:45.71 … 50:90.61, required gross salary **£87,600 confirmed** in 377.8 s — matches UX-2's 368.9 s run to the pound |
 
 ### What the first harness run caught
 
@@ -229,12 +229,10 @@ not in the app.
    bond/cash/property market moments) are either self-evident from the sibling that does have it, or
    are inputs no non-specialist should be setting. The ticket asks for expert plain help
    "opportunistically", so this is the intended state, not an unfinished one.
-6. **`tests/browser-solver-ui.mjs` runs for roughly six minutes** (its required-salary solve is a full
-   search at 10,000 paths). It was started against this build; if its result is not recorded in the
-   table above, re-run it with `CDP_PORT=9226 APP_PORT=5176 node tests/browser-solver-ui.mjs` before
-   trusting the solver screen's wording. UX-3 changes no solver input, bound or seed — only the text
-   of validation messages and labels, none of which the solver screen's own controls use — so the
-   expected result is the unchanged £87,600 confirmed.
+6. **`tests/browser-solver-ui.mjs` takes roughly six minutes** (its required-salary solve is a full
+   search at 10,000 paths), so it is the one regression worth starting early. It passed against this
+   build at £87,600 confirmed. Re-run it with
+   `CDP_PORT=9226 APP_PORT=5176 node tests/browser-solver-ui.mjs`.
 
 ## Paste-ready assignment — UX-4 (L): the "Start here" wizard
 

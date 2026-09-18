@@ -220,9 +220,9 @@ entries have plain help (plus 42 expert ones); 29 entries gained a plain label a
 terms. `glossary.ts` holds 25 terms as data, referenced from the registry and from `SCREEN_TERMS`,
 rendered as a popover next to the word and as a per-tab strip in the shell. `messages.ts` rewrites
 the schema's issues into sentences, keyed on path + message, with `profileSchema` untouched and its
-issue list pinned in a test. 278 tests pass; both worker smoke variants and the tier-filter, provenance, property, solver
-and new `tests/browser-language-ui.mjs` harnesses pass in Chrome. Details, deviations and the UX-4
-inheritance note are in `docs/handoffs/ux-3.md`.
+issue list pinned in a test. 278 tests pass; both worker smoke variants and the tier-filter,
+provenance, property, solver (£87,600 confirmed) and new `tests/browser-language-ui.mjs` harnesses
+pass in Chrome. Details, deviations and the UX-4 inheritance note are in `docs/handoffs/ux-3.md`.
 
 **Problem.** Jargon-first labels and convention-first help (finding A.1.3).
 

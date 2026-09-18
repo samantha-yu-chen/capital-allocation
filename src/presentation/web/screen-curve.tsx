@@ -7,20 +7,19 @@
  * carried over from a previous set of inputs.
  */
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { LedgerOptions } from '../../engine/ledger.js';
 import type { FireAgeCurveProgress, FireAgeCurveResult } from '../../engine/fire-curve.js';
 import { fireAgeCurveBrowser } from '../../engine/analysis-browser.js';
-import { runKey, stableStringify } from '../view/run-key.js';
 import { count, money, percent } from '../view/format.js';
 import { toDisplay, type ControlFieldDef } from '../view/fields.js';
 import {
-  CURVE_FROM_FIELD, CURVE_TO_FIELD, curveGeometry, curveHeadline, curveNotes, curvePlan, curveRows,
+  CURVE_FROM_FIELD, CURVE_TO_FIELD, curveGeometry, curveHeadline, curveNotes, curveRows, type CurvePlan,
 } from '../view/solver-model.js';
 import { Banner, Card, NumberField, Progress, Stat } from './components.js';
 import { ProfileFields } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
-import { useAnalysis } from './use-analysis.js';
+import type { AnalysisRunner } from './use-analysis.js';
 
 function CurveChart({ result }: { result: FireAgeCurveResult }): ReactNode {
   const geometry = useMemo(() => curveGeometry(result), [result]);
@@ -70,18 +69,15 @@ function progressLine(progress: FireAgeCurveProgress | null): string {
   return `Age ${progress.age}: ${progress.agesCompleted} of ${progress.agesTotal} ages complete`;
 }
 
-export function CurveScreen({ store, ledgerOptions }: { store: ProfileStore; ledgerOptions: LedgerOptions }): ReactNode {
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+export function CurveScreen({ store, ledgerOptions, drafts, onDraft, plan, runner }: {
+  store: ProfileStore;
+  ledgerOptions: LedgerOptions;
+  drafts: Readonly<Record<string, string>>;
+  onDraft: (id: string, text: string) => void;
+  plan: CurvePlan | null;
+  runner: AnalysisRunner<FireAgeCurveResult, FireAgeCurveProgress>;
+}): ReactNode {
   const profile = store.profile;
-  const plan = useMemo(
-    () => profile ? curvePlan(profile, ledgerOptions, drafts) : null,
-    [profile, ledgerOptions, drafts],
-  );
-  const key = useMemo(
-    () => profile ? `${runKey(profile, ledgerOptions)}|${stableStringify(plan?.request ?? null)}` : null,
-    [profile, ledgerOptions, plan],
-  );
-  const runner = useAnalysis<FireAgeCurveResult, FireAgeCurveProgress>(key);
   const running = runner.state.status === 'running';
   const blocked = !profile || !plan || plan.issues.length > 0;
 
@@ -90,7 +86,7 @@ export function CurveScreen({ store, ledgerOptions }: { store: ProfileStore; led
       def={def}
       value={drafts[def.id] ?? toDisplay(def, fallback)}
       errors={(plan?.issues ?? []).filter(issue => issue.id === def.id).map(issue => issue.message)}
-      onChange={text => setDrafts(previous => ({ ...previous, [def.id]: text }))}
+      onChange={text => onDraft(def.id, text)}
     />
   );
 

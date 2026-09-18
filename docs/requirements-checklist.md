@@ -53,6 +53,18 @@ evidence for invalid-step blocking, 10,000-path progress/cancellation, identical
 the wizard and FIRE tab, stale invalidation, persistent dismissal, both worker smoke variants and a
 390px layout with all eight tabs still reachable. `handoffs/ux-4.md` records the details.
 
+**UX-5 put the stochastic answer at the top of Overview without inventing one.** The headline is a
+pure view model over completed runs: it ignores a result whose captured run key differs from the
+current profile/options key, uses the existing section 16 `confidenceBand`, and rounds the sampled
+probability only as finely as its binomial standard error supports. Its probability source links to
+FIRE & Monte Carlo; its optional earliest-age source links to FIRE Age Curve; both name their path
+count, seed and version metadata. The curve runner is now App-owned so a completed result remains
+available across tabs, while cancellation, failure and edits still publish no figure.
+`tests/presentation-screens.test.ts` covers empty/completed/stale states, all band boundaries and
+precision; `tests/browser-overview-headline-ui.mjs` covers both 10,000-path worker smokes, the full
+21 × 10,000-path curve, source navigation, cancellation, salary-edit invalidation and desktop/mobile
+layout. `handoffs/ux-5.md` records the measured evidence.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

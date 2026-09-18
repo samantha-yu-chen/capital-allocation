@@ -1,14 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExampleProfile } from '../src/domain/fixtures.js';
-import { defaultLedgerOptions, runDeterministicProjection, runMonteCarlo } from '../src/engine/index.js';
-import { computeOverview, ledgerRow, marginalOnIncrement } from '../src/presentation/view/overview-model.js';
+import { defaultLedgerOptions, runDeterministicProjection, runMonteCarlo, type FireAgeCurveResult } from '../src/engine/index.js';
+import {
+  computeOverview, ledgerRow, marginalOnIncrement, overviewHeadline, sampledProbabilityDigits,
+} from '../src/presentation/view/overview-model.js';
 import {
   CONFIDENCE_BANDS, WEALTH_CATEGORIES, confidenceBand, diagnosticRows, distributionRows, metadataRows,
   observedFailureRows, sequenceRows, successSplit, wealthSeries,
 } from '../src/presentation/view/monte-carlo-model.js';
 import { money, moneyCompact, moneySigned, percent, ratio } from '../src/presentation/view/format.js';
 import { writePath } from '../src/presentation/view/fields.js';
+import { runKey } from '../src/presentation/view/run-key.js';
 
 const example = createExampleProfile();
 const close = (actual: number, expected: number, tolerance: number, message: string) =>
@@ -38,6 +41,74 @@ test('section 16 confidence bands label a probability without becoming the targe
   assert.equal(example.personal.targetSuccessProbability, 0.9);
   assert.throws(() => confidenceBand(1.2), /between 0 and 1/);
   assert.throws(() => confidenceBand(Number.NaN), /between 0 and 1/);
+});
+
+test('the Overview headline publishes only completed, current runs with traceable plain-language copy', async () => {
+  const profile = writePath(example, ['simulation', 'count'], 40);
+  const options = defaultLedgerOptions();
+  const key = runKey(profile, options);
+  const result = await runMonteCarlo(profile, { batchSize: 8, ledgerOptions: options });
+
+  const empty = overviewHeadline(key, null, null);
+  assert.equal(empty.state, 'empty');
+  assert.equal(empty.sentence, null);
+  assert.equal(empty.probabilityText, null, 'an empty card never invents a number');
+  assert.deepEqual(empty.sources, []);
+
+  const stale = overviewHeadline(`${key}-changed`, { key, result }, null);
+  assert.equal(stale.state, 'empty', 'a completed result for old inputs is still stale');
+  assert.equal(stale.sentence, null);
+
+  const curve: FireAgeCurveResult = {
+    points: [{
+      age: 58, status: 'evaluated', message: null, probability: 0.91, meetsTarget: true,
+      standardError: 0.004, bridgeFailureProbability: 0.02, depletionProbability: 0.03,
+      medianTerminalWealthReal: 500_000, medianFireCapitalReal: 700_000,
+      medianLiquidAtFireReal: 450_000, bridgeYears: 0,
+    }],
+    targetProbability: 0.9, earliestQualifyingAge: 58, targetFireAge: 55,
+    probabilityAtTargetAge: null, monotone: true, retirementSpendingAnnualReal: 19_800,
+    referenceFireNumber: 565_714,
+    metadata: {
+      curveVersion: 'fire-age-curve-v1', engineVersion: result.metadata.engineVersion,
+      generatorVersion: result.metadata.returnGeneratorVersion, seed: profile.simulation.seed,
+      simulationCount: profile.simulation.count, pathIndices: { start: 0, endExclusive: profile.simulation.count },
+      ledgerOptions: options, moneyBasis: 'today',
+    },
+  };
+  const complete = overviewHeadline(key, { key, result }, { key, result: curve });
+  assert.equal(complete.state, 'complete');
+  assert.equal(complete.probability, result.successProbability);
+  assert.match(complete.sentence!, new RegExp(`At your target of ${profile.personal.targetFireAge}, this plan succeeds in`));
+  assert.match(complete.sentence!, /The earliest age that meets your 90% target is 58\./);
+  assert.equal(complete.sources[0]!.tab, 'fire');
+  assert.match(complete.sources[0]!.metadata, new RegExp(`40 paths, seed ${profile.simulation.seed}`));
+  assert.equal(complete.sources[1]!.tab, 'curve');
+  assert.match(complete.sources[1]!.metadata, /1 ages × 40 paths/);
+});
+
+test('Overview headline bands and displayed precision follow the shared confidence rules', async () => {
+  const profile = writePath(example, ['simulation', 'count'], 40);
+  const options = defaultLedgerOptions();
+  const key = runKey(profile, options);
+  const result = await runMonteCarlo(profile, { batchSize: 8, ledgerOptions: options });
+  for (const probability of [0, 0.7, 0.8, 0.9, 0.95, 1]) {
+    const adjusted = {
+      ...result,
+      successProbability: probability,
+      metadata: { ...result.metadata, simulationCount: 10_000 },
+    };
+    const model = overviewHeadline(key, { key, result: adjusted }, null);
+    assert.equal(model.bandLabel, confidenceBand(probability).label);
+    assert.equal(model.bandId, confidenceBand(probability).id);
+  }
+  assert.equal(sampledProbabilityDigits(0.69, 10_000), 1);
+  assert.equal(overviewHeadline(key, {
+    key,
+    result: { ...result, successProbability: 0.69, metadata: { ...result.metadata, simulationCount: 10_000 } },
+  }, null).probabilityText, '69.0%');
+  assert.equal(sampledProbabilityDigits(0.69, 40), 0, 'a noisy small sample is not shown to decimal places');
+  assert.throws(() => sampledProbabilityDigits(1.1, 10_000), /fraction/);
 });
 
 test('Overview reproduces the specification section 80 current position', () => {

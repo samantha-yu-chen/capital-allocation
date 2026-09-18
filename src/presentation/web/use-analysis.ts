@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type AnalysisState<R, P> =
   | { status: 'idle' }
   | { status: 'running'; progress: P | null }
-  | { status: 'done'; result: R; seconds: number }
+  | { status: 'done'; result: R; seconds: number; key: string }
   | { status: 'cancelled' }
   | { status: 'error'; name: string; message: string };
 
@@ -44,6 +44,8 @@ export function useAnalysis<R, P>(key: string | null): AnalysisRunner<R, P> {
   useEffect(() => () => controller.current?.abort(), []);
 
   const run = useCallback((launch: (controls: { signal: AbortSignal; onProgress: (progress: P) => void }) => Promise<R>) => {
+    if (key === null) return;
+    const completedKey = key;
     token.current += 1;
     const mine = token.current;
     controller.current?.abort();
@@ -59,7 +61,7 @@ export function useAnalysis<R, P>(key: string | null): AnalysisRunner<R, P> {
       result => {
         if (token.current !== mine) return;
         hadResult.current = true;
-        setState({ status: 'done', result, seconds: (performance.now() - started) / 1000 });
+        setState({ status: 'done', result, seconds: (performance.now() - started) / 1000, key: completedKey });
       },
       (error: unknown) => {
         if (token.current !== mine) return;
@@ -69,7 +71,7 @@ export function useAnalysis<R, P>(key: string | null): AnalysisRunner<R, P> {
           : { status: 'error', name: thrown.name, message: thrown.message });
       },
     ).finally(() => { if (controller.current === abort) controller.current = null; });
-  }, []);
+  }, [key]);
 
   return { state, invalidated, run, cancel: useCallback(() => controller.current?.abort(), []) };
 }

@@ -7,9 +7,11 @@ import { fireAgeCurve } from '../src/engine/fire-curve.js';
 import { TABS, tabById } from '../src/presentation/view/tabs.js';
 import { fromDisplay, toDisplay } from '../src/presentation/view/fields.js';
 import {
-  CURVE_FROM_FIELD, CURVE_TO_FIELD, SOLVER_BUDGET_FIELD, SOLVER_MODE_OPTIONS, SOLVER_TARGET_FIELD,
-  curveGeometry, curveHeadline, curveNotes, curvePlan, curveRows, evaluationRows, probabilityWithUncertainty,
-  sensitivityRows, solverBoundField, solverDetailRows, solverHeadline, solverModeSummary, solverNotes, solverPlan,
+  CURVE_FROM_FIELD, CURVE_TO_FIELD, SOLVER_BUDGET_FIELD, SOLVER_MODE_OPTIONS, SOLVER_QUESTIONS,
+  SOLVER_QUESTION_STEM, SOLVER_TARGET_FIELD,
+  curveGeometry, curveHeadline, curveNotes, curvePlan, curveRows, evaluationRows, formatSolverValue,
+  probabilityWithUncertainty, sensitivityRows, solverAnswer, solverBoundField, solverDetailRows,
+  solverHeadline, solverModeSummary, solverNotes, solverPlan, solverQuestion,
 } from '../src/presentation/view/solver-model.js';
 import { profileWith } from './ledger-helpers.js';
 
@@ -190,4 +192,124 @@ test('curve presentation draws only simulated ages and marks the earliest qualif
     assert.match(headline.note, /pre-pension bridge/);
   }
   assert.deepEqual(curveNotes(curve), curve.monotone ? [] : curveNotes(curve));
+});
+
+// ── UX-6: the six searches as one question, and every outcome as a plain sentence ───────────────
+
+test('the question picker offers exactly the six existing searches, re-labelled and never re-scoped', () => {
+  assert.deepEqual(
+    SOLVER_QUESTIONS.map(option => option.value),
+    SOLVER_MODE_OPTIONS.map(option => option.value),
+    'the picker is a re-labelling of the engine modes, so it must cover them exactly',
+  );
+  assert.equal(SOLVER_QUESTIONS.length, 6);
+  for (const option of SOLVER_QUESTIONS) {
+    assert.ok(option.subject.length > 0 && !/solver|mode|input/i.test(option.subject),
+      `${option.value} is named as a thing the reader has, not as an engine input`);
+    assert.ok(option.plain.trim().endsWith('.'), `${option.value} explains itself in a sentence`);
+    // The picker must not quietly become a second definition of the search.
+    assert.equal(solverQuestion(option.value), option);
+  }
+  assert.throws(() => solverQuestion('not_a_mode' as never), /Unknown solver mode/);
+  assert.equal(SOLVER_QUESTION_STEM, 'To hit my goal, what would my …');
+});
+
+
+/** A plan the entered salary does not fund, so every solver status is reachable from one profile. */
+const stretched = (mutate: (profile: Profile) => void = () => {}): Profile => profileWith(profile => {
+  profile.personal.endAge = 80;
+  profile.simulation.count = 24;
+  profile.spending.retirement = { essentialMonthly: 2600, discretionaryMonthly: 1400 };
+  profile.spending.retirementComfortAnnual = 12 * 4000;
+  profile.spending.retirementFloorAnnual = 12 * 2600;
+  mutate(profile);
+});
+
+const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+test('every solver status becomes a plain sentence that keeps its bracket or its bound', async () => {
+  const seen = new Set<string>();
+
+  // achieved — the answer plus the confirmed bracket, exactly as the ticket words it.
+  const achieved = await solveTarget(stretched(), { mode: 'salary', maxEvaluations: 24 });
+  assert.equal(achieved.status, 'solved');
+  const achievedAnswer = solverAnswer(achieved);
+  assert.equal(achievedAnswer.status, 'achieved');
+  seen.add(achievedAnswer.status);
+  assert.match(achievedAnswer.sentence, /^You would need a gross salary of about £[\d,]+ \(/);
+  assert.match(achievedAnswer.honesty, /^we confirmed £[\d,]+ clears your 90% target and that £[\d,]+ does not$/);
+  assert.equal(achievedAnswer.value, formatSolverValue(achieved.requiredValue, 'money'));
+  assert.ok(achievedAnswer.sentence.includes(achievedAnswer.honesty), 'the honesty clause is part of the sentence');
+  assert.equal(achievedAnswer.tone, 'good');
+
+  // budget-exhausted — solved, but the bracket is still wider than the search precision.
+  const exhausted = await solveTarget(stretched(), { mode: 'salary', maxEvaluations: 3 });
+  assert.equal(exhausted.status, 'solved');
+  assert.ok(Math.abs(exhausted.requiredValue! - exhausted.excludedValue!) > exhausted.precision,
+    'a three-evaluation search cannot have narrowed to the search precision');
+  const exhaustedAnswer = solverAnswer(exhausted);
+  assert.equal(exhaustedAnswer.status, 'budget_exhausted');
+  seen.add(exhaustedAnswer.status);
+  assert.match(exhaustedAnswer.honesty, /ran out of evaluations/);
+  assert.match(exhaustedAnswer.honesty, new RegExp(escaped(
+    `somewhere above ${formatSolverValue(exhausted.excludedValue, 'money')} and at or below `
+    + `${formatSolverValue(exhausted.requiredValue, 'money')}`)),
+    'an unfinished search still reports the range the requirement lies in');
+  assert.match(exhaustedAnswer.sentence, /Raise the evaluation budget/);
+
+  // already-met — no change needed, and it says it did not look for a smaller value.
+  const met = await solveTarget(stretched(p => { p.personal.targetSuccessProbability = 0.1; }), { mode: 'salary' });
+  assert.equal(met.status, 'already_met');
+  const metAnswer = solverAnswer(met);
+  assert.equal(metAnswer.status, 'already_met');
+  seen.add(metAnswer.status);
+  assert.match(metAnswer.sentence, /^Your gross salary does not have to change: at £/);
+  assert.match(metAnswer.honesty, /not the least you could get away with/);
+
+  // infeasible — no value, and the bound it failed at is named.
+  const infeasible = await solveTarget(stretched(), { mode: 'salary', targetProbability: 1 });
+  assert.equal(infeasible.status, 'infeasible');
+  const infeasibleAnswer = solverAnswer(infeasible);
+  assert.equal(infeasibleAnswer.status, 'infeasible');
+  seen.add(infeasibleAnswer.status);
+  assert.equal(infeasibleAnswer.value, null, 'an unreachable search publishes no required value');
+  assert.match(infeasibleAnswer.sentence, /^Changing your gross salary on its own would not be enough/);
+  assert.match(infeasibleAnswer.honesty, new RegExp(escaped(
+    `${formatSolverValue(infeasible.bound.value, 'money')} was the far end of the search`)));
+  assert.match(infeasibleAnswer.honesty, /nothing beyond that bound was tested/);
+  assert.equal(infeasibleAnswer.tone, 'bad');
+
+  // unsupported — reported as not applicable, never as a plan that failed to fund itself.
+  const unsupported = await solveTarget(stretched(), { mode: 'savings', ledgerOptions: { monthlyHouseholdOverride: 3000 } });
+  assert.equal(unsupported.status, 'unsupported');
+  const unsupportedAnswer = solverAnswer(unsupported);
+  assert.equal(unsupportedAnswer.status, 'unsupported');
+  seen.add(unsupportedAnswer.status);
+  assert.equal(unsupportedAnswer.value, null);
+  assert.match(unsupportedAnswer.sentence, /^This question cannot be answered for your current settings\./);
+  assert.ok(unsupportedAnswer.sentence.includes(unsupported.message!), 'the engine keeps the last word on why');
+  assert.equal(unsupportedAnswer.tone, 'neutral');
+
+  assert.deepEqual([...seen].sort(),
+    ['achieved', 'already_met', 'budget_exhausted', 'infeasible', 'unsupported'],
+    'every solver status is mapped');
+});
+
+test('an unconfirmed or unbracketed answer says so instead of claiming a confirmed bracket', async () => {
+  const solved = await solveTarget(stretched(), { mode: 'salary', maxEvaluations: 24 });
+  assert.equal(solved.status, 'solved');
+  const unconfirmed = solverAnswer({ ...solved, confirmed: false });
+  assert.match(unconfirmed.honesty, /the re-run did not reproduce it, so treat it as unverified/);
+  assert.ok(!/we confirmed/.test(unconfirmed.honesty));
+
+  // A qualifying value with nothing tested below it must not imply a tested lower bound.
+  const noBracket = solverAnswer({ ...solved, excludedValue: null });
+  assert.match(noBracket.honesty, /nothing below it was tested/);
+
+  // A "decrease" search reads in the same shape and keeps the mode's own units.
+  const spending = await solveTarget(stretched(), { mode: 'retirement_spending', maxEvaluations: 12 });
+  const spendingAnswer = solverAnswer(spending);
+  assert.ok(['achieved', 'budget_exhausted', 'already_met', 'infeasible'].includes(spendingAnswer.status));
+  if (spendingAnswer.value !== null) assert.match(spendingAnswer.value, /\/ month$/);
+  assert.match(spendingAnswer.sentence, /retirement spending/);
 });

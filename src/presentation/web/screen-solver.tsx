@@ -15,10 +15,12 @@ import { runKey, stableStringify } from '../view/run-key.js';
 import { count, percent } from '../view/format.js';
 import { toDisplay, type ControlFieldDef } from '../view/fields.js';
 import {
-  CAPITAL_DESTINATIONS, SOLVER_BUDGET_FIELD, SOLVER_MODE_OPTIONS, SOLVER_TARGET_FIELD,
-  evaluationRows, sensitivityRows, solverBoundField, solverDetailRows, solverHeadline, solverNotes, solverPlan,
+  CAPITAL_DESTINATIONS, SOLVER_BUDGET_FIELD, SOLVER_QUESTIONS, SOLVER_QUESTION_STEM, SOLVER_TARGET_FIELD,
+  evaluationRows, sensitivityRows, solverAnswer, solverBoundField, solverDetailRows, solverHeadline,
+  solverNotes, solverPlan, solverQuestion,
 } from '../view/solver-model.js';
 import { Banner, Card, CheckboxField, NumberField, Progress, SelectField } from './components.js';
+import { QuestionPicker } from './question-picker.js';
 import { ProfileFields } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import { useAnalysis } from './use-analysis.js';
@@ -28,8 +30,11 @@ function progressLine(progress: SolverProgress | null): string {
   return `${progress.stage} — ${progress.evaluationsCompleted} of about ${progress.evaluationsPlanned} complete simulations`;
 }
 
-export function SolverScreen({ store, ledgerOptions }: { store: ProfileStore; ledgerOptions: LedgerOptions }): ReactNode {
-  const [mode, setMode] = useState<SolverModeId>('salary');
+export function SolverScreen({ store, ledgerOptions, mode, onMode }: {
+  store: ProfileStore; ledgerOptions: LedgerOptions;
+  /** Owned by `App`, so the Overview card can pre-select a question without running anything. */
+  mode: SolverModeId; onMode: (mode: SolverModeId) => void;
+}): ReactNode {
   const [destination, setDestination] = useState<CapitalDestination>('gia');
   const [includeSensitivity, setIncludeSensitivity] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -78,21 +83,35 @@ export function SolverScreen({ store, ledgerOptions }: { store: ProfileStore; le
       ) : null}
       {!profile ? <Banner tone="error" title="The profile is invalid, so nothing can be sent to the engine" /> : null}
 
-      <Card kicker="Solve for" title="What has to change for this plan to work" elevation="md">
-        <div className="field-grid">
-          <SelectField
-            label="Searched input" value={mode} options={SOLVER_MODE_OPTIONS} onChange={setMode}
-            help="One input moves; everything else stays exactly as entered."
-          />
-          {mode === 'starting_capital' ? (
+      {/* The question stem is the heading here; a card title above it would only say it twice. */}
+      <Card kicker="Your question" elevation="md">
+        <QuestionPicker
+          stem={`${SOLVER_QUESTION_STEM} need to be?`}
+          choices={SOLVER_QUESTIONS}
+          value={mode}
+          onChange={onMode}
+        >
+          <p className="question-chosen">
+            Searching for your <b>{solverQuestion(mode).subject}</b>. One input moves; everything else stays
+            exactly as entered.
+          </p>
+        </QuestionPicker>
+        {mode === 'starting_capital' ? (
+          <div className="field-grid">
             <SelectField
               label="Where the extra capital goes" value={destination} options={CAPITAL_DESTINATIONS}
               onChange={setDestination}
               help="Accessibility and tax differ by destination, so this choice changes the answer."
             />
-          ) : null}
-        </div>
-        {plan ? <p className="card-body" style={{ marginTop: 0 }}>{plan.mode.definition}</p> : null}
+          </div>
+        ) : null}
+        {/* The plain sentence above is the ladder, not a replacement: the mode's precise definition
+            stays on screen, because what a search holds fixed is what makes its answer meaningful. */}
+        {plan ? (
+          <p className="footnote question-definition">
+            <b>Exactly what moves:</b> {plan.mode.definition}
+          </p>
+        ) : null}
         <ProfileFields store={store} ids={['personal.targetFireAge', 'simulation.count']} />
         <div className="field-grid">
           {control(SOLVER_TARGET_FIELD, store.editable.personal.targetSuccessProbability)}
@@ -126,7 +145,7 @@ export function SolverScreen({ store, ledgerOptions }: { store: ProfileStore; le
               runner.run(controls => runSolverBrowser(profile, plan.request, { ...controls, includeSensitivity, ledgerOptions }));
             }}
           >
-            {running ? 'Solving…' : 'Solve'}
+            {running ? 'Solving…' : `Work out my ${solverQuestion(mode).subject}`}
           </button>
           <button type="button" className="btn btn-secondary" disabled={!running} onClick={runner.cancel}>Cancel</button>
         </div>
@@ -150,7 +169,8 @@ export function SolverScreen({ store, ledgerOptions }: { store: ProfileStore; le
         <Card kicker="No answer yet" title="Nothing is shown until a search has finished" muted>
           <p className="card-body" style={{ margin: 0 }}>
             A requirement is only meaningful once a candidate has been confirmed against the complete model, so no
-            estimate stands in for one. Press <b>Solve</b> above.
+            estimate stands in for one. Nothing runs until you ask it to: press{' '}
+            <b>Work out my {solverQuestion(mode).subject}</b> above.
           </p>
         </Card>
       ) : null}
@@ -161,9 +181,15 @@ export function SolverScreen({ store, ledgerOptions }: { store: ProfileStore; le
 function SolverResultView({ run, seconds, sensitivity }: { run: SolverRun; seconds: number; sensitivity: boolean }): ReactNode {
   const result = run.primary;
   const headline = solverHeadline(result);
+  const answer = solverAnswer(result);
   const notes = solverNotes(result);
   return (
     <>
+      {/* The answer in ordinary words first; the engine's own labels and figures stay below it. */}
+      <Card className="answer-card" kicker="Your answer" elevation="lg">
+        <p className="answer-sentence" data-answer-status={answer.status}>{answer.sentence}</p>
+      </Card>
+
       <Card kicker={headline.kicker} elevation="lg">
         <div className="stat-hero">{headline.value}</div>
         <span className={headline.tone === 'good' ? 'tag tag-accent-2' : headline.tone === 'bad' ? 'tag tag-accent' : 'tag tag-neutral'}>

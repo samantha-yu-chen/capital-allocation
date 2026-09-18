@@ -13,6 +13,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   defaultLedgerOptions, type LedgerOptions, type FireAgeCurveProgress, type FireAgeCurveResult,
 } from '../../engine/index.js';
+import type { SolverModeId } from '../../engine/solver.js';
 import { TABS, tabById, type TabId } from '../view/tabs.js';
 import { runKey, stableStringify } from '../view/run-key.js';
 import { curvePlan } from '../view/solver-model.js';
@@ -90,6 +91,9 @@ export function App(): ReactNode {
   });
   const [transport, setTransport] = useState<Transport>({ concurrency: defaultConcurrency(), batchSize: 100 });
   const [curveDrafts, setCurveDrafts] = useState<Record<string, string>>({});
+  // Navigation owns which question the Reverse Solver is asking, so the Overview card can pre-select
+  // one. It selects and nothing more: a solve is many complete simulations and stays explicit.
+  const [solverMode, setSolverMode] = useState<SolverModeId>('salary');
 
   const ledgerOptions = useMemo<LedgerOptions>(() => ({
     ...defaultLedgerOptions(),
@@ -130,6 +134,11 @@ export function App(): ReactNode {
   };
   const openFire = () => { setWizardOpen(false); setActive('fire'); };
   const openCurve = () => { setWizardOpen(false); setActive('curve'); };
+  const openSolverQuestion = (question: SolverModeId) => {
+    setWizardOpen(false);
+    setSolverMode(question);
+    setActive('solver');
+  };
 
   return (
     <div className="shell">
@@ -191,14 +200,17 @@ export function App(): ReactNode {
             <OverviewScreen store={store} ledgerOptions={ledgerOptions} currentRunKey={key}
               currentCurveKey={curveKey}
               monteCarloState={runner.state} curveState={curveRunner.state} onRun={onRun}
-              onOpenFire={openFire} onOpenCurve={openCurve} />
+              onOpenFire={openFire} onOpenCurve={openCurve}
+              onOpenSolverQuestion={openSolverQuestion} />
           ) : null}
           {active === 'curve' ? (
             <CurveScreen store={store} ledgerOptions={ledgerOptions} drafts={curveDrafts}
               onDraft={(id, text) => setCurveDrafts(previous => ({ ...previous, [id]: text }))}
               plan={currentCurvePlan} runner={curveRunner} />
           ) : null}
-          {active === 'solver' ? <SolverScreen store={store} ledgerOptions={ledgerOptions} /> : null}
+          {active === 'solver' ? (
+            <SolverScreen store={store} ledgerOptions={ledgerOptions} mode={solverMode} onMode={setSolverMode} />
+          ) : null}
           {active === 'scenarios' ? <ScenariosScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'fire' ? (
             <FireScreen

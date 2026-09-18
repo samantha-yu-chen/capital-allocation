@@ -10,6 +10,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const appPort = process.env.APP_PORT ?? '5176';
 const cdpPort = process.env.CDP_PORT ?? '9226';
+/** Spec section 61's worked answer for the reference profile, at the checked-in seed and count. */
+const SOLVER_BASELINE = process.env.SOLVER_BASELINE ?? '£87,600';
 const tabs = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl);
 await new Promise(r => { ws.onopen = r; });
@@ -27,8 +29,10 @@ const ev = async expression => { const r = await cdp('Runtime.evaluate', { expre
 const wait = async (expr, limit = 120000) => { const start = Date.now(); while (Date.now() - start < limit) { const r = await ev(expr); if (r) return r; await new Promise(r => setTimeout(r, 150)); } throw Error('Timeout: ' + expr); };
 const click = async text => ev(`(()=>{const e=[...document.querySelectorAll('button,label')].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!e)throw Error('Missing '+${JSON.stringify(text)});e.click();})()`);
 const set = async (elementId, value) => ev(`(()=>{const e=document.getElementById(${JSON.stringify(elementId)});if(!e)throw Error('Missing input '+${JSON.stringify(elementId)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(String(value))});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-const choose = async (labelText, value) => ev(`(()=>{const l=[...document.querySelectorAll('label')].find(e=>e.textContent.trim()===${JSON.stringify(labelText)});if(!l)throw Error('Missing label '+${JSON.stringify(labelText)});const s=document.getElementById(l.htmlFor);Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,${JSON.stringify(value)});s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
 const text = () => ev('document.body.innerText');
+/** UX-6: the searched input is a radio group of questions, not a select. */
+const ask = async question => ev(`(()=>{const e=document.querySelector('[data-question=${JSON.stringify(question)}]');if(!e)throw Error('Missing question '+${JSON.stringify(question)});e.click();})()`);
+const asked = () => ev(`document.querySelector('[role="radio"][aria-checked="true"]')?.dataset.question ?? null`);
 /** Card kickers are uppercased by the design system, so read values from the DOM, not innerText. */
 const hero = () => ev('document.querySelector(".stat-hero")?.textContent ?? null');
 const heroKicker = () => ev('document.querySelector(".stat-hero")?.closest(".card")?.querySelector(".card-kicker")?.textContent ?? null');
@@ -95,13 +99,18 @@ await set('personal.targetSuccessProbability', 90);
 
 // ── Reverse Solver ─────────────────────────────────────────────────────────────────────────────
 await tab('solver');
+results.solverQuestionStem = await ev('document.querySelector(".question-stem")?.textContent ?? null');
+results.solverQuestionCount = await ev('document.querySelectorAll("[data-question]").length');
+results.solverQuestionSelected = await asked();
 results.solverAnnouncement = (await text()).match(/Up to[^\n]+/)[0];
-console.log(results.solverAnnouncement);
-await click('Solve');
+console.log(results.solverQuestionStem, '|', results.solverAnnouncement);
+await click('Work out my gross salary');
 await wait(has('/evaluation trace/i'), 900000);
 await wait('document.body.innerText.includes("Completed in")', 900000);
 const solverText = await text();
 results.solverSeconds = solverText.match(/Completed in ([\d.]+) seconds/)[1];
+results.solverAnswerSentence = await ev('document.querySelector(".answer-sentence")?.textContent ?? null');
+results.solverAnswerStatus = await ev('document.querySelector(".answer-sentence")?.dataset.answerStatus ?? null');
 results.solverHeadline = await hero();
 results.solverKicker = await heroKicker();
 results.solverConfirmed = /confirmed against the full model/i.test(solverText);
@@ -115,22 +124,25 @@ await shot('chunk6-solver-desktop');
 
 // Cancellation, then a mode switch that changes the searched input's units.
 await ev('window.scrollTo(0,0)');
-await click('Solve');
+await click('Work out my gross salary');
 await wait('Number(document.querySelector(".progress-track")?.getAttribute("aria-valuenow")) > 0', 120000);
 await click('Cancel');
 await wait(has('/search cancelled/i'));
 results.solverCancelled = await ev('!document.body.innerText.includes("Completed in")');
 
-await choose('Searched input', 'retirement_spending');
+await ask('retirement_spending');
 await new Promise(r => setTimeout(r, 200));
 results.spendingBoundUnit = await ev('document.querySelector("label[for=\'solver.bound\']").textContent');
-await choose('Searched input', 'starting_capital');
+results.spendingRunLabel = await ev('document.querySelector("button.btn-primary")?.textContent ?? null');
+await ask('starting_capital');
 await new Promise(r => setTimeout(r, 200));
 results.destinationVisible = /where the extra capital goes/i.test(await text());
-await choose('Searched input', 'pension_contribution');
+await ask('pension_contribution');
 await new Promise(r => setTimeout(r, 200));
 results.pensionDefinition = /monotonicity is therefore not assumed/i.test(await text());
-await choose('Searched input', 'salary');
+await ask('salary');
+await new Promise(r => setTimeout(r, 200));
+results.backToSalary = await asked();
 
 // Invalid controls block the run rather than silently coercing.
 await set('solver.bound', 1000);
@@ -168,6 +180,22 @@ assert.equal(results.curveInvalidatedHidden, true, 'the discarded curve is remov
 assert.ok(results.curveFrames.frames > 30, 'the UI kept animating during the run');
 assert.ok(results.curveFrames.maxGap < 250, 'no long main-thread block while the workers run');
 assert.ok(results.solverHeadline, 'the solver published a headline');
+assert.match(results.solverQuestionStem, /^To hit my goal, what would my … need to be\?$/,
+  'the solver opens with the question, not the engine mode name');
+assert.equal(results.solverQuestionCount, 6, 'all six searches are offered as answers to that question');
+assert.equal(results.solverQuestionSelected, 'salary', 'salary is the default question');
+assert.equal(results.solverAnswerStatus, 'achieved', 'the reference salary search resolves to an answer');
+assert.match(results.solverAnswerSentence, /^You would need a gross salary of about £/,
+  'the answer is a sentence before it is a figure');
+assert.match(results.solverAnswerSentence, /we confirmed £[\d,]+ clears your 90% target and that £[\d,]+ does not/,
+  'the sentence carries the confirmed bracket');
+assert.equal(results.solverHeadline, SOLVER_BASELINE,
+  `the reference profile's required salary reproduces at ${SOLVER_BASELINE}`);
+assert.ok(results.solverAnswerSentence.includes(SOLVER_BASELINE),
+  'the sentence and the headline report the same answer');
+assert.match(results.spendingRunLabel, /Work out my retirement spending/,
+  'the run button names the question it will answer');
+assert.equal(results.backToSalary, 'salary', 'the question picker is a single choice');
 assert.equal(results.solverCancelled, true, 'a cancelled search publishes nothing');
 assert.ok(results.solverTraceRows > 3, 'the evaluation trace lists the candidates that were simulated');
 assert.equal(results.solverSensitivity, true, 'section 33 sensitivity cases were solved');

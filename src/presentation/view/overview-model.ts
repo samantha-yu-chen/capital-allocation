@@ -38,7 +38,14 @@ export interface OverviewHeadlineModel {
   bandId: ConfidenceBandId | null;
   bandLabel: string | null;
   earliestQualifyingAge: number | null;
+  targetProbability: number | null;
   targetProbabilityText: string | null;
+  /**
+   * True only when a completed run actually measured a probability below the profile's target. It
+   * is the gate on the "what would it take?" action, which is an offer to open a search — never a
+   * claim about a run that has not happened, and never part of the sentence above.
+   */
+  belowTarget: boolean;
   sources: readonly HeadlineRunSource[];
 }
 
@@ -70,7 +77,8 @@ export function overviewHeadline(
   if (!monteCarlo && !curve) return {
     question: 'When can I be financially independent?', state: 'empty', sentence: null,
     probability: null, probabilityText: null, bandId: null, bandLabel: null,
-    earliestQualifyingAge: null, targetProbabilityText: null, sources: [],
+    earliestQualifyingAge: null, targetProbability: null, targetProbabilityText: null,
+    belowTarget: false, sources: [],
   };
 
   const probability = monteCarlo?.successProbability ?? null;
@@ -103,7 +111,8 @@ export function overviewHeadline(
   return {
     question: 'When can I be financially independent?', state: 'complete', sentence: clauses.join(' '),
     probability, probabilityText, bandId: band?.id ?? null, bandLabel: band?.label ?? null,
-    earliestQualifyingAge: age, targetProbabilityText: targetText, sources,
+    earliestQualifyingAge: age, targetProbability: target, targetProbabilityText: targetText,
+    belowTarget: probability !== null && target !== null && probability < target, sources,
   };
 }
 

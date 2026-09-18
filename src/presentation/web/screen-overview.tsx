@@ -18,6 +18,7 @@ import { ProfileForm } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import type { Profile } from '../../domain/contracts.js';
 import type { FireAgeCurveProgress, FireAgeCurveResult, MonteCarloResult } from '../../engine/index.js';
+import type { SolverModeId } from '../../engine/solver.js';
 import type { RunState } from './use-monte-carlo.js';
 import type { AnalysisState } from './use-analysis.js';
 
@@ -281,6 +282,7 @@ function HeadlineCard(props: {
   onRun: () => void;
   onOpenFire: () => void;
   onOpenCurve: () => void;
+  onOpenSolverQuestion: (question: SolverModeId) => void;
 }): ReactNode {
   const monteCarloRun: CompletedOverviewRun<MonteCarloResult> | null =
     props.currentRunKey && props.monteCarloState.status === 'done'
@@ -320,11 +322,20 @@ function HeadlineCard(props: {
               </button>
             ))}
           </div>
-          {model.sources.every(source => source.tab !== 'curve') ? (
-            <button type="button" className="link-button headline-next" onClick={props.onOpenCurve}>
-              Compute the earliest age that reaches the target
-            </button>
-          ) : null}
+          <div className="headline-actions">
+            {model.belowTarget ? (
+              /* An offer to open a search, not a result: the solve itself stays explicit. */
+              <button type="button" className="btn btn-secondary headline-solve"
+                onClick={() => props.onOpenSolverQuestion('salary')}>
+                What would it take to reach {model.targetProbabilityText}?
+              </button>
+            ) : null}
+            {model.sources.every(source => source.tab !== 'curve') ? (
+              <button type="button" className="link-button headline-next" onClick={props.onOpenCurve}>
+                Compute the earliest age that reaches the target
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
     </Card>
@@ -341,6 +352,7 @@ export function OverviewScreen(props: {
   onRun: () => void;
   onOpenFire: () => void;
   onOpenCurve: () => void;
+  onOpenSolverQuestion: (question: SolverModeId) => void;
 }): ReactNode {
   const { store } = props;
   const profile = store.profile;
@@ -357,7 +369,8 @@ export function OverviewScreen(props: {
     <div className="stack">
       <HeadlineCard profile={profile} currentRunKey={props.currentRunKey} currentCurveKey={props.currentCurveKey}
         monteCarloState={props.monteCarloState} curveState={props.curveState} onRun={props.onRun}
-        onOpenFire={props.onOpenFire} onOpenCurve={props.onOpenCurve} />
+        onOpenFire={props.onOpenFire} onOpenCurve={props.onOpenCurve}
+        onOpenSolverQuestion={props.onOpenSolverQuestion} />
       {!profile ? (
         <Banner tone="error" title="Fix the inputs before the model can run">
           <p style={{ margin: 0 }}>

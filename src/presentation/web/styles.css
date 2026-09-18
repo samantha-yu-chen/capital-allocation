@@ -109,7 +109,37 @@ body { min-height: 100vh; }
 .headline-source span { font-size: 12px; color: var(--color-accent-2-800); }
 .headline-source strong { font-family: var(--font-heading); font-size: 22px; }
 .headline-source small { line-height: 1.4; color: color-mix(in srgb, var(--color-text) 62%, transparent); }
-.headline-next { margin-top: var(--space-3); font-size: 13px; }
+.headline-actions {
+  display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3);
+}
+.headline-solve { flex: 0 1 auto; }
+.headline-next { margin-top: 0; font-size: 13px; }
+
+/* — Reverse Solver: one spoken question, its six answers, and the reply in ordinary words — */
+.question-picker { display: flex; flex-direction: column; gap: var(--space-3); }
+.question-stem {
+  margin: 0; max-width: 34ch; font-family: var(--font-heading);
+  font-size: clamp(20px, 2.1vw, 28px); line-height: 1.15;
+}
+.question-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.question-option {
+  display: grid; gap: 4px; min-width: 0; padding: var(--space-3); text-align: left; cursor: pointer;
+  color: var(--color-text); background: var(--color-surface);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.question-option:hover { border-color: var(--color-accent-2-500); }
+.question-option strong { font-family: var(--font-heading); font-size: 17px; }
+.question-option small { line-height: 1.4; color: color-mix(in srgb, var(--color-text) 62%, transparent); }
+.question-option[aria-checked='true'] {
+  background: color-mix(in srgb, var(--color-accent-2-100) 72%, transparent);
+  border-color: var(--color-accent-2-600); box-shadow: inset 0 0 0 1px var(--color-accent-2-600);
+}
+.question-chosen { margin: 0; font-size: 14px; }
+.question-definition { max-width: 80ch; }
+.answer-card { border-left: 6px solid var(--color-accent-2-600); }
+.answer-sentence {
+  margin: 0; max-width: 62ch; font-size: clamp(19px, 2vw, 27px); line-height: 1.35;
+}
 
 /* — start-here wizard: one continuous route through the model, rather than five loose cards — */
 .wizard-shell { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -250,6 +280,7 @@ details.group[open] > summary::before { content: '▾ '; }
 @media (max-width: 1100px) {
   .split { grid-template-columns: minmax(0, 1fr); }
   .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .question-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -266,6 +297,7 @@ details.group[open] > summary::before { content: '▾ '; }
   .sidebar-note { margin-top: 0; }
   .main { padding: var(--space-3); }
   .grid-2, .grid-3, .field-grid, .field-grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .question-options { grid-template-columns: minmax(0, 1fr); }
   /* The SVG scales with its viewBox, so axis text needs more viewBox units to stay legible. */
   .chart-label { font-size: 16px; }
   .stat-hero { font-size: 42px; }

@@ -85,6 +85,24 @@ test('the Overview headline publishes only completed, current runs with traceabl
   assert.match(complete.sources[0]!.metadata, new RegExp(`40 paths, seed ${profile.simulation.seed}`));
   assert.equal(complete.sources[1]!.tab, 'curve');
   assert.match(complete.sources[1]!.metadata, /1 ages × 40 paths/);
+
+  // UX-6: the "what would it take?" offer is gated on a measured shortfall, and is never in the
+  // sentence — the sentence stays pure view data about runs that actually happened.
+  assert.equal(empty.belowTarget, false, 'an offer to search needs a completed run behind it');
+  assert.equal(stale.belowTarget, false, 'a stale result cannot open a search for the current plan');
+  assert.equal(complete.targetProbability, profile.personal.targetSuccessProbability);
+  assert.equal(complete.belowTarget, result.successProbability < profile.personal.targetSuccessProbability);
+  for (const clause of ['what would it take', 'salary', 'solver']) {
+    assert.ok(!complete.sentence!.toLowerCase().includes(clause), `the sentence stays free of "${clause}"`);
+  }
+  const short = overviewHeadline(key, { key, result: { ...result, successProbability: 0.5 } }, null);
+  assert.equal(short.belowTarget, true);
+  const over = overviewHeadline(key, { key, result: { ...result, successProbability: 0.95 } }, null);
+  assert.equal(over.belowTarget, false, 'a plan that already clears its target is offered no fix');
+  const exactly = overviewHeadline(key, { key, result: { ...result, successProbability: 0.9 } }, null);
+  assert.equal(exactly.belowTarget, false, 'meeting the target exactly is meeting it');
+  // A curve alone measures no probability for the entered plan, so it opens no search either.
+  assert.equal(overviewHeadline(key, null, { key, result: curve }).belowTarget, false);
 });
 
 test('Overview headline bands and displayed precision follow the shared confidence rules', async () => {

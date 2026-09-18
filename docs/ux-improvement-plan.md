@@ -122,7 +122,16 @@ L ≈ a package and a half.
 
 ## Part C — Tickets
 
-### UX-1 (M) — Field tiering: essential / common / expert, described in the registry
+### UX-1 (M) — Field tiering: essential / common / expert, described in the registry — **delivered**
+
+Delivered. `NumberFieldDef.tier` is required (an untiered field is a compile error) and the select,
+checkbox, text and composite-editor controls moved out of `profile-form.tsx` into `CHOICE_FIELDS` /
+`choiceFieldsFor`. `fieldVisibility` is the React-free filter; `ProfileForm` gained `filterable`,
+set only on Overview. 13 essential, 24 common, 68 expert. The default view renders 30 inputs
+(13 in `Essential only`, 85 in `Everything`); a non-positive-semidefinite correlation matrix
+surfaces its editor, cell and message in `Essential only` while the rest of the expert surface
+stays hidden. 258 tests pass. Final classification, judgement calls against the starting list, the
+measured Chrome evidence and the UX-4 inheritance note are in `docs/handoffs/ux-1.md`.
 
 **Problem.** All ~90 fields carry equal weight (finding A.1.1).
 

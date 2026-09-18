@@ -6,10 +6,106 @@
  * real projection with a larger salary, so it is the model's own marginal rate rather than a
  * parallel tax formula.
  */
-import type { LedgerYearDetail, LedgerOptions, DeterministicProjection, ProjectionMetrics, MarginalIncrement } from '../../engine/index.js';
+import type {
+  LedgerYearDetail, LedgerOptions, DeterministicProjection, ProjectionMetrics, MarginalIncrement,
+  MonteCarloResult, FireAgeCurveResult,
+} from '../../engine/index.js';
 import { accessibleWealth, lockedWealth, netWorth, propertyEquity, openingBalanceSheet, runDeterministicProjection, marginalIncrement } from '../../engine/index.js';
 import type { FailureEvent, Profile } from '../../domain/contracts.js';
 import { money } from './format.js';
+import { percent } from './format.js';
+import { confidenceBand, type ConfidenceBandId } from './monte-carlo-model.js';
+
+export interface CompletedOverviewRun<Result> {
+  /** The profile + ledger-options key that was current when this result completed. */
+  key: string;
+  result: Result;
+}
+
+export interface HeadlineRunSource {
+  tab: 'fire' | 'curve';
+  label: string;
+  value: string;
+  metadata: string;
+}
+
+export interface OverviewHeadlineModel {
+  question: 'When can I be financially independent?';
+  state: 'empty' | 'complete';
+  sentence: string | null;
+  probability: number | null;
+  probabilityText: string | null;
+  bandId: ConfidenceBandId | null;
+  bandLabel: string | null;
+  earliestQualifyingAge: number | null;
+  targetProbabilityText: string | null;
+  sources: readonly HeadlineRunSource[];
+}
+
+/**
+ * A sampled probability is rounded to the first decimal place supported by its binomial standard
+ * error (capped at two decimals, the established detailed-result precision). At an observed 0% or
+ * 100%, one path is used as the resolution floor instead of pretending the sample is exact.
+ */
+export function sampledProbabilityDigits(probability: number, count: number): number {
+  if (!Number.isFinite(probability) || probability < 0 || probability > 1 || !Number.isInteger(count) || count <= 0)
+    throw new RangeError('A sampled probability needs a fraction in [0, 1] and a positive integer count');
+  const uncertaintyPercent = Math.max(Math.sqrt(probability * (1 - probability) / count), 1 / count) * 100;
+  if (uncertaintyPercent >= 1) return 0;
+  if (uncertaintyPercent >= 0.1) return 1;
+  return 2;
+}
+
+const currentRun = <Result>(key: string | null, run: CompletedOverviewRun<Result> | null): Result | null =>
+  key !== null && run?.key === key ? run.result : null;
+
+/** The question-led Overview answer. Mismatched (stale) results are ignored even if a caller holds one. */
+export function overviewHeadline(
+  currentKey: string | null,
+  monteCarloRun: CompletedOverviewRun<MonteCarloResult> | null,
+  curveRun: CompletedOverviewRun<FireAgeCurveResult> | null,
+): OverviewHeadlineModel {
+  const monteCarlo = currentRun(currentKey, monteCarloRun);
+  const curve = currentRun(currentKey, curveRun);
+  if (!monteCarlo && !curve) return {
+    question: 'When can I be financially independent?', state: 'empty', sentence: null,
+    probability: null, probabilityText: null, bandId: null, bandLabel: null,
+    earliestQualifyingAge: null, targetProbabilityText: null, sources: [],
+  };
+
+  const probability = monteCarlo?.successProbability ?? null;
+  const band = probability === null ? null : confidenceBand(probability);
+  const probabilityText = monteCarlo
+    ? percent(probability!, sampledProbabilityDigits(probability!, monteCarlo.metadata.simulationCount))
+    : null;
+  const target = monteCarlo?.metadata.profile.personal.targetSuccessProbability ?? curve?.targetProbability ?? null;
+  const targetText = target === null ? null : percent(target, 0);
+  const age = curve?.earliestQualifyingAge ?? null;
+  const clauses: string[] = [];
+  if (monteCarlo && probabilityText && band) {
+    clauses.push(`At your target of ${monteCarlo.metadata.profile.personal.targetFireAge}, this plan succeeds in ${probabilityText} of simulated futures (“${band.label}”).`);
+  }
+  if (curve) {
+    clauses.push(age === null
+      ? `The completed age curve did not find an age in its tested range that meets your ${targetText} target.`
+      : `The earliest age that meets your ${targetText} target is ${age}.`);
+  }
+
+  const sources: HeadlineRunSource[] = [];
+  if (monteCarlo && probabilityText) sources.push({
+    tab: 'fire', label: 'Success probability', value: probabilityText,
+    metadata: `${monteCarlo.metadata.simulationCount.toLocaleString('en-GB')} paths, seed ${monteCarlo.metadata.seed}, ${monteCarlo.metadata.simulationVersion}`,
+  });
+  if (curve) sources.push({
+    tab: 'curve', label: 'Earliest qualifying age', value: age === null ? 'None in tested range' : String(age),
+    metadata: `${curve.points.length} ages × ${curve.metadata.simulationCount.toLocaleString('en-GB')} paths, seed ${curve.metadata.seed}, ${curve.metadata.curveVersion}`,
+  });
+  return {
+    question: 'When can I be financially independent?', state: 'complete', sentence: clauses.join(' '),
+    probability, probabilityText, bandId: band?.id ?? null, bandLabel: band?.label ?? null,
+    earliestQualifyingAge: age, targetProbabilityText: targetText, sources,
+  };
+}
 
 export interface PositionModel {
   liquid: number;

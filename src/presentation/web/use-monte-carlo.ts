@@ -16,7 +16,7 @@ import { runMonteCarloBrowser } from '../../engine/monte-carlo/browser.js';
 export type RunState =
   | { status: 'idle' }
   | { status: 'running'; completed: number; total: number }
-  | { status: 'done'; result: MonteCarloResult; seconds: number }
+  | { status: 'done'; result: MonteCarloResult; seconds: number; key: string }
   | { status: 'cancelled' }
   | { status: 'error'; name: string; message: string };
 
@@ -58,6 +58,8 @@ export function useMonteCarlo(key: string | null): MonteCarloRunner {
   useEffect(() => () => controller.current?.abort(), []);
 
   const run = useCallback((profile: Profile, ledgerOptions: Partial<LedgerOptions>, transport: Transport) => {
+    if (key === null) return;
+    const completedKey = key;
     token.current += 1;
     const mine = token.current;
     controller.current?.abort();
@@ -79,7 +81,7 @@ export function useMonteCarlo(key: string | null): MonteCarloRunner {
       result => {
         if (token.current !== mine) return;
         hadResult.current = true;
-        setState({ status: 'done', result, seconds: (performance.now() - started) / 1000 });
+        setState({ status: 'done', result, seconds: (performance.now() - started) / 1000, key: completedKey });
       },
       (error: unknown) => {
         if (token.current !== mine) return;
@@ -91,7 +93,7 @@ export function useMonteCarlo(key: string | null): MonteCarloRunner {
     ).finally(() => {
       if (controller.current === abort) controller.current = null;
     });
-  }, []);
+  }, [key]);
 
   const cancel = useCallback(() => controller.current?.abort(), []);
 

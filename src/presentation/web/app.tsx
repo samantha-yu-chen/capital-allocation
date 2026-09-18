@@ -10,9 +10,12 @@ import { PropertyScreen } from './screen-property.js';
  */
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { defaultLedgerOptions, type LedgerOptions } from '../../engine/index.js';
+import {
+  defaultLedgerOptions, type LedgerOptions, type FireAgeCurveProgress, type FireAgeCurveResult,
+} from '../../engine/index.js';
 import { TABS, tabById, type TabId } from '../view/tabs.js';
-import { runKey } from '../view/run-key.js';
+import { runKey, stableStringify } from '../view/run-key.js';
+import { curvePlan } from '../view/solver-model.js';
 import { money, percent } from '../view/format.js';
 import { useProfileStore } from './profile-state.js';
 import { useMonteCarlo, type Transport } from './use-monte-carlo.js';
@@ -24,6 +27,7 @@ import { SolverScreen } from './screen-solver.js';
 import { ScenariosScreen } from './screen-scenarios.js';
 import { GlossaryBar } from './glossary-ui.js';
 import { WizardScreen } from './screen-wizard.js';
+import { useAnalysis } from './use-analysis.js';
 
 const WIZARD_DISMISSED_KEY = 'capital-allocation:start-here-dismissed:v1';
 
@@ -85,6 +89,7 @@ export function App(): ReactNode {
     surplusAllocation: 'isa_then_gia',
   });
   const [transport, setTransport] = useState<Transport>({ concurrency: defaultConcurrency(), batchSize: 100 });
+  const [curveDrafts, setCurveDrafts] = useState<Record<string, string>>({});
 
   const ledgerOptions = useMemo<LedgerOptions>(() => ({
     ...defaultLedgerOptions(),
@@ -101,6 +106,15 @@ export function App(): ReactNode {
   );
   const runner = useMonteCarlo(key);
   const profile = store.profile;
+  const currentCurvePlan = useMemo(
+    () => profile ? curvePlan(profile, ledgerOptions, curveDrafts) : null,
+    [profile, ledgerOptions, curveDrafts],
+  );
+  const curveKey = useMemo(
+    () => key ? `${key}|${stableStringify(currentCurvePlan?.request ?? null)}` : null,
+    [key, currentCurvePlan],
+  );
+  const curveRunner = useAnalysis<FireAgeCurveResult, FireAgeCurveProgress>(curveKey);
   const onRun = useCallback(() => {
     if (profile) runner.run(profile, ledgerOptions, transport);
   }, [profile, ledgerOptions, transport, runner]);
@@ -115,6 +129,7 @@ export function App(): ReactNode {
     setActive('overview');
   };
   const openFire = () => { setWizardOpen(false); setActive('fire'); };
+  const openCurve = () => { setWizardOpen(false); setActive('curve'); };
 
   return (
     <div className="shell">
@@ -172,8 +187,17 @@ export function App(): ReactNode {
           {active === 'attribution' ? <AttributionScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'marginal' ? <MarginalScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'property' ? <PropertyScreen store={store} ledgerOptions={ledgerOptions} /> : null}
-          {active === 'overview' ? <OverviewScreen store={store} ledgerOptions={ledgerOptions} /> : null}
-          {active === 'curve' ? <CurveScreen store={store} ledgerOptions={ledgerOptions} /> : null}
+          {active === 'overview' ? (
+            <OverviewScreen store={store} ledgerOptions={ledgerOptions} currentRunKey={key}
+              currentCurveKey={curveKey}
+              monteCarloState={runner.state} curveState={curveRunner.state} onRun={onRun}
+              onOpenFire={openFire} onOpenCurve={openCurve} />
+          ) : null}
+          {active === 'curve' ? (
+            <CurveScreen store={store} ledgerOptions={ledgerOptions} drafts={curveDrafts}
+              onDraft={(id, text) => setCurveDrafts(previous => ({ ...previous, [id]: text }))}
+              plan={currentCurvePlan} runner={curveRunner} />
+          ) : null}
           {active === 'solver' ? <SolverScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'scenarios' ? <ScenariosScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'fire' ? (

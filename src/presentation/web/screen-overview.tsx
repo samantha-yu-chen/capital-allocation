@@ -8,12 +8,18 @@
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import type { LedgerOptions } from '../../engine/index.js';
-import { computeOverview, type LedgerRowModel, type MoneyBasis, type OverviewModel } from '../view/overview-model.js';
+import {
+  computeOverview, overviewHeadline, type LedgerRowModel, type MoneyBasis, type OverviewModel,
+  type CompletedOverviewRun,
+} from '../view/overview-model.js';
 import { money, moneyExact, moneySigned, percent, ratio, years } from '../view/format.js';
 import { Banner, Card, ExpandableRow, Line, SelectField } from './components.js';
 import { ProfileForm } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import type { Profile } from '../../domain/contracts.js';
+import type { FireAgeCurveProgress, FireAgeCurveResult, MonteCarloResult } from '../../engine/index.js';
+import type { RunState } from './use-monte-carlo.js';
+import type { AnalysisState } from './use-analysis.js';
 
 const LEDGER_COLUMNS = [
   'Age', 'Phase', 'Gross income', 'Tax + NI + CGT', 'Pension in', 'Spending', 'Surplus', 'Liquid', 'Pension', 'Net worth',
@@ -266,7 +272,76 @@ function engineErrorBanner(error: unknown, _profile: Profile): ReactNode {
   );
 }
 
-export function OverviewScreen(props: { store: ProfileStore; ledgerOptions: LedgerOptions }): ReactNode {
+function HeadlineCard(props: {
+  profile: Profile | null;
+  currentRunKey: string | null;
+  currentCurveKey: string | null;
+  monteCarloState: RunState;
+  curveState: AnalysisState<FireAgeCurveResult, FireAgeCurveProgress>;
+  onRun: () => void;
+  onOpenFire: () => void;
+  onOpenCurve: () => void;
+}): ReactNode {
+  const monteCarloRun: CompletedOverviewRun<MonteCarloResult> | null =
+    props.currentRunKey && props.monteCarloState.status === 'done'
+      ? { key: props.monteCarloState.key, result: props.monteCarloState.result }
+      : null;
+  const curveRun: CompletedOverviewRun<FireAgeCurveResult> | null =
+    props.currentRunKey && props.curveState.status === 'done' && props.curveState.key === props.currentCurveKey
+      ? { key: props.currentRunKey, result: props.curveState.result }
+      : null;
+  const model = overviewHeadline(props.currentRunKey, monteCarloRun, curveRun);
+  const running = props.monteCarloState.status === 'running';
+  return (
+    <Card className="headline-card" elevation="lg">
+      <div className="headline-question">{model.question}</div>
+      {model.state === 'empty' ? (
+        <div className="headline-empty">
+          <p>
+            Run your plan to see its success probability. Then compute the FIRE age curve to find the
+            earliest tested age that reaches your target.
+          </p>
+          <div className="row">
+            <button type="button" className="btn btn-primary" disabled={!props.profile || running} onClick={props.onRun}>
+              {running ? 'Running your plan…' : `Run ${props.profile?.simulation.count.toLocaleString('en-GB') ?? ''} simulated futures`}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={props.onOpenFire}>See run settings</button>
+          </div>
+        </div>
+      ) : (
+        <div className="headline-complete">
+          <p className="headline-answer">{model.sentence}</p>
+          <div className="headline-sources" aria-label="Completed runs behind this answer">
+            {model.sources.map(source => (
+              <button key={source.tab} type="button" className="headline-source" onClick={source.tab === 'fire' ? props.onOpenFire : props.onOpenCurve}>
+                <span>{source.label}</span>
+                <strong>{source.value}</strong>
+                <small>From {source.tab === 'fire' ? 'FIRE & Monte Carlo' : 'FIRE Age Curve'}: {source.metadata}</small>
+              </button>
+            ))}
+          </div>
+          {model.sources.every(source => source.tab !== 'curve') ? (
+            <button type="button" className="link-button headline-next" onClick={props.onOpenCurve}>
+              Compute the earliest age that reaches the target
+            </button>
+          ) : null}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function OverviewScreen(props: {
+  store: ProfileStore;
+  ledgerOptions: LedgerOptions;
+  currentRunKey: string | null;
+  currentCurveKey: string | null;
+  monteCarloState: RunState;
+  curveState: AnalysisState<FireAgeCurveResult, FireAgeCurveProgress>;
+  onRun: () => void;
+  onOpenFire: () => void;
+  onOpenCurve: () => void;
+}): ReactNode {
   const { store } = props;
   const profile = store.profile;
   const outcome = useMemo(() => {
@@ -280,6 +355,9 @@ export function OverviewScreen(props: { store: ProfileStore; ledgerOptions: Ledg
 
   return (
     <div className="stack">
+      <HeadlineCard profile={profile} currentRunKey={props.currentRunKey} currentCurveKey={props.currentCurveKey}
+        monteCarloState={props.monteCarloState} curveState={props.curveState} onRun={props.onRun}
+        onOpenFire={props.onOpenFire} onOpenCurve={props.onOpenCurve} />
       {!profile ? (
         <Banner tone="error" title="Fix the inputs before the model can run">
           <p style={{ margin: 0 }}>

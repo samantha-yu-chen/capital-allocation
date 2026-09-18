@@ -20,12 +20,14 @@ import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import type { Profile } from '../../domain/contracts.js';
 import {
-  DEFAULT_TIER_MODE, MARKET_VARIABLES, TIER_MODES, choiceFieldsFor, displayValue, fieldVisibility,
-  isGridField, type ChoiceFieldDef, type FieldGroupId, type NumberFieldDef, type TierMode, type Visibility,
+  DEFAULT_TIER_MODE, MARKET_VARIABLES, TIER_MODES, choiceFieldsFor, displayValue, fieldName,
+  fieldVisibility, isGridField, type ChoiceFieldDef, type FieldGroupId, type NumberFieldDef,
+  type TierMode, type Visibility,
 } from '../view/fields.js';
 import { FIELD_GROUPS } from '../view/fields.js';
 import { provenanceSummary, resettableInGroup } from '../view/provenance.js';
 import { CheckboxField, NumberField, ProvenanceMark, SelectField, type FieldMark } from './components.js';
+import { GlossaryTerms } from './glossary-ui.js';
 import type { ProfileStore } from './profile-state.js';
 
 /** Everything is shown unless a form explicitly opts into filtering. */
@@ -101,14 +103,33 @@ function Choice(props: {
 const optionsOf = <T extends string>(def: ChoiceFieldDef): readonly { value: T; label: string }[] =>
   (def.options ?? []) as readonly { value: T; label: string }[];
 
-const helpOf = (def: ChoiceFieldDef): { help?: string } => def.help === undefined ? {} : { help: def.help };
+/** Everything a registry-described control says in words, so no call site spells it out again. */
+const textOf = (def: ChoiceFieldDef): { label: string; help?: string; plainHelp?: string; terms?: readonly string[] } => ({
+  label: fieldName(def),
+  ...(def.help === undefined ? {} : { help: def.help }),
+  ...(def.plainHelp === undefined ? {} : { plainHelp: def.plainHelp }),
+  ...(def.terms === undefined ? {} : { terms: def.terms }),
+});
 
-function PhaseEditor(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
+/** A composite editor's own heading, plain sentence and glossary terms. */
+function EditorHeading(props: { def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
+  return (
+    <>
+      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>
+        {fieldName(props.def)}<ProvenanceMark mark={props.mark} />
+      </h4>
+      {props.def.plainHelp ? <p className="field-plain" style={{ margin: 0 }}>{props.def.plainHelp}</p> : null}
+      <GlossaryTerms ids={props.def.terms} />
+    </>
+  );
+}
+
+function PhaseEditor(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   const phases = store.base.spending.phases;
   return (
     <div className="stack-tight">
-      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
+      <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
         Optional overrides for a half-open age range. A phase wins over the current/retirement schedule.
         Phases must not overlap.
@@ -154,11 +175,11 @@ function PhaseEditor(props: { store: ProfileStore; label: string; mark: FieldMar
   );
 }
 
-function CapitalNeedsEditor(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
+function CapitalNeedsEditor(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   return (
     <div className="stack-tight">
-      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
+      <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
         One-off amounts in today’s money, funded in the year they fall. Living costs take priority if both cannot be met.
       </p>
@@ -219,12 +240,12 @@ function CapitalNeedsEditor(props: { store: ProfileStore; label: string; mark: F
 }
 
 /** Symmetric by contract, so only the upper triangle is editable; the mirror cell is written too. */
-function CorrelationMatrix(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
+function CorrelationMatrix(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   const matrix = store.base.market.correlation;
   return (
     <div className="stack-tight">
-      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
+      <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
         These are the correlations of the underlying Gaussian log-growth shocks, <b>not</b> the Pearson
         correlation of arithmetic returns. For non-zero log volatilities the implied arithmetic
@@ -261,7 +282,7 @@ function CorrelationMatrix(props: { store: ProfileStore; label: string; mark: Fi
                         step={def.step}
                         min={-1}
                         max={1}
-                        aria-label={def.label}
+                        aria-label={fieldName(def)}
                         aria-invalid={errors.length > 0}
                         value={displayValue(store.base, def, store.drafts)}
                         onChange={event => store.setDraft(def.id, event.target.value)}
@@ -279,7 +300,7 @@ function CorrelationMatrix(props: { store: ProfileStore; label: string; mark: Fi
   );
 }
 
-function WithdrawalOrder(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
+function WithdrawalOrder(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   const order = store.base.simulation.withdrawalOrder;
   const move = (index: number, delta: number) => store.edit(profile => {
@@ -291,7 +312,7 @@ function WithdrawalOrder(props: { store: ProfileStore; label: string; mark: Fiel
   });
   return (
     <div className="stack-tight">
-      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
+      <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
         A fixed order, applied every year. Cash is the settlement account, so its position controls how
         much of the opening cash balance is released before the other accounts are liquidated.
@@ -323,35 +344,35 @@ function GroupExtras(props: {
     case 'property':
       return <div className="stack-tight">
         {pick('property', (def, mark) => (
-          <CheckboxField label={def.label} checked={store.base.property !== null} mark={mark}
+          <CheckboxField {...textOf(def)} checked={store.base.property !== null} mark={mark}
             onChange={enabled => store.edit(p => toggleProperty(p, enabled))} />
         ))}
         {store.base.property ? <>
           {pick('property.use', (def, mark) => (
-            <SelectField label={def.label} value={store.base.property!.use} options={optionsOf<'owner_occupied' | 'rental'>(def)} mark={mark}
+            <SelectField {...textOf(def)} value={store.base.property!.use} options={optionsOf<'owner_occupied' | 'rental'>(def)} mark={mark}
               onChange={use => store.edit(p => ({ ...p, property: { ...p.property!, use } }))} />
           ))}
           {pick('property.mortgageType', (def, mark) => (
-            <SelectField label={def.label} value={store.base.property!.mortgageType} options={optionsOf<'repayment' | 'interest_only'>(def)} mark={mark}
+            <SelectField {...textOf(def)} value={store.base.property!.mortgageType} options={optionsOf<'repayment' | 'interest_only'>(def)} mark={mark}
               onChange={mortgageType => store.edit(p => ({ ...p, property: { ...p.property!, mortgageType } }))} />
           ))}
           {pick('property.taxLocation', (def, mark) => (
-            <SelectField label={def.label}
+            <SelectField {...textOf(def)}
               value={store.base.property!.taxLocation ?? (store.base.personal.taxRegion === 'scotland' ? 'scotland' : 'england_ni')}
               options={optionsOf<'scotland' | 'england_ni' | 'manual'>(def)} mark={mark}
               onChange={taxLocation => store.edit(p => ({ ...p, property: { ...p.property!, taxLocation } }))} />
           ))}
           {pick('property.buyerStatus', (def, mark) => (
-            <SelectField label={def.label} value={store.base.property!.buyerStatus ?? 'standard'}
+            <SelectField {...textOf(def)} value={store.base.property!.buyerStatus ?? 'standard'}
               options={optionsOf<'standard' | 'first_time' | 'additional'>(def)} mark={mark}
               onChange={buyerStatus => store.edit(p => ({ ...p, property: { ...p.property!, buyerStatus } }))} />
           ))}
           {pick('property.purchase', (def, mark) => (
-            <CheckboxField label={def.label} checked={store.base.property!.purchase !== null} mark={mark}
+            <CheckboxField {...textOf(def)} checked={store.base.property!.purchase !== null} mark={mark}
               onChange={enabled => store.edit(p => togglePurchase(p, enabled))} />
           ))}
           {pick('property.sale', (def, mark) => (
-            <CheckboxField label={def.label} checked={store.base.property!.sale !== null} mark={mark}
+            <CheckboxField {...textOf(def)} checked={store.base.property!.sale !== null} mark={mark}
               onChange={enabled => store.edit(p => toggleSale(p, enabled))} />
           ))}
           <p className="field-help">A purchase uses its price and deposit; existing value and debt apply only to an already owned property. First-time relief and additional-dwelling eligibility are your explicit assumptions. Owner-occupied sales assume full private residence relief. No automatic equity release.</p>
@@ -370,7 +391,7 @@ function GroupExtras(props: {
         <div className="field-grid">
           {pick('personal.taxRegion', (def, mark) => (
             <SelectField
-              label={def.label}
+              {...textOf(def)}
               value={store.base.personal.taxRegion}
               options={optionsOf<'scotland' | 'rest_of_uk'>(def)}
               mark={mark}
@@ -379,9 +400,10 @@ function GroupExtras(props: {
           ))}
           {pick('personal.taxYear', def => (
             <div className="field">
-              <label htmlFor="tax-year">{def.label}</label>
+              <label htmlFor="tax-year">{fieldName(def)}</label>
               <input id="tax-year" className="input" value={store.base.personal.taxYear} readOnly
                 aria-describedby="tax-year-help" />
+              {def.plainHelp ? <p className="field-plain">{def.plainHelp}</p> : null}
               <p className="field-help" id="tax-year-help">{def.help}</p>
             </div>
           ))}
@@ -392,7 +414,7 @@ function GroupExtras(props: {
         <div className="stack-tight">
           {pick('pension.method', (def, mark) => (
             <SelectField
-              label={def.label}
+              {...textOf(def)}
               value={store.base.pension.method}
               options={optionsOf<'salary_sacrifice' | 'net_pay' | 'relief_at_source'>(def)}
               mark={mark}
@@ -401,8 +423,7 @@ function GroupExtras(props: {
           ))}
           {pick('pension.salarySacrificeAvailable', (def, mark) => (
             <CheckboxField
-              label={def.label}
-              {...helpOf(def)}
+              {...textOf(def)}
               mark={mark}
               checked={store.base.pension.salarySacrificeAvailable}
               onChange={checked => store.edit(profile => ({ ...profile, pension: { ...profile.pension, salarySacrificeAvailable: checked } }))}
@@ -410,8 +431,7 @@ function GroupExtras(props: {
           ))}
           {pick('pension.sacrificeAddedBackForTaper', (def, mark) => (
             <CheckboxField
-              label={def.label}
-              {...helpOf(def)}
+              {...textOf(def)}
               mark={mark}
               checked={store.base.pension.sacrificeAddedBackForTaper}
               onChange={checked => store.edit(profile => ({ ...profile, pension: { ...profile.pension, sacrificeAddedBackForTaper: checked } }))}
@@ -419,8 +439,7 @@ function GroupExtras(props: {
           ))}
           {pick('pension.moneyPurchaseAnnualAllowanceTriggered', (def, mark) => (
             <CheckboxField
-              label={def.label}
-              {...helpOf(def)}
+              {...textOf(def)}
               mark={mark}
               checked={store.base.pension.moneyPurchaseAnnualAllowanceTriggered}
               onChange={checked => store.edit(profile => ({ ...profile, pension: { ...profile.pension, moneyPurchaseAnnualAllowanceTriggered: checked } }))}
@@ -433,8 +452,7 @@ function GroupExtras(props: {
         <div className="stack-tight">
           {pick('spending.breakdown', (def, mark) => <>
             <CheckboxField
-              label={def.label}
-              {...helpOf(def)}
+              {...textOf(def)}
               mark={mark}
               checked={store.base.spending.breakdown !== null}
               onChange={checked => store.edit(profile => ({
@@ -451,17 +469,17 @@ function GroupExtras(props: {
               <FieldGrid store={store} defs={store.defs.filter(def2 => def2.path[1] === 'breakdown')} columns={3} />
             ) : null}
           </>)}
-          {pick('spending.phases', (def, mark) => <PhaseEditor store={store} label={def.label} mark={mark} />)}
+          {pick('spending.phases', (def, mark) => <PhaseEditor store={store} def={def} mark={mark} />)}
         </div>
       );
     case 'liquidity':
-      return pick('liquidity.capitalNeeds', (def, mark) => <CapitalNeedsEditor store={store} label={def.label} mark={mark} />);
+      return pick('liquidity.capitalNeeds', (def, mark) => <CapitalNeedsEditor store={store} def={def} mark={mark} />);
     case 'market':
       return (
         <div className="stack-tight">
           {pick('market.assumptionVersion', def => (
             <div className="field">
-              <label htmlFor="assumption-version">{def.label}</label>
+              <label htmlFor="assumption-version">{fieldName(def)}</label>
               <input
                 id="assumption-version"
                 className="input"
@@ -469,14 +487,15 @@ function GroupExtras(props: {
                 onChange={event => store.edit(profile => ({ ...profile, market: { ...profile.market, assumptionVersion: event.target.value } }))}
                 aria-describedby="assumption-version-help"
               />
+              {def.plainHelp ? <p className="field-plain">{def.plainHelp}</p> : null}
               <p className="field-help" id="assumption-version-help">{def.help}</p>
             </div>
           ))}
-          {pick('market.correlation', (def, mark) => <CorrelationMatrix store={store} label={def.label} mark={mark} />)}
+          {pick('market.correlation', (def, mark) => <CorrelationMatrix store={store} def={def} mark={mark} />)}
         </div>
       );
     case 'simulation':
-      return pick('simulation.withdrawalOrder', (def, mark) => <WithdrawalOrder store={store} label={def.label} mark={mark} />);
+      return pick('simulation.withdrawalOrder', (def, mark) => <WithdrawalOrder store={store} def={def} mark={mark} />);
     default:
       return null;
   }

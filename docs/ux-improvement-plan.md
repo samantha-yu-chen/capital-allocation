@@ -212,7 +212,17 @@ this is the user's most explicit request).
    (test compares the fixtures).
 5. `npm run check` green; handoff written.
 
-### UX-3 (M) — Plain-language layer: labels, help, glossary
+### UX-3 (M) — Plain-language layer: labels, help, glossary — **delivered**
+
+Delivered. `ControlFieldDef` and `ChoiceFieldDef` gained `plainLabel`, `plainHelp` and `terms`, and
+`fieldName(def)` is the only thing any screen calls for a control's name. All 37 essential and common
+entries have plain help (plus 42 expert ones); 29 entries gained a plain label and 50 name glossary
+terms. `glossary.ts` holds 25 terms as data, referenced from the registry and from `SCREEN_TERMS`,
+rendered as a popover next to the word and as a per-tab strip in the shell. `messages.ts` rewrites
+the schema's issues into sentences, keyed on path + message, with `profileSchema` untouched and its
+issue list pinned in a test. 278 tests pass; both worker smoke variants and the tier-filter, provenance, property, solver
+and new `tests/browser-language-ui.mjs` harnesses pass in Chrome. Details, deviations and the UX-4
+inheritance note are in `docs/handoffs/ux-3.md`.
 
 **Problem.** Jargon-first labels and convention-first help (finding A.1.3).
 

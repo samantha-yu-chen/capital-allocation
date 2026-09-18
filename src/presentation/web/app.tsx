@@ -22,6 +22,7 @@ import { PlannedScreen } from './screen-planned.js';
 import { CurveScreen } from './screen-curve.js';
 import { SolverScreen } from './screen-solver.js';
 import { ScenariosScreen } from './screen-scenarios.js';
+import { GlossaryBar } from './glossary-ui.js';
 
 const defaultConcurrency = (): number =>
   Math.min(4, Math.max(1, typeof navigator === 'undefined' ? 1 : navigator.hardwareConcurrency || 1));
@@ -140,6 +141,9 @@ export function App(): ReactNode {
             {!store.profile ? <span className="tag tag-accent">Inputs invalid</span> : null}
           </div>
         </div>
+
+        {/* One place, so no destination can quietly go without an explanation of its own words. */}
+        <GlossaryBar tab={active} />
 
         <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>
           {active === 'attribution' ? <AttributionScreen store={store} ledgerOptions={ledgerOptions} /> : null}

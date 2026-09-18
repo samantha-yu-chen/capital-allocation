@@ -214,6 +214,9 @@ function CashFlow(props: { model: OverviewModel }): ReactNode {
         <Line label="Take-home pay" value={money(c.takeHome)} strong />
         <Line label="Essential spending" value={money(c.essentialSpending)} />
         <Line label="Discretionary spending" value={money(c.discretionarySpending)} />
+        {c.spendingOverrideNote
+          ? <p className="field-error" style={{ gridColumn: '1 / -1' }}>{c.spendingOverrideNote}</p>
+          : null}
         {c.capitalNeeds > 0 ? <Line label="Known capital needs" value={money(c.capitalNeeds)} /> : null}
         <Line label="Annual investable surplus" value={moneySigned(c.investableSurplus)} strong />
         <Line label="Savings rate (surplus ÷ take-home)" value={percent(c.savingsRate)} />

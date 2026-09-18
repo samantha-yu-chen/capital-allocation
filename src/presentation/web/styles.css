@@ -210,3 +210,40 @@ details.group[open] > summary::before { content: '▾ '; }
   h1 { font-size: 32px; }
   h2 { font-size: 25px; }
 }
+
+/* — plain language and glossary — */
+/* The concept, before the modelling convention. Set above `.field-help` so it reads first. */
+.field-plain { font-size: 12px; line-height: 1.5; margin: 4px 0 0; color: color-mix(in srgb, var(--color-text) 82%, transparent); }
+.glossary-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 6px 0 0; font-size: 11px; }
+.glossary-lead { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+.glossary-anchor { position: relative; display: inline-block; }
+.glossary-term {
+  background: transparent; border: 0; padding: 0; cursor: pointer; font: inherit; text-align: left;
+  color: var(--color-accent-700); text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.glossary-term:hover { color: var(--color-accent-800); }
+.glossary-term[aria-expanded='true'] { text-decoration-style: solid; }
+.glossary-panel {
+  position: absolute; z-index: 20; left: 0; top: calc(100% + 6px);
+  width: max(18rem, 100%); max-width: min(24rem, calc(100vw - 2 * var(--space-4)));
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 12px; line-height: 1.55; text-align: left;
+}
+.glossary-panel-title { font-family: var(--font-heading); font-size: 13px; }
+.glossary-panel-body { color: color-mix(in srgb, var(--color-text) 85%, transparent); }
+.glossary-see-also { font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+.glossary-bar { display: flex; flex-direction: column; gap: 4px; }
+.glossary-all > summary { cursor: pointer; font-size: 11px; color: var(--color-accent-700); }
+.glossary-list { margin: var(--space-2) 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: var(--space-3); }
+.glossary-list dt { font-family: var(--font-heading); font-size: 13px; }
+.glossary-list dd { margin: 4px 0 0; font-size: 12px; line-height: 1.55; color: color-mix(in srgb, var(--color-text) 75%, transparent); }
+
+@media (max-width: 760px) {
+  /* Anchored to the word, a panel runs off a 390px screen. Pin it to the viewport with a gutter. */
+  .glossary-anchor { position: static; }
+  .glossary-panel {
+    position: fixed; left: var(--space-3); right: var(--space-3); top: auto; bottom: var(--space-3);
+    width: auto; max-width: none;
+  }
+  .glossary-list { grid-template-columns: minmax(0, 1fr); }
+}

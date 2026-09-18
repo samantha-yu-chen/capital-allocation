@@ -8,8 +8,10 @@
 import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 import type { ControlFieldDef, NumberFieldDef } from '../view/fields.js';
+import { fieldName } from '../view/fields.js';
 import { moneyCompact } from '../view/format.js';
 import { bandPath, linearScale, linePath, niceDomain, niceTicks } from '../view/chart.js';
+import { GlossaryTerms } from './glossary-ui.js';
 
 export function Card(props: {
   kicker?: string; title?: string; elevation?: 'sm' | 'md' | 'lg'; muted?: boolean;
@@ -101,17 +103,20 @@ export function NumberField(props: {
   onChange: (text: string) => void; compact?: boolean; mark?: FieldMark | undefined;
 }): ReactNode {
   const { def } = props;
+  const plainId = `${def.id}-plain`;
   const helpId = `${def.id}-help`;
   const errorId = `${def.id}-error`;
   const originId = `${def.id}-origin`;
   const origin = props.compact ? undefined : def.derivedFrom;
-  const described = [def.help ? helpId : null, origin ? originId : null, props.errors.length ? errorId : null]
-    .filter(Boolean).join(' ');
+  // Plain first, then the modelling convention: the concept before the rule that implements it.
+  const plain = props.compact ? undefined : def.plainHelp;
+  const described = [plain ? plainId : null, def.help ? helpId : null, origin ? originId : null,
+    props.errors.length ? errorId : null].filter(Boolean).join(' ');
   const unit = UNIT[def.kind];
   return (
     <div className="field">
       <span className="field-label-row">
-        <label htmlFor={def.id}>{def.label}{unit && unit !== 'age' ? <span className="unit"> ({unit})</span> : null}</label>
+        <label htmlFor={def.id}>{fieldName(def)}{unit && unit !== 'age' ? <span className="unit"> ({unit})</span> : null}</label>
         <ProvenanceMark mark={props.mark} />
       </span>
       <input
@@ -125,8 +130,10 @@ export function NumberField(props: {
         {...(described ? { 'aria-describedby': described } : {})}
         onChange={event => props.onChange(event.target.value)}
       />
+      {plain ? <p className="field-plain" id={plainId}>{plain}</p> : null}
       {def.help && !props.compact ? <p className="field-help" id={helpId}>{def.help}</p> : null}
       {origin ? <p className="field-help" id={originId}>The default is {origin}.</p> : null}
+      {props.compact ? null : <GlossaryTerms ids={def.terms} />}
       {props.errors.length ? <p className="field-error" id={errorId}>{props.errors.join(' ')}</p> : null}
     </div>
   );
@@ -134,9 +141,12 @@ export function NumberField(props: {
 
 export function SelectField<T extends string>(props: {
   label: string; value: T; options: readonly { value: T; label: string }[];
-  onChange: (value: T) => void; help?: string; mark?: FieldMark | undefined;
+  onChange: (value: T) => void; help?: string; plainHelp?: string | undefined;
+  terms?: readonly string[] | undefined; mark?: FieldMark | undefined;
 }): ReactNode {
   const id = useId();
+  const described = [props.plainHelp ? `${id}-plain` : null, props.help ? `${id}-help` : null]
+    .filter(Boolean).join(' ');
   return (
     <div className="field">
       <span className="field-label-row">
@@ -147,21 +157,26 @@ export function SelectField<T extends string>(props: {
         id={id}
         className="input"
         value={props.value}
-        {...(props.help ? { 'aria-describedby': `${id}-help` } : {})}
+        {...(described ? { 'aria-describedby': described } : {})}
         onChange={event => props.onChange(event.target.value as T)}
       >
         {props.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
+      {props.plainHelp ? <p className="field-plain" id={`${id}-plain`}>{props.plainHelp}</p> : null}
       {props.help ? <p className="field-help" id={`${id}-help`}>{props.help}</p> : null}
+      <GlossaryTerms ids={props.terms} />
     </div>
   );
 }
 
 export function CheckboxField(props: {
   label: string; checked: boolean; onChange: (checked: boolean) => void; help?: string;
+  plainHelp?: string | undefined; terms?: readonly string[] | undefined;
   mark?: FieldMark | undefined;
 }): ReactNode {
   const id = useId();
+  const described = [props.plainHelp ? `${id}-plain` : null, props.help ? `${id}-help` : null]
+    .filter(Boolean).join(' ');
   return (
     <div className="field">
       <label className="radio" htmlFor={id} style={{ fontSize: 14 }}>
@@ -170,13 +185,15 @@ export function CheckboxField(props: {
           type="checkbox"
           checked={props.checked}
           style={{ position: 'static', opacity: 1, width: 16, height: 16 }}
-          {...(props.help ? { 'aria-describedby': `${id}-help` } : {})}
+          {...(described ? { 'aria-describedby': described } : {})}
           onChange={event => props.onChange(event.target.checked)}
         />
         {props.label}
       </label>
       <ProvenanceMark mark={props.mark} />
+      {props.plainHelp ? <p className="field-plain" id={`${id}-plain`}>{props.plainHelp}</p> : null}
       {props.help ? <p className="field-help" id={`${id}-help`}>{props.help}</p> : null}
+      <GlossaryTerms ids={props.terms} />
     </div>
   );
 }

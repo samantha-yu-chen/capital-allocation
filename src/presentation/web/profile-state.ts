@@ -15,6 +15,7 @@ import {
 import {
   draftsClearedBy, fieldProvenance, resetToStarter, resettableInGroup, type ProvenanceEntry,
 } from '../view/provenance.js';
+import { issueFields, plainIssues } from '../view/messages.js';
 import { createStarterProfile } from '../view/starter-profile.js';
 
 export interface ProfileStore {
@@ -24,6 +25,8 @@ export interface ProfileStore {
   validation: ValidationState;
   /** The validated profile, or null while the form has an error. */
   profile: Profile | null;
+  /** The same issues, in ordinary words. `validation.issues` keeps the schema's own wording. */
+  plainIssues: readonly FieldIssue[];
   /** The profile a structural edit should be applied to: validated if possible, otherwise the base. */
   editable: Profile;
   errorsFor: (fieldId: string) => readonly string[];
@@ -52,23 +55,34 @@ export function useProfileStore(): ProfileStore {
   const profile = validation.ok ? validation.profile : null;
   const editable = profile ?? base;
 
+  /**
+   * What the reader is shown.
+   *
+   * `profileSchema` is untouched — `validation.issues` still carries its exact wording, and the
+   * filter and the run key still read it — but every message that reaches a screen goes through the
+   * plain-language map first. A rule nobody has written a rewrite for keeps the schema's own words
+   * rather than being given a vague friendly sentence.
+   */
+  const fields = useMemo(() => issueFields(base), [base]);
+  const readable = useMemo(() => plainIssues(validation.issues, fields), [validation, fields]);
+
   const byField = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const issue of validation.issues) {
+    for (const issue of readable) {
       if (issue.fieldId === null) continue;
       const existing = map.get(issue.fieldId);
       if (existing) existing.push(issue.message);
       else map.set(issue.fieldId, [issue.message]);
     }
     return map;
-  }, [validation]);
+  }, [readable]);
 
   const errorsFor = useCallback((fieldId: string) => byField.get(fieldId) ?? [], [byField]);
   const issuesForGroup = useCallback(
-    (group: FieldGroupId) => validation.issues.filter(issue => issue.group === group && issue.fieldId === null),
-    [validation],
+    (group: FieldGroupId) => readable.filter(issue => issue.group === group && issue.fieldId === null),
+    [readable],
   );
-  const crossFieldIssues = useMemo(() => validation.issues.filter(issue => issue.fieldId === null), [validation]);
+  const crossFieldIssues = useMemo(() => readable.filter(issue => issue.fieldId === null), [readable]);
 
   const setDraft = useCallback((fieldId: string, text: string) => {
     setDrafts(previous => ({ ...previous, [fieldId]: text }));
@@ -122,7 +136,7 @@ export function useProfileStore(): ProfileStore {
   }, []);
 
   return {
-    base, drafts, defs, validation, profile, editable,
+    base, drafts, defs, validation, profile, editable, plainIssues: readable,
     errorsFor, issuesForGroup, crossFieldIssues, setDraft, edit,
     provenance, resetField, resetGroup, reset,
   };

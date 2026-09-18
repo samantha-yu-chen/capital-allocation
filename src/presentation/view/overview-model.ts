@@ -9,6 +9,7 @@
 import type { LedgerYearDetail, LedgerOptions, DeterministicProjection, ProjectionMetrics, MarginalIncrement } from '../../engine/index.js';
 import { accessibleWealth, lockedWealth, netWorth, propertyEquity, openingBalanceSheet, runDeterministicProjection, marginalIncrement } from '../../engine/index.js';
 import type { FailureEvent, Profile } from '../../domain/contracts.js';
+import { money } from './format.js';
 
 export interface PositionModel {
   liquid: number;
@@ -35,6 +36,12 @@ export interface CashFlowModel {
   essentialSpending: number;
   discretionarySpending: number;
   totalSpending: number;
+  /**
+   * Set when the spending on this card is a run-level override rather than the schedule the reader
+   * entered. The override lives on another screen, so without saying so the card shows a figure the
+   * form contradicts and gives no clue why.
+   */
+  spendingOverrideNote: string | null;
   capitalNeeds: number;
   investableSurplus: number;
   /** NaN when there is no take-home pay to express the surplus against. */
@@ -222,7 +229,16 @@ export function ledgerRow(year: LedgerYearDetail): LedgerRowModel {
   };
 }
 
-function cashFlow(year: LedgerYearDetail): CashFlowModel {
+/** The sentence a spending override earns: what replaced the schedule, and where it was set. */
+export function spendingOverrideNote(monthlyHouseholdOverride: number | null | undefined): string | null {
+  if (monthlyHouseholdOverride === null || monthlyHouseholdOverride === undefined) return null;
+  return `These are not the amounts entered above: a household spending override of `
+    + `${money(monthlyHouseholdOverride)} a month is in force, set on the FIRE & Monte Carlo screen, and it `
+    + `replaces the monthly total for every year. Essentials are covered first out of it, so the `
+    + `discretionary line is whatever is left.`;
+}
+
+function cashFlow(year: LedgerYearDetail, override: number | null | undefined): CashFlowModel {
   const activeIncome = year.employmentIncome + year.otherIncome + year.statePensionIncome + year.rentalIncome;
   const takeHome = activeIncome - year.personalCashReduction - year.totalTax;
   return {
@@ -243,6 +259,7 @@ function cashFlow(year: LedgerYearDetail): CashFlowModel {
     essentialSpending: year.spendingEssentialRequired,
     discretionarySpending: year.spendingDiscretionaryRequired,
     totalSpending: year.spendingRequired,
+    spendingOverrideNote: spendingOverrideNote(override),
     capitalNeeds: year.capitalNeedsRequired,
     investableSurplus: year.investableSurplus,
     savingsRate: takeHome > 0 ? year.investableSurplus / takeHome : Number.NaN,
@@ -281,7 +298,7 @@ export function computeOverview(
       propertyEquity: propertyEquity(opening),
       netWorth: netWorth(opening),
     },
-    cashFlow: cashFlow(first),
+    cashFlow: cashFlow(first, options.monthlyHouseholdOverride),
     marginal: 'model' in marginal ? marginal.model : null,
     marginalUnavailable: 'unavailable' in marginal ? marginal.unavailable : null,
     reference: { ...projection.metrics, withdrawalRate: profile.simulation.referenceWithdrawalRate },

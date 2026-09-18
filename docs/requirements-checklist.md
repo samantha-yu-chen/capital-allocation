@@ -10,6 +10,13 @@ spec details with no implementation behind them — section 61's required-salary
 eight tabs and the eleven cross-cutting ambiguities it closed. `handoffs/chunk-10.md` carries the
 measured release evidence: 251 passing tests, benchmark numbers, hardware and the remaining limits.
 
+**UX-1 added a display-only tier filter to the Overview profile form.** Every "editable on Overview"
+claim below still holds: the default view shows the essential and common inputs, `Everything`
+restores all of them, hidden fields keep their stored values, and a field carrying a validation
+issue is shown whatever the filter says. The filter never touches the profile, the validation state
+or the run key — `tests/presentation-inputs.test.ts` and `tests/browser-tier-filter-ui.mjs` assert
+it. `handoffs/ux-1.md` records the classification and the measured evidence.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

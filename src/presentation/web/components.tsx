@@ -60,18 +60,60 @@ const UNIT: Record<NumberFieldDef['kind'], string> = {
   money: '£', monthlyMoney: '£ / month', percent: '%', age: 'age', integer: '', decimal: '', multiple: '×',
 };
 
+/**
+ * What a control says about where its value came from.
+ *
+ * `note` is the whole sentence — the view layer writes it, because it is the only place that knows
+ * the starter's value and how this kind of field displays it.
+ */
+export interface FieldMark {
+  edited: boolean;
+  note: string;
+  resetLabel: string;
+  /** Absent when the starter has no value for this control, so there is nothing to go back to. */
+  onReset?: (() => void) | undefined;
+}
+
+/**
+ * The "this one is yours" marker and its reset.
+ *
+ * Nothing is drawn for a value still at its default: on a form of ninety inputs, a badge on the
+ * eighty-five untouched ones would say nothing. The reader's own changes are what stand out.
+ */
+export function ProvenanceMark(props: { mark?: FieldMark | undefined }): ReactNode {
+  const mark = props.mark;
+  if (!mark || !mark.edited) return null;
+  return (
+    <span className="provenance">
+      <span className="tag tag-outline" title={mark.note}>edited</span>
+      {mark.onReset ? (
+        <button type="button" className="link-button" onClick={mark.onReset} aria-label={mark.resetLabel} title={mark.resetLabel}>
+          reset
+        </button>
+      ) : null}
+      <span className="visually-hidden">{mark.note}</span>
+    </span>
+  );
+}
+
 export function NumberField(props: {
   def: ControlFieldDef; value: string; errors: readonly string[];
-  onChange: (text: string) => void; compact?: boolean;
+  onChange: (text: string) => void; compact?: boolean; mark?: FieldMark | undefined;
 }): ReactNode {
   const { def } = props;
   const helpId = `${def.id}-help`;
   const errorId = `${def.id}-error`;
-  const described = [def.help ? helpId : null, props.errors.length ? errorId : null].filter(Boolean).join(' ');
+  const originId = `${def.id}-origin`;
+  const origin = props.compact ? undefined : def.derivedFrom;
+  const described = [def.help ? helpId : null, origin ? originId : null, props.errors.length ? errorId : null]
+    .filter(Boolean).join(' ');
   const unit = UNIT[def.kind];
   return (
     <div className="field">
-      <label htmlFor={def.id}>{def.label}{unit && unit !== 'age' ? <span className="unit"> ({unit})</span> : null}</label>
+      <span className="field-label-row">
+        <label htmlFor={def.id}>{def.label}{unit && unit !== 'age' ? <span className="unit"> ({unit})</span> : null}</label>
+        <ProvenanceMark mark={props.mark} />
+      </span>
       <input
         id={def.id}
         className="input"
@@ -84,6 +126,7 @@ export function NumberField(props: {
         onChange={event => props.onChange(event.target.value)}
       />
       {def.help && !props.compact ? <p className="field-help" id={helpId}>{def.help}</p> : null}
+      {origin ? <p className="field-help" id={originId}>The default is {origin}.</p> : null}
       {props.errors.length ? <p className="field-error" id={errorId}>{props.errors.join(' ')}</p> : null}
     </div>
   );
@@ -91,12 +134,15 @@ export function NumberField(props: {
 
 export function SelectField<T extends string>(props: {
   label: string; value: T; options: readonly { value: T; label: string }[];
-  onChange: (value: T) => void; help?: string;
+  onChange: (value: T) => void; help?: string; mark?: FieldMark | undefined;
 }): ReactNode {
   const id = useId();
   return (
     <div className="field">
-      <label htmlFor={id}>{props.label}</label>
+      <span className="field-label-row">
+        <label htmlFor={id}>{props.label}</label>
+        <ProvenanceMark mark={props.mark} />
+      </span>
       <select
         id={id}
         className="input"
@@ -113,6 +159,7 @@ export function SelectField<T extends string>(props: {
 
 export function CheckboxField(props: {
   label: string; checked: boolean; onChange: (checked: boolean) => void; help?: string;
+  mark?: FieldMark | undefined;
 }): ReactNode {
   const id = useId();
   return (
@@ -128,6 +175,7 @@ export function CheckboxField(props: {
         />
         {props.label}
       </label>
+      <ProvenanceMark mark={props.mark} />
       {props.help ? <p className="field-help" id={`${id}-help`}>{props.help}</p> : null}
     </div>
   );

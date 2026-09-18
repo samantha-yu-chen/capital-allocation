@@ -298,8 +298,13 @@ export function OverviewScreen(props: { store: ProfileStore; ledgerOptions: Ledg
             filterable
           />
           <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={store.reset}>
-            Reset to the specification’s example profile
+            Reset everything to the starter profile
           </button>
+          <p className="footnote" style={{ margin: 0 }}>
+            The starter profile is the specification’s worked example: an illustration chosen to exercise
+            the model, not a recommendation and not a benchmark. Every “edited” marker on this form, and
+            every reset, is measured against it.
+          </p>
         </div>
 
         <div className="stack">

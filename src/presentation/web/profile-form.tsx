@@ -514,6 +514,17 @@ export function ProfileFields(props: { store: ProfileStore; ids: readonly string
   return <FieldGrid store={props.store} defs={defs} {...(props.columns ? { columns: props.columns } : {})} />;
 }
 
+/** Named non-numeric controls, rendered through the same registry wrapper as the full profile form. */
+export function ProfileChoiceFields(props: { store: ProfileStore; ids: readonly string[] }): ReactNode {
+  const choices = useMemo(() => choiceFieldsFor(props.store.base), [props.store.base]);
+  const wanted = new Set(props.ids);
+  const groups = [...new Set(choices.filter(def => wanted.has(def.id)).map(def => def.group))];
+  const show: Show = id => wanted.has(id);
+  return <>{groups.map(group => (
+    <GroupExtras key={group} store={props.store} group={group} choices={choices} show={show} />
+  ))}</>;
+}
+
 /** The depth chooser. Local to the form: it is a view preference, not part of the profile. */
 function TierFilter(props: {
   mode: TierMode; onChange: (mode: TierMode) => void; visibility: Visibility; summary: string;

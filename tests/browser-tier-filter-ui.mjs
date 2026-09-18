@@ -49,6 +49,8 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 950, devi
 const results = {};
 
 await nav('/');
+await ev('document.getElementById("tab-overview").click()');
+await new Promise(r => setTimeout(r, 220));
 await wait('!!document.getElementById("personal.currentAge")');
 
 // 1. The default is Essential + common and it is a readable form.

@@ -169,7 +169,20 @@ measured Chrome evidence and the UX-4 inheritance note are in `docs/handoffs/ux-
    surfaces that field and its error even in `Essential only` view — Chrome-verified.
 5. `npm run check` green; Chrome verification at desktop and mobile widths; handoff written.
 
-### UX-2 (M) — Value provenance: default vs edited, and "reset to default"
+### UX-2 (M) — Value provenance: default vs edited, and "reset to default" — **delivered**
+
+Delivered. `src/presentation/view/starter-profile.ts` names the one profile the app calls a default
+(`createStarterProfile()`, byte-identical to `createExampleProfile()`), and
+`src/presentation/view/provenance.ts` is the React-free comparison: `provenance(profile, starter)`
+returns the `default`/`edited` map, `fieldProvenance` adds the wording each control shows, and
+`resetToStarter` produces the restored profile the store revalidates. Comparison is on stored
+values, never display strings; an entry the starter has no value for (a phase row, a property it
+does not include) reads as the reader's own and offers no reset rather than inventing a default.
+Derivation notes live on the registry entries themselves, and a test asserts each claim is true of
+the starter. Markers and resets are attached once, in `ProfileForm`, so they cover the numeric grid,
+the selects and checkboxes, and the composite editors. 269 tests pass; both worker smoke variants,
+the tier-filter, property and solver harnesses and a new `tests/browser-provenance-ui.mjs` pass in
+Chrome. Details, deviations and the UX-3 inheritance note are in `docs/handoffs/ux-2.md`.
 
 **Problem.** Nothing distinguishes a curated default from a user-entered value (finding A.1.2;
 this is the user's most explicit request).

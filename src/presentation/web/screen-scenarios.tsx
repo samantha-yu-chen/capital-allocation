@@ -28,7 +28,9 @@ import {
 } from '../view/scenario-model.js';
 import { SCENARIO_PRESET_DEFINITIONS, capitalStrategy, type CapitalStrategyId } from '../../engine/scenario.js';
 import { stableStringify } from '../view/run-key.js';
+import { twoNumbersStoryFor, type TwoNumbersStory } from '../view/two-numbers.js';
 import { Banner, Card, CheckboxField, NumberField, Progress, SelectField, Stat } from './components.js';
+import { TwoNumbers } from './two-numbers.js';
 import { ProfileFields } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import { useAnalysis } from './use-analysis.js';
@@ -161,7 +163,8 @@ export function ScenariosScreen({ store, ledgerOptions }: { store: ProfileStore;
       </Card>
 
       {runner.state.status === 'done'
-        ? <ScenarioResult result={runner.state.result} target={store.editable.personal.targetSuccessProbability} />
+        ? <ScenarioResult result={runner.state.result} target={store.editable.personal.targetSuccessProbability}
+            story={profile ? twoNumbersStoryFor(profile) : null} />
         : null}
 
       <Card kicker="Comparison basis" title="What these numbers mean" muted>
@@ -288,7 +291,9 @@ function LibraryCard(props: {
   );
 }
 
-function ScenarioResult({ result, target }: { result: ScenarioBatchResult; target: number }): ReactNode {
+function ScenarioResult({ result, target, story }: {
+  result: ScenarioBatchResult; target: number; story: TwoNumbersStory | null;
+}): ReactNode {
   const rows = scenarioRows(result);
   const grid = matrixGrid(result);
   const spending = spendingEffectRows(result);
@@ -316,6 +321,7 @@ function ScenarioResult({ result, target }: { result: ScenarioBatchResult; targe
             A higher case lowers what the plan can invest this year and raises the retirement budget and the capital it
             implies. Both columns come from the same run.
           </p>
+          {story ? <TwoNumbers story={story} variant="note" /> : null}
           <div className="table-scroll">
             <table className="table" data-testid="spending-effects">
               <thead><tr><th>Case</th><th>Investable surplus</th><th>Total invested</th><th>Retirement budget</th><th>Reference FIRE number</th><th>FIRE success</th><th>Earliest qualifying age</th><th>Required salary</th></tr></thead>

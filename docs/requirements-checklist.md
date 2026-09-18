@@ -83,6 +83,23 @@ running, the £87,600 answer sentence in 99.40 s, and a 390px layout with zero o
 tabs) and the chunk-6 regression `tests/browser-solver-ui.mjs` (£87,600 confirmed with the four
 section 33 searches in 374.19 s). `handoffs/ux-6.md` records the measured evidence.
 
+**UX-7 gave the two success numbers one story, in the reader's own figures.** The reference FIRE
+number and the Monte Carlo probability are now arbitrated wherever they are visible, by one
+explanation that lives in `view/two-numbers.ts` and is rendered by one component: the FIRE number is
+named a landmark computed as yearly retirement spending ÷ the configured withdrawal rate, silent
+about withdrawal tax and sequence of returns, and the success probability is named the number the
+target is judged against. Both halves quote the profile's own `referenceWithdrawalRate` and
+`simulation.count`, so the copy is never a hard-coded “4%” or “10,000”. `confidenceBand` remains the
+only authority for a probability's label and `fire-metrics.ts` is unchanged, so no figure moved.
+`tests/presentation-two-numbers.test.ts` pins the dynamic rate and path count, the arbitration
+clause in both the full and one-line variants, the `RangeError` guards, and — derived from the
+sources rather than a hand-kept list — that every screen rendering the reference FIRE number renders
+the shared explanation. Chrome evidence: `tests/browser-two-numbers-ui.mjs` (both worker smokes at
+10,000 paths and 68.98%/35.18%, the story on Overview, FIRE, the wizard and, as the short caveat, the
+curve and the full-count scenario spending table, the rate retuned live to 4.25%, no figure beside an
+invalidated or cancelled run, and a 390px layout with zero overflow and all eight tabs).
+`handoffs/ux-7.md` records the measured evidence.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

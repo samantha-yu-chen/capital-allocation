@@ -14,7 +14,9 @@ import {
   WEALTH_CATEGORIES, confidenceBand, diagnosticRows, distributionRows, metadataRows, observedFailureRows,
   sequenceRows, successSplit, wealthSeries, type WealthCategoryId,
 } from '../view/monte-carlo-model.js';
+import { twoNumbersStoryFor } from '../view/two-numbers.js';
 import { Banner, BarList, Card, FanChart, Line, Progress, ProportionBar, SelectField, Stat } from './components.js';
+import { TwoNumbers } from './two-numbers.js';
 import { ProfileForm } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import type { RunState, Transport } from './use-monte-carlo.js';
@@ -410,8 +412,10 @@ export function FireScreen(props: {
             </div>
           </div>
           <p className="footnote">
-            Entered retirement budget ÷ withdrawal rate, before property adjustments. A reference ratio only — the probability below includes housing cash flows and is the safety result.
+            Entered retirement budget ÷ withdrawal rate, before property adjustments. The probability below
+            includes housing cash flows.
           </p>
+          <TwoNumbers story={twoNumbersStoryFor(profile!)} />
         </Card>
       ) : null}
 

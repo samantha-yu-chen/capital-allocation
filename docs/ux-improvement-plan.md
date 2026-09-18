@@ -388,7 +388,21 @@ UX-7 inheritance note are in `docs/handoffs/ux-6.md`.
    Chrome-verified.
 5. `npm run check` green; handoff written.
 
-### UX-7 (S) — One story for the two success numbers
+### UX-7 (S) — One story for the two success numbers — **delivered**
+
+Delivered. `view/two-numbers.ts` is the one canonical explanation, as view data, and
+`web/two-numbers.tsx` is the only component that renders it — in full where both numbers share a
+screen (Overview, FIRE & Monte Carlo, wizard step 5) and as a one-line caveat where the probability
+already dominates (FIRE Age Curve, the scenario spending table). The wording quotes the reader's own
+figures: the reference profile says “your yearly retirement spending ÷ 3.50%” and “simulates your
+actual plan 10,000 times”, and retuning the rate to 4.25% in the running app retunes the sentence.
+The arbitration is a named constant and a literal type, so the reference arithmetic cannot be
+relabelled as the safety result. The audit is derived from the sources rather than hand-kept: a
+screen that shows the reference FIRE number without the shared explanation fails the suite. No
+numeric output changed anywhere. 292 tests pass; both worker smoke variants, a completed 10,000-path
+FIRE run, its invalidation and cancellation, a curve, the wizard, a full-count scenario spending
+comparison and a 390px layout were Chrome-verified. Details and the UX-8 inheritance note are in
+`docs/handoffs/ux-7.md`.
 
 **Problem.** Reference FIRE arithmetic vs Monte Carlo probability confuses lay readers (findings
 A.1.8, A.2 note 2).

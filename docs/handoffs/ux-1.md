@@ -134,11 +134,14 @@ the private `field()` helper takes `tier` before `help`.
    state, not profile or storage state, so switching tabs and returning resets it to the default.
 3. **Tiers are not yet used by anything but the form.** UX-3 and UX-4 both consume them; nothing
    reads `tier` outside `fieldVisibility` today.
-4. **`npm` itself was unusable on this machine** — the Node 24 install at
-   `/tmp/node-v24.21.0-darwin-arm64` has a truncated `lib/node_modules/npm`. The three stages of
-   `npm run check` were run individually with `node_modules/.bin/tsc` and `node_modules/.bin/vite`
-   against a `node_modules` symlinked from the primary checkout. Anyone re-running this in a fresh
-   worktree needs `npm ci` or the same symlink.
+4. **The development machine's Node install moved during this package.** `AGENTS.md` pointed at
+   `/tmp/node-v24.21.0-darwin-arm64`, whose `lib/node_modules/npm/bin/npm-cli.js` had been deleted
+   — `/tmp` is not durable on macOS. The measured results above were first obtained by running the
+   three stages of `npm run check` individually with `node_modules/.bin/tsc` and
+   `node_modules/.bin/vite`; Node 24 was then installed properly (`brew install node@24`,
+   `/opt/homebrew/opt/node@24/bin`, keg-only so it is on `PATH` via `~/.zprofile` and `~/.zshrc`)
+   and `npm ci && npm run check` reproduced the same result — **258 pass, 0 fail**, build in 984 ms.
+   `AGENTS.md`'s "Local environment notes" now names the Homebrew path instead of `/tmp`.
 
 ## Inheritance note for UX-4 (read before writing that ticket's tests)
 

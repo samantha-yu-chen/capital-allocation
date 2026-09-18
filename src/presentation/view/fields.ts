@@ -63,6 +63,12 @@ export interface ControlFieldDef {
   kind: FieldKind;
   step: number;
   help?: string;
+  /**
+   * Where this input's starting value comes from, when it is worked out from another answer rather
+   * than simply chosen. Read by the provenance layer, which tells the reader what a default means
+   * before they decide whether to change it.
+   */
+  derivedFrom?: string;
 }
 
 export interface NumberFieldDef extends ControlFieldDef {
@@ -76,11 +82,13 @@ const id = (path: readonly (string | number)[]): string => path.join('.');
 
 function field(
   path: readonly (string | number)[], label: string, group: FieldGroupId, kind: FieldKind,
-  step: number, tier: FieldTier, help?: string,
+  step: number, tier: FieldTier, help?: string, derivedFrom?: string,
 ): NumberFieldDef {
-  return help === undefined
-    ? { id: id(path), label, group, path, kind, step, tier }
-    : { id: id(path), label, group, path, kind, step, tier, help };
+  return {
+    id: id(path), label, group, path, kind, step, tier,
+    ...(help === undefined ? {} : { help }),
+    ...(derivedFrom === undefined ? {} : { derivedFrom }),
+  };
 }
 
 const ASSET_HELP = 'Balance today, in today’s money.';
@@ -105,20 +113,27 @@ export const NUMBER_FIELDS: readonly NumberFieldDef[] = [
 
   field(['spending', 'current', 'essentialMonthly'], 'Current essential', 'spending', 'monthlyMoney', 25, 'essential'),
   field(['spending', 'current', 'discretionaryMonthly'], 'Current discretionary', 'spending', 'monthlyMoney', 25, 'essential'),
-  field(['spending', 'retirement', 'essentialMonthly'], 'Retirement essential', 'spending', 'monthlyMoney', 25, 'essential'),
-  field(['spending', 'retirement', 'discretionaryMonthly'], 'Retirement discretionary', 'spending', 'monthlyMoney', 25, 'essential'),
-  field(['spending', 'retirementFloorAnnual'], 'Retirement floor (annual)', 'spending', 'money', 250, 'expert', 'The “floor” run. Must be at or below the target total.'),
-  field(['spending', 'retirementComfortAnnual'], 'Retirement comfort (annual)', 'spending', 'money', 250, 'expert', 'The “comfort” run. Must be at or above the target total.'),
+  field(['spending', 'retirement', 'essentialMonthly'], 'Retirement essential', 'spending', 'monthlyMoney', 25, 'essential',
+    undefined, 'the same as current essential spending, on the assumption that retirement costs what today costs'),
+  field(['spending', 'retirement', 'discretionaryMonthly'], 'Retirement discretionary', 'spending', 'monthlyMoney', 25, 'essential',
+    undefined, 'the same as current discretionary spending, on the assumption that retirement costs what today costs'),
+  field(['spending', 'retirementFloorAnnual'], 'Retirement floor (annual)', 'spending', 'money', 250, 'expert', 'The “floor” run. Must be at or below the target total.',
+    'twelve months of the starter’s current essential spending, with no discretionary spending at all'),
+  field(['spending', 'retirementComfortAnnual'], 'Retirement comfort (annual)', 'spending', 'money', 250, 'expert', 'The “comfort” run. Must be at or above the target total.',
+    'twelve months of the starter’s high spending case'),
   field(['spending', 'currentRentMonthlyIncluded'], 'Rent already inside current spending', 'spending', 'monthlyMoney', 25, 'common', 'Included rent component in your spending schedules. Removed once during owner occupation; restored on sale.'),
   field(['spending', 'lifestyleCreepRate'], 'Lifestyle creep on real pay rises', 'spending', 'percent', 1, 'common', 'Share of each real salary increase that becomes discretionary spending.'),
-  field(['spending', 'scenarioMonthly', 'low'], 'Low spending case', 'spending', 'monthlyMoney', 25, 'expert'),
-  field(['spending', 'scenarioMonthly', 'base'], 'Base spending case', 'spending', 'monthlyMoney', 25, 'expert'),
+  field(['spending', 'scenarioMonthly', 'low'], 'Low spending case', 'spending', 'monthlyMoney', 25, 'expert',
+    undefined, 'the starter’s current essential spending on its own'),
+  field(['spending', 'scenarioMonthly', 'base'], 'Base spending case', 'spending', 'monthlyMoney', 25, 'expert',
+    undefined, 'the starter’s current essential and discretionary spending added together'),
   field(['spending', 'scenarioMonthly', 'high'], 'High spending case', 'spending', 'monthlyMoney', 25, 'expert'),
 
   field(['assets', 'cash'], 'Cash', 'assets', 'money', 500, 'essential', ASSET_HELP),
   field(['assets', 'isa'], 'ISA', 'assets', 'money', 500, 'essential', ASSET_HELP),
   field(['assets', 'gia', 'marketValue'], 'GIA market value', 'assets', 'money', 500, 'common', ASSET_HELP),
-  field(['assets', 'gia', 'costBasis'], 'GIA cost basis', 'assets', 'money', 500, 'expert', 'May legitimately exceed market value.'),
+  field(['assets', 'gia', 'costBasis'], 'GIA cost basis', 'assets', 'money', 500, 'expert', 'May legitimately exceed market value.',
+    'the GIA market value, which assumes the holding shows neither a gain nor a loss yet'),
   field(['assets', 'gia', 'carriedLosses'], 'GIA carried losses', 'assets', 'money', 100, 'expert'),
   field(['assets', 'pension'], 'Workplace pension', 'assets', 'money', 500, 'essential', ASSET_HELP),
   field(['assets', 'sipp'], 'SIPP', 'assets', 'money', 500, 'common', 'Tracked separately from the workplace pension.'),
@@ -189,13 +204,13 @@ export function arrayFields(profile: Profile): NumberFieldDef[] {
       field(['property', 'purchaseTaxOverride'], 'Manual purchase tax', 'property', 'money', 100, 'expert'),
     );
     if (profile.property.purchase) defs.push(
-      field(['property', 'purchase', 'age'], 'Purchase age', 'property', 'age', 1, 'expert'),
-      field(['property', 'purchase', 'price'], 'Purchase price', 'property', 'money', 1000, 'expert'),
-      field(['property', 'purchase', 'deposit'], 'Purchase deposit', 'property', 'money', 1000, 'expert'),
+      field(['property', 'purchase', 'age'], 'Purchase age', 'property', 'age', 1, 'expert', undefined, 'your current age'),
+      field(['property', 'purchase', 'price'], 'Purchase price', 'property', 'money', 1000, 'expert', undefined, 'the property value entered above'),
+      field(['property', 'purchase', 'deposit'], 'Purchase deposit', 'property', 'money', 1000, 'expert', undefined, 'the property value less the mortgage balance entered above'),
       field(['property', 'purchase', 'transactionCosts'], 'Legal and other purchase costs (excluding tax)', 'property', 'money', 100, 'expert'),
     );
     if (profile.property.sale) defs.push(
-      field(['property', 'sale', 'age'], 'Sale age', 'property', 'age', 1, 'expert'),
+      field(['property', 'sale', 'age'], 'Sale age', 'property', 'age', 1, 'expert', undefined, 'ten years after the purchase'),
       field(['property', 'sale', 'sellingCostRate'], 'Selling costs', 'property', 'percent', 0.1, 'expert'),
     );
     profile.property.rateChanges.forEach((_, i) => defs.push(
@@ -269,11 +284,13 @@ export interface ChoiceFieldDef {
   tier: FieldTier;
   options?: readonly ChoiceOption[];
   help?: string;
+  /** As on `ControlFieldDef`: where this control's starting state comes from, when it is worked out. */
+  derivedFrom?: string;
 }
 
 const choice = (
   id: string, label: string, group: FieldGroupId, control: ChoiceControl, tier: FieldTier,
-  extra: { options?: readonly ChoiceOption[]; help?: string } = {},
+  extra: { options?: readonly ChoiceOption[]; help?: string; derivedFrom?: string } = {},
 ): ChoiceFieldDef => ({ id, label, group, control, tier, ...extra });
 
 /** Controls that exist on every profile. Property controls are added by `choiceFieldsFor`. */
@@ -301,9 +318,13 @@ export const CHOICE_FIELDS: readonly ChoiceFieldDef[] = [
   choice('spending.breakdown', 'Break the current total down by household member', 'spending', 'checkbox', 'expert', {
     help: 'Optional. The household totals stay authoritative; the breakdown must reconcile to them.',
   }),
-  choice('spending.phases', 'Spending phases', 'spending', 'editor', 'expert'),
+  choice('spending.phases', 'Spending phases', 'spending', 'editor', 'expert', {
+    derivedFrom: 'no phases at all; a phase you add starts at your FIRE age, runs ten years and copies your retirement spending',
+  }),
 
-  choice('liquidity.capitalNeeds', 'Known capital needs', 'liquidity', 'editor', 'expert'),
+  choice('liquidity.capitalNeeds', 'Known capital needs', 'liquidity', 'editor', 'expert', {
+    derivedFrom: 'no capital needs at all; one you add falls at your current age',
+  }),
 
   choice('market.assumptionVersion', 'Assumption version', 'market', 'text', 'expert', {
     help: 'Recorded in the reproducibility metadata of every run.',
@@ -316,7 +337,9 @@ export const CHOICE_FIELDS: readonly ChoiceFieldDef[] = [
 /** Property controls only exist once a property does, mirroring `arrayFields`. */
 export function choiceFieldsFor(profile: Profile): ChoiceFieldDef[] {
   const defs = [...CHOICE_FIELDS,
-    choice('property', 'Include a property', 'property', 'checkbox', 'common')];
+    choice('property', 'Include a property', 'property', 'checkbox', 'common', {
+      derivedFrom: 'no property; turning it on seeds an illustrative purchase at your current age, which you are expected to replace with your own figures',
+    })];
   if (!profile.property) return defs;
   defs.push(
     choice('property.use', 'Property use', 'property', 'select', 'common', {
@@ -329,6 +352,7 @@ export function choiceFieldsFor(profile: Profile): ChoiceFieldDef[] {
       ],
     }),
     choice('property.taxLocation', 'Property tax location', 'property', 'select', 'expert', {
+      derivedFrom: 'the tax region you chose for yourself',
       options: [
         { value: 'scotland', label: 'Scotland (LBTT)' },
         { value: 'england_ni', label: 'England / Northern Ireland (SDLT)' },
@@ -342,9 +366,15 @@ export function choiceFieldsFor(profile: Profile): ChoiceFieldDef[] {
         { value: 'additional', label: 'Additional dwelling' },
       ],
     }),
-    choice('property.purchase', 'Plan a purchase (otherwise already owned)', 'property', 'checkbox', 'expert'),
-    choice('property.sale', 'Schedule a sale to release equity', 'property', 'checkbox', 'expert'),
-    choice('property.rateChanges', 'Refinance rates', 'property', 'editor', 'expert'),
+    choice('property.purchase', 'Plan a purchase (otherwise already owned)', 'property', 'checkbox', 'expert', {
+      derivedFrom: 'a purchase at your current age, priced at the property value, with the equity in it as the deposit',
+    }),
+    choice('property.sale', 'Schedule a sale to release equity', 'property', 'checkbox', 'expert', {
+      derivedFrom: 'a sale ten years after the purchase, or ten years from now for a property you already own',
+    }),
+    choice('property.rateChanges', 'Refinance rates', 'property', 'editor', 'expert', {
+      derivedFrom: 'no refinancing; one you add falls five years after the last rate you set',
+    }),
   );
   return defs;
 }

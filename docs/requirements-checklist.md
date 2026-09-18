@@ -17,6 +17,16 @@ issue is shown whatever the filter says. The filter never touches the profile, t
 or the run key — `tests/presentation-inputs.test.ts` and `tests/browser-tier-filter-ui.mjs` assert
 it. `handoffs/ux-1.md` records the classification and the measured evidence.
 
+**UX-2 added value provenance and reset to the same form.** Every control described in the field
+registry now says whether it holds the starter profile's value or the reader's, and offers a way
+back — per field, per group, or the whole profile. This changes no engine input: the starter profile
+is `createExampleProfile()` under a name that says what it is for, asserted byte-identical in
+`tests/presentation-provenance.test.ts`, and a reset is an ordinary edit that `profileSchema` judges
+like anything typed. Provenance compares stored values, never the text on screen, and a field the
+starter has no value for offers no reset rather than inventing one.
+`tests/browser-provenance-ui.mjs` carries the Chrome evidence, including that a reset never tidies
+away another field's validation error. `handoffs/ux-2.md` records the details.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

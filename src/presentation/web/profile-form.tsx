@@ -11,6 +11,10 @@ import { toggleProperty, togglePurchase, toggleSale, addRefinance } from '../vie
  * only: the profile, the drafts, the validation state and the run key are untouched, hidden fields
  * keep their stored values, and anything carrying a validation issue is shown whatever the filter
  * says — an error must never be maskable.
+ *
+ * Every control also says whether its value is the reader's own or the starter profile's, and
+ * offers a way back. The marker and the reset are attached here, once, for both the numeric grid
+ * and the registry-described selects, checkboxes and composite editors.
  */
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
@@ -20,13 +24,26 @@ import {
   isGridField, type ChoiceFieldDef, type FieldGroupId, type NumberFieldDef, type TierMode, type Visibility,
 } from '../view/fields.js';
 import { FIELD_GROUPS } from '../view/fields.js';
-import { CheckboxField, NumberField, SelectField } from './components.js';
+import { provenanceSummary, resettableInGroup } from '../view/provenance.js';
+import { CheckboxField, NumberField, ProvenanceMark, SelectField, type FieldMark } from './components.js';
 import type { ProfileStore } from './profile-state.js';
 
 /** Everything is shown unless a form explicitly opts into filtering. */
 const SHOW_ALL = (): boolean => true;
 
 type Show = (fieldId: string) => boolean;
+
+/** The marker for one registry entry, or nothing when the entry is not described (a bare control). */
+function markFor(store: ProfileStore, fieldId: string): FieldMark | undefined {
+  const entry = store.provenance.get(fieldId);
+  if (!entry) return undefined;
+  return {
+    edited: entry.state === 'edited',
+    note: entry.note,
+    resetLabel: entry.resetLabel,
+    onReset: entry.resettable ? () => store.resetField(fieldId) : undefined,
+  };
+}
 
 function FieldGrid(props: { store: ProfileStore; defs: readonly NumberFieldDef[]; columns?: 2 | 3; show?: Show }): ReactNode {
   const show = props.show ?? SHOW_ALL;
@@ -41,6 +58,7 @@ function FieldGrid(props: { store: ProfileStore; defs: readonly NumberFieldDef[]
           value={displayValue(props.store.base, def, props.store.drafts)}
           errors={props.store.errorsFor(def.id)}
           onChange={text => props.store.setDraft(def.id, text)}
+          mark={markFor(props.store, def.id)}
         />
       ))}
     </div>
@@ -61,14 +79,23 @@ function GroupIssues(props: { store: ProfileStore; group: FieldGroupId }): React
  * Renders a registry-described control, or nothing when the filter hides it. The registry owns the
  * label, the options and the help text, so the tier covers the whole editable surface rather than
  * only the numeric part of it.
+ *
+ * The control's provenance marker is handed to the renderer, which knows where it belongs — beside
+ * a select's label, under a checkbox, next to a composite editor's heading. Where the default is
+ * worked out from another answer rather than simply chosen, the registry's note is shown too.
  */
 function Choice(props: {
-  choices: readonly ChoiceFieldDef[]; show: Show; id: string;
-  children: (def: ChoiceFieldDef) => ReactNode;
+  choices: readonly ChoiceFieldDef[]; show: Show; id: string; store: ProfileStore;
+  children: (def: ChoiceFieldDef, mark: FieldMark | undefined) => ReactNode;
 }): ReactNode {
   const def = props.choices.find(item => item.id === props.id);
   if (!def || !props.show(def.id)) return null;
-  return <>{props.children(def)}</>;
+  return (
+    <>
+      {props.children(def, markFor(props.store, def.id))}
+      {def.derivedFrom ? <p className="field-help" style={{ marginTop: 0 }}>The default is {def.derivedFrom}.</p> : null}
+    </>
+  );
 }
 
 const optionsOf = <T extends string>(def: ChoiceFieldDef): readonly { value: T; label: string }[] =>
@@ -76,12 +103,12 @@ const optionsOf = <T extends string>(def: ChoiceFieldDef): readonly { value: T; 
 
 const helpOf = (def: ChoiceFieldDef): { help?: string } => def.help === undefined ? {} : { help: def.help };
 
-function PhaseEditor(props: { store: ProfileStore; label: string }): ReactNode {
+function PhaseEditor(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   const phases = store.base.spending.phases;
   return (
     <div className="stack-tight">
-      <h4 style={{ fontSize: 15, margin: 0 }}>{props.label}</h4>
+      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
       <p className="field-help" style={{ margin: 0 }}>
         Optional overrides for a half-open age range. A phase wins over the current/retirement schedule.
         Phases must not overlap.
@@ -127,11 +154,11 @@ function PhaseEditor(props: { store: ProfileStore; label: string }): ReactNode {
   );
 }
 
-function CapitalNeedsEditor(props: { store: ProfileStore; label: string }): ReactNode {
+function CapitalNeedsEditor(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   return (
     <div className="stack-tight">
-      <h4 style={{ fontSize: 15, margin: 0 }}>{props.label}</h4>
+      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
       <p className="field-help" style={{ margin: 0 }}>
         One-off amounts in today’s money, funded in the year they fall. Living costs take priority if both cannot be met.
       </p>
@@ -192,12 +219,12 @@ function CapitalNeedsEditor(props: { store: ProfileStore; label: string }): Reac
 }
 
 /** Symmetric by contract, so only the upper triangle is editable; the mirror cell is written too. */
-function CorrelationMatrix(props: { store: ProfileStore; label: string }): ReactNode {
+function CorrelationMatrix(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   const matrix = store.base.market.correlation;
   return (
     <div className="stack-tight">
-      <h4 style={{ fontSize: 15, margin: 0 }}>{props.label}</h4>
+      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
       <p className="field-help" style={{ margin: 0 }}>
         These are the correlations of the underlying Gaussian log-growth shocks, <b>not</b> the Pearson
         correlation of arithmetic returns. For non-zero log volatilities the implied arithmetic
@@ -252,7 +279,7 @@ function CorrelationMatrix(props: { store: ProfileStore; label: string }): React
   );
 }
 
-function WithdrawalOrder(props: { store: ProfileStore; label: string }): ReactNode {
+function WithdrawalOrder(props: { store: ProfileStore; label: string; mark: FieldMark | undefined }): ReactNode {
   const { store } = props;
   const order = store.base.simulation.withdrawalOrder;
   const move = (index: number, delta: number) => store.edit(profile => {
@@ -264,7 +291,7 @@ function WithdrawalOrder(props: { store: ProfileStore; label: string }): ReactNo
   });
   return (
     <div className="stack-tight">
-      <h4 style={{ fontSize: 15, margin: 0 }}>{props.label}</h4>
+      <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>{props.label}<ProvenanceMark mark={props.mark} /></h4>
       <p className="field-help" style={{ margin: 0 }}>
         A fixed order, applied every year. Cash is the settlement account, so its position controls how
         much of the opening cash balance is released before the other accounts are liquidated.
@@ -290,45 +317,46 @@ function GroupExtras(props: {
   store: ProfileStore; group: FieldGroupId; choices: readonly ChoiceFieldDef[]; show: Show;
 }): ReactNode {
   const { store, group, choices, show } = props;
-  const pick = (id: string, render: (def: ChoiceFieldDef) => ReactNode): ReactNode =>
-    <Choice choices={choices} show={show} id={id}>{render}</Choice>;
+  const pick = (id: string, render: (def: ChoiceFieldDef, mark: FieldMark | undefined) => ReactNode): ReactNode =>
+    <Choice choices={choices} show={show} id={id} store={store}>{render}</Choice>;
   switch (group) {
     case 'property':
       return <div className="stack-tight">
-        {pick('property', def => (
-          <CheckboxField label={def.label} checked={store.base.property !== null}
+        {pick('property', (def, mark) => (
+          <CheckboxField label={def.label} checked={store.base.property !== null} mark={mark}
             onChange={enabled => store.edit(p => toggleProperty(p, enabled))} />
         ))}
         {store.base.property ? <>
-          {pick('property.use', def => (
-            <SelectField label={def.label} value={store.base.property!.use} options={optionsOf<'owner_occupied' | 'rental'>(def)}
+          {pick('property.use', (def, mark) => (
+            <SelectField label={def.label} value={store.base.property!.use} options={optionsOf<'owner_occupied' | 'rental'>(def)} mark={mark}
               onChange={use => store.edit(p => ({ ...p, property: { ...p.property!, use } }))} />
           ))}
-          {pick('property.mortgageType', def => (
-            <SelectField label={def.label} value={store.base.property!.mortgageType} options={optionsOf<'repayment' | 'interest_only'>(def)}
+          {pick('property.mortgageType', (def, mark) => (
+            <SelectField label={def.label} value={store.base.property!.mortgageType} options={optionsOf<'repayment' | 'interest_only'>(def)} mark={mark}
               onChange={mortgageType => store.edit(p => ({ ...p, property: { ...p.property!, mortgageType } }))} />
           ))}
-          {pick('property.taxLocation', def => (
+          {pick('property.taxLocation', (def, mark) => (
             <SelectField label={def.label}
               value={store.base.property!.taxLocation ?? (store.base.personal.taxRegion === 'scotland' ? 'scotland' : 'england_ni')}
-              options={optionsOf<'scotland' | 'england_ni' | 'manual'>(def)}
+              options={optionsOf<'scotland' | 'england_ni' | 'manual'>(def)} mark={mark}
               onChange={taxLocation => store.edit(p => ({ ...p, property: { ...p.property!, taxLocation } }))} />
           ))}
-          {pick('property.buyerStatus', def => (
+          {pick('property.buyerStatus', (def, mark) => (
             <SelectField label={def.label} value={store.base.property!.buyerStatus ?? 'standard'}
-              options={optionsOf<'standard' | 'first_time' | 'additional'>(def)}
+              options={optionsOf<'standard' | 'first_time' | 'additional'>(def)} mark={mark}
               onChange={buyerStatus => store.edit(p => ({ ...p, property: { ...p.property!, buyerStatus } }))} />
           ))}
-          {pick('property.purchase', def => (
-            <CheckboxField label={def.label} checked={store.base.property!.purchase !== null}
+          {pick('property.purchase', (def, mark) => (
+            <CheckboxField label={def.label} checked={store.base.property!.purchase !== null} mark={mark}
               onChange={enabled => store.edit(p => togglePurchase(p, enabled))} />
           ))}
-          {pick('property.sale', def => (
-            <CheckboxField label={def.label} checked={store.base.property!.sale !== null}
+          {pick('property.sale', (def, mark) => (
+            <CheckboxField label={def.label} checked={store.base.property!.sale !== null} mark={mark}
               onChange={enabled => store.edit(p => toggleSale(p, enabled))} />
           ))}
           <p className="field-help">A purchase uses its price and deposit; existing value and debt apply only to an already owned property. First-time relief and additional-dwelling eligibility are your explicit assumptions. Owner-occupied sales assume full private residence relief. No automatic equity release.</p>
-          {pick('property.rateChanges', () => <>
+          {pick('property.rateChanges', (_def, mark) => <>
+            <ProvenanceMark mark={mark} />
             {store.base.property!.rateChanges.map((_, i) => <div key={i}>
               <FieldGrid store={store} defs={store.defs.filter(d => d.path[1] === 'rateChanges' && d.path[2] === i)} />
               <button type="button" className="btn btn-secondary" onClick={() => store.edit(p => ({ ...p, property: { ...p.property!, rateChanges: p.property!.rateChanges.filter((_item, j) => j !== i) } }))}>Remove refinance {i + 1}</button>
@@ -340,11 +368,12 @@ function GroupExtras(props: {
     case 'personal':
       return (
         <div className="field-grid">
-          {pick('personal.taxRegion', def => (
+          {pick('personal.taxRegion', (def, mark) => (
             <SelectField
               label={def.label}
               value={store.base.personal.taxRegion}
               options={optionsOf<'scotland' | 'rest_of_uk'>(def)}
+              mark={mark}
               onChange={value => store.edit(profile => ({ ...profile, personal: { ...profile.personal, taxRegion: value } }))}
             />
           ))}
@@ -361,34 +390,38 @@ function GroupExtras(props: {
     case 'pension':
       return (
         <div className="stack-tight">
-          {pick('pension.method', def => (
+          {pick('pension.method', (def, mark) => (
             <SelectField
               label={def.label}
               value={store.base.pension.method}
               options={optionsOf<'salary_sacrifice' | 'net_pay' | 'relief_at_source'>(def)}
+              mark={mark}
               onChange={value => store.edit(profile => ({ ...profile, pension: { ...profile.pension, method: value } }))}
             />
           ))}
-          {pick('pension.salarySacrificeAvailable', def => (
+          {pick('pension.salarySacrificeAvailable', (def, mark) => (
             <CheckboxField
               label={def.label}
               {...helpOf(def)}
+              mark={mark}
               checked={store.base.pension.salarySacrificeAvailable}
               onChange={checked => store.edit(profile => ({ ...profile, pension: { ...profile.pension, salarySacrificeAvailable: checked } }))}
             />
           ))}
-          {pick('pension.sacrificeAddedBackForTaper', def => (
+          {pick('pension.sacrificeAddedBackForTaper', (def, mark) => (
             <CheckboxField
               label={def.label}
               {...helpOf(def)}
+              mark={mark}
               checked={store.base.pension.sacrificeAddedBackForTaper}
               onChange={checked => store.edit(profile => ({ ...profile, pension: { ...profile.pension, sacrificeAddedBackForTaper: checked } }))}
             />
           ))}
-          {pick('pension.moneyPurchaseAnnualAllowanceTriggered', def => (
+          {pick('pension.moneyPurchaseAnnualAllowanceTriggered', (def, mark) => (
             <CheckboxField
               label={def.label}
               {...helpOf(def)}
+              mark={mark}
               checked={store.base.pension.moneyPurchaseAnnualAllowanceTriggered}
               onChange={checked => store.edit(profile => ({ ...profile, pension: { ...profile.pension, moneyPurchaseAnnualAllowanceTriggered: checked } }))}
             />
@@ -398,10 +431,11 @@ function GroupExtras(props: {
     case 'spending':
       return (
         <div className="stack-tight">
-          {pick('spending.breakdown', def => <>
+          {pick('spending.breakdown', (def, mark) => <>
             <CheckboxField
               label={def.label}
               {...helpOf(def)}
+              mark={mark}
               checked={store.base.spending.breakdown !== null}
               onChange={checked => store.edit(profile => ({
                 ...profile,
@@ -417,11 +451,11 @@ function GroupExtras(props: {
               <FieldGrid store={store} defs={store.defs.filter(def2 => def2.path[1] === 'breakdown')} columns={3} />
             ) : null}
           </>)}
-          {pick('spending.phases', def => <PhaseEditor store={store} label={def.label} />)}
+          {pick('spending.phases', (def, mark) => <PhaseEditor store={store} label={def.label} mark={mark} />)}
         </div>
       );
     case 'liquidity':
-      return pick('liquidity.capitalNeeds', def => <CapitalNeedsEditor store={store} label={def.label} />);
+      return pick('liquidity.capitalNeeds', (def, mark) => <CapitalNeedsEditor store={store} label={def.label} mark={mark} />);
     case 'market':
       return (
         <div className="stack-tight">
@@ -438,11 +472,11 @@ function GroupExtras(props: {
               <p className="field-help" id="assumption-version-help">{def.help}</p>
             </div>
           ))}
-          {pick('market.correlation', def => <CorrelationMatrix store={store} label={def.label} />)}
+          {pick('market.correlation', (def, mark) => <CorrelationMatrix store={store} label={def.label} mark={mark} />)}
         </div>
       );
     case 'simulation':
-      return pick('simulation.withdrawalOrder', def => <WithdrawalOrder store={store} label={def.label} />);
+      return pick('simulation.withdrawalOrder', (def, mark) => <WithdrawalOrder store={store} label={def.label} mark={mark} />);
     default:
       return null;
   }
@@ -462,7 +496,9 @@ export function ProfileFields(props: { store: ProfileStore; ids: readonly string
 }
 
 /** The depth chooser. Local to the form: it is a view preference, not part of the profile. */
-function TierFilter(props: { mode: TierMode; onChange: (mode: TierMode) => void; visibility: Visibility }): ReactNode {
+function TierFilter(props: {
+  mode: TierMode; onChange: (mode: TierMode) => void; visibility: Visibility; summary: string;
+}): ReactNode {
   return (
     <div className="card elev-sm stack-tight">
       <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
@@ -488,7 +524,27 @@ function TierFilter(props: { mode: TierMode; onChange: (mode: TierMode) => void;
         them. Anything that needs attention is shown whichever setting you pick.
         Showing {props.visibility.inputCount} input{props.visibility.inputCount === 1 ? '' : 's'}.
       </p>
+      <p className="field-help" style={{ margin: 0 }}>
+        {props.summary} A value you changed is marked <span className="tag tag-outline">edited</span> and can
+        be put back on its own, or a whole section at a time.
+      </p>
     </div>
+  );
+}
+
+/** Puts one section back to the starter profile, and says how much that would undo. */
+function GroupReset(props: { store: ProfileStore; group: FieldGroupId; label: string }): ReactNode {
+  const ids = resettableInGroup(props.store.provenance, props.group);
+  if (ids.length === 0) return null;
+  return (
+    <button
+      type="button"
+      className="btn btn-secondary"
+      style={{ alignSelf: 'flex-start' }}
+      onClick={() => props.store.resetGroup(props.group)}
+    >
+      Reset {props.label.toLowerCase()} ({ids.length} value{ids.length === 1 ? '' : 's'}) to the default
+    </button>
   );
 }
 
@@ -509,7 +565,9 @@ export function ProfileForm(props: {
   const show: Show = fieldId => visibility.shows(fieldId);
   return (
     <>
-      {props.filterable ? <TierFilter mode={mode} onChange={setMode} visibility={visibility} /> : null}
+      {props.filterable
+        ? <TierFilter mode={mode} onChange={setMode} visibility={visibility} summary={provenanceSummary(store.provenance)} />
+        : null}
       {props.groups.map(groupId => {
         const group = FIELD_GROUPS.find(item => item.id === groupId);
         if (!group) return null;
@@ -532,6 +590,7 @@ export function ProfileForm(props: {
               {groupId !== 'property' ? <GroupExtras store={store} group={groupId} choices={choices} show={show} /> : null}
               {/* The matrix renders the market group's issues itself; if it is filtered away, they still must appear. */}
               {groupId === 'market' && visibility.shows('market.correlation') ? null : <GroupIssues store={store} group={groupId} />}
+              <GroupReset store={store} group={groupId} label={group.label} />
             </fieldset>
           </details>
         );

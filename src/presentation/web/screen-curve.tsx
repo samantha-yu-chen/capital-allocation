@@ -16,7 +16,9 @@ import { toDisplay, type ControlFieldDef } from '../view/fields.js';
 import {
   CURVE_FROM_FIELD, CURVE_TO_FIELD, curveGeometry, curveHeadline, curveNotes, curveRows, type CurvePlan,
 } from '../view/solver-model.js';
+import { twoNumbersStoryFor, type TwoNumbersStory } from '../view/two-numbers.js';
 import { Banner, Card, NumberField, Progress, Stat } from './components.js';
+import { TwoNumbers } from './two-numbers.js';
 import { ProfileFields } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import type { AnalysisRunner } from './use-analysis.js';
@@ -158,7 +160,7 @@ export function CurveScreen({ store, ledgerOptions, drafts, onDraft, plan, runne
       </Card>
 
       {runner.state.status === 'done' ? (
-        <CurveResult result={runner.state.result} seconds={runner.state.seconds} />
+        <CurveResult result={runner.state.result} seconds={runner.state.seconds} story={twoNumbersStoryFor(profile!)} />
       ) : runner.state.status === 'idle' ? (
         <Card kicker="No curve yet" title="Nothing is shown until every candidate age has run" muted>
           <p className="card-body" style={{ margin: 0 }}>
@@ -170,7 +172,9 @@ export function CurveScreen({ store, ledgerOptions, drafts, onDraft, plan, runne
   );
 }
 
-function CurveResult({ result, seconds }: { result: FireAgeCurveResult; seconds: number }): ReactNode {
+function CurveResult({ result, seconds, story }: {
+  result: FireAgeCurveResult; seconds: number; story: TwoNumbersStory;
+}): ReactNode {
   const headline = curveHeadline(result);
   const rows = curveRows(result);
   const notes = curveNotes(result);
@@ -197,7 +201,10 @@ function CurveResult({ result, seconds }: { result: FireAgeCurveResult; seconds:
           <Stat
             kicker="Reference FIRE number"
             value={money(result.referenceFireNumber)}
-            note={`${money(result.retirementSpendingAnnualReal)} of retirement spending ÷ the reference withdrawal rate. A reference ratio, not the safety result above.`}
+            note={<>
+              {money(result.retirementSpendingAnnualReal)} of retirement spending ÷ the reference withdrawal rate.
+              <TwoNumbers story={story} variant="note" />
+            </>}
           />
         </div>
       </div>

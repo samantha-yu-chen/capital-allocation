@@ -13,7 +13,9 @@ import {
   type CompletedOverviewRun,
 } from '../view/overview-model.js';
 import { money, moneyExact, moneySigned, percent, ratio, years } from '../view/format.js';
+import { twoNumbersStoryFor } from '../view/two-numbers.js';
 import { Banner, Card, ExpandableRow, Line, SelectField } from './components.js';
+import { TwoNumbers } from './two-numbers.js';
 import { ProfileForm } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import type { Profile } from '../../domain/contracts.js';
@@ -171,13 +173,14 @@ function LedgerTable(props: { model: OverviewModel }): ReactNode {
   );
 }
 
-function ReferenceFire(props: { model: OverviewModel }): ReactNode {
+function ReferenceFire(props: { model: OverviewModel; profile: Profile }): ReactNode {
   const r = props.model.reference;
   return (
     <Card kicker="Reference FIRE target" title="Transparent arithmetic, not a safety result" elevation="md">
+      <TwoNumbers story={twoNumbersStoryFor(props.profile)} />
       <p className="card-body">
-        These are the spec’s reference ratios. They ignore sequence of returns, tax on withdrawals and
-        the shape of the path. The spending reference is the entered retirement budget before property adjustments. The FIRE &amp; Monte Carlo screen includes housing cash flows when testing whether the plan survives.
+        The ratios below are the spec’s, and they ignore sequence of returns, tax on withdrawals and the
+        shape of the path. The spending reference is the entered retirement budget before property adjustments. The FIRE &amp; Monte Carlo screen includes housing cash flows when testing whether the plan survives.
       </p>
       <dl className="kv">
         <Line label="Annual retirement spending (today’s money)" value={money(r.retirementSpendingReal)} />
@@ -419,7 +422,7 @@ export function OverviewScreen(props: {
           </Card>
 
           {outcome?.ok ? <CashFlow model={outcome.model} /> : null}
-          {outcome?.ok ? <ReferenceFire model={outcome.model} /> : null}
+          {outcome?.ok && profile ? <ReferenceFire model={outcome.model} profile={profile} /> : null}
 
           {outcome?.ok ? (
             <Card kicker="Assumptions in force" muted>

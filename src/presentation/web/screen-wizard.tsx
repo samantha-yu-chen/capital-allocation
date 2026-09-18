@@ -3,7 +3,9 @@ import { useMemo, useState } from 'react';
 import type { LedgerOptions } from '../../engine/index.js';
 import { money, percent } from '../view/format.js';
 import { WIZARD_STEPS, wizardResult, wizardStepIssues } from '../view/wizard-model.js';
+import { twoNumbersStoryFor } from '../view/two-numbers.js';
 import { Banner, Card, Progress, Stat } from './components.js';
+import { TwoNumbers } from './two-numbers.js';
 import { ProfileChoiceFields, ProfileFields } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
 import type { RunState } from './use-monte-carlo.js';
@@ -41,11 +43,14 @@ function ResultStep(props: {
     <div className="stack">
       <div className="grid-2">
         <Stat kicker="Reference FIRE number" value={money(summary.referenceFireNumber)}
-          note="Retirement spending ÷ the reference withdrawal rate. Simple arithmetic, not the safety result." />
+          note="Retirement spending ÷ the reference withdrawal rate." />
         <Stat kicker={`Projected wealth at FIRE age ${props.store.profile!.personal.targetFireAge}`}
           value={money(summary.investableAssetsAtFire)}
           note="One deterministic path using the configured average returns. It is not a probability or forecast." />
       </div>
+      <Card kicker="Two numbers, one answer" elevation="sm">
+        <TwoNumbers story={twoNumbersStoryFor(props.store.profile!)} />
+      </Card>
       <Banner tone={summary.deterministicSuccess ? 'neutral' : 'notice'}
         title={summary.deterministicSuccess ? 'The single reference path funds every year' : 'The single reference path has a shortfall'}>
         <p style={{ margin: 0 }}>

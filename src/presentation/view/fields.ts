@@ -607,7 +607,6 @@ export const CHOICE_FIELDS: readonly ChoiceFieldDef[] = [
 export function choiceFieldsFor(profile: Profile): ChoiceFieldDef[] {
   const defs = [...CHOICE_FIELDS,
     choice('property', 'Include a property', 'property', 'checkbox', 'common', {
-      plainLabel: 'Include a home or rental property in the plan',
       plainHelp: 'Turn this on to model a property you own or plan to buy, with its mortgage and running costs. The figures it starts with are an illustration and are meant to be replaced with yours.',
       derivedFrom: 'no property; turning it on seeds an illustrative purchase at your current age, which you are expected to replace with your own figures',
     })];

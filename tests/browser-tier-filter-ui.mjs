@@ -72,12 +72,12 @@ results.allGroups = await groups();
 results.allNetWorth = await netWorth();
 results.hiddenValuesKept = await ev(`({equities:document.getElementById('market.equities.meanNominal').value,seed:document.getElementById('simulation.seed').value,isaEquities:document.getElementById('portfolios.isa.equities').value})`);
 
-// 4. Break an expert-tier input: a correlation matrix that is not positive semidefinite.
+// 4. Break an expert-tier input: a correlation matrix that is not could actually exist together.
 await ev(`document.querySelectorAll('details.group').forEach(e=>e.open=true)`);
 await setCell('equities / bonds log-shock correlation', '0.9');
 await setCell('equities / cash log-shock correlation', '0.9');
 await setCell('bonds / cash log-shock correlation', '-0.9');
-await wait(`document.body.innerText.includes('positive semidefinite')`);
+await wait(`document.body.innerText.includes('could actually exist together')`);
 results.errorAtEverything = true;
 
 // 5. ...and it must still be visible, with its message, in Essential only.
@@ -87,7 +87,7 @@ results.essentialWithError = {
   groups: await groups(),
   matrixVisible: await ev(`!!document.querySelector('table.matrix')`),
   cellVisible: await ev(`!!document.querySelector('[aria-label="equities / bonds log-shock correlation"]')`),
-  message: await ev(`(()=>{const e=[...document.querySelectorAll('.field-error')].find(e=>e.textContent.includes('positive semidefinite'));return e?e.textContent.trim():null})()`),
+  message: await ev(`(()=>{const e=[...document.querySelectorAll('.field-error')].find(e=>e.textContent.includes('could actually exist together'));return e?e.textContent.trim():null})()`),
   marketOpen: await ev(`!!document.querySelector('details.group')&&[...document.querySelectorAll('details.group')].some(e=>e.open&&e.textContent.includes('Market assumptions'))`),
   blocked: await ev(`document.body.innerText.includes('Fix the inputs before the model can run')`),
 };
@@ -98,7 +98,7 @@ await filter('Everything');
 await setCell('equities / bonds log-shock correlation', '0');
 await setCell('equities / cash log-shock correlation', '0');
 await setCell('bonds / cash log-shock correlation', '0');
-await wait(`!document.body.innerText.includes('positive semidefinite')`);
+await wait(`!document.body.innerText.includes('could actually exist together')`);
 await filter('Essential only');
 results.repairedGroups = await groups();
 await filter('Essential + common');
@@ -160,7 +160,7 @@ assert.deepEqual(results.hiddenValuesKept, { equities: '7', seed: '421337', isaE
 // An expert-field error is unmaskable.
 assert.equal(results.essentialWithError.matrixVisible, true);
 assert.equal(results.essentialWithError.cellVisible, true);
-assert.ok(results.essentialWithError.message?.includes('positive semidefinite'));
+assert.ok(results.essentialWithError.message?.includes('could actually exist together'));
 assert.equal(results.essentialWithError.marketOpen, true);
 assert.equal(results.essentialWithError.blocked, true);
 assert.ok(results.essentialWithError.groups.includes('Market assumptions'));

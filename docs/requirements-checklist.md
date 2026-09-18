@@ -27,6 +27,21 @@ starter has no value for offers no reset rather than inventing one.
 `tests/browser-provenance-ui.mjs` carries the Chrome evidence, including that a reset never tidies
 away another field's validation error. `handoffs/ux-2.md` records the details.
 
+**UX-3 added the plain-language layer over the same registry.** Labels, help text and validation
+messages now speak to a reader who is not a finance professional, without losing the precise
+wording: `plainLabel` replaces the short internal name on screen and keeps the technical term once
+in parentheses, `plainHelp` is rendered *before* the existing `help`, and every essential and common
+entry has one — `tests/presentation-language.test.ts` fails if an entry is added without it. A
+twenty-five term glossary (`src/presentation/view/glossary.ts`) is reachable from the words that use
+it and from every screen; the same suite refuses a dangling reference and a definition nothing points
+at. `profileSchema` is unchanged, and the suite pins its issue paths, codes and messages for five
+invalid fixtures so a future "fix" to its wording fails rather than passing quietly; the rewritten
+sentences are a presentation map laid over that output, and a rule with no rewrite keeps the
+schema's own words. `tests/browser-language-ui.mjs` carries the Chrome evidence, including the
+popover at 390px. It also records one correction outside the ticket: a household spending override
+set on the FIRE screen used to rewrite the Overview cash-flow card silently, and now says so.
+`handoffs/ux-3.md` records the details.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

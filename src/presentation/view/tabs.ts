@@ -43,7 +43,7 @@ export const TABS: readonly TabDefinition[] = [
   },
   {
     id: 'solver', label: 'Reverse Solver', status: 'built', package: 6,
-    summary: 'Required savings, gross salary, FIRE age, spending reduction, starting capital or pension contribution to hit the target probability.',
+    summary: 'What would have to change to hit your target: your salary, savings, FIRE age, retirement spending, starting capital or pension contribution — one question at a time.',
     groundwork: '',
   },
   {

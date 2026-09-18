@@ -65,6 +65,24 @@ precision; `tests/browser-overview-headline-ui.mjs` covers both 10,000-path work
 21 × 10,000-path curve, source navigation, cancellation, salary-edit invalidation and desktop/mobile
 layout. `handoffs/ux-5.md` records the measured evidence.
 
+**UX-6 asked the Reverse Solver's question out loud without touching the search behind it.** The six
+engine modes are now the answers to “To hit my goal, what would my … need to be?” in a keyboard
+radio group, and every outcome becomes one plain sentence through `solverAnswer`: an achieved answer
+carries its confirmed bracket, a search that used its whole evaluation budget carries the range the
+requirement still lies in, an unreachable one names the bound it failed at, an already-met one says
+it did not look lower, and an unsupported one keeps the engine's own reason. Budget exhaustion is
+derived from the result (evaluations used against `metadata.maxEvaluations`, and a bracket still
+wider than the search precision), not from matching the engine's prose. `src/engine/` is untouched:
+`git diff --stat` over the branch shows no engine file. `tests/solver-presentation.test.ts` maps all
+five statuses from real solves on one profile and checks the unconfirmed and unbracketed wordings;
+`tests/presentation-screens.test.ts` checks that the Overview “what would it take?” offer needs a
+current completed run measuring a shortfall and never enters the sentence. Chrome evidence:
+`tests/browser-solver-question-ui.mjs` (both worker smokes at 10,000 paths and 68.98%/35.18%, the
+offer absent before a run and when the target is met, the route pre-selecting salary with nothing
+running, the £87,600 answer sentence in 99.40 s, and a 390px layout with zero overflow and all eight
+tabs) and the chunk-6 regression `tests/browser-solver-ui.mjs` (£87,600 confirmed with the four
+section 33 searches in 374.19 s). `handoffs/ux-6.md` records the measured evidence.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

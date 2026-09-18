@@ -384,3 +384,145 @@ export function curveNotes(result: FireAgeCurveResult): string[] {
     notes.push('Some candidate ages could not be simulated; they are listed with the reason and left out of the curve rather than interpolated.');
   return notes;
 }
+
+// ── UX-6: the same six searches, asked as a question ────────────────────────────────────────────
+
+/**
+ * The Reverse Solver answers "what would I have to change?", but its controls are named after the
+ * engine's modes. The picker below re-labels those six modes as answers to one spoken question; it
+ * changes no bound, no request and no search behaviour, only the words the reader chooses between.
+ */
+export const SOLVER_QUESTION_STEM = 'To hit my goal, what would my …';
+
+export interface SolverQuestionOption {
+  value: SolverModeId;
+  /** Completes the stem: "To hit my goal, what would my gross salary need to be?" */
+  subject: string;
+  /** One plain sentence on what moves and what stays fixed, for the reader choosing. */
+  plain: string;
+}
+
+export const SOLVER_QUESTIONS: readonly SolverQuestionOption[] = [
+  {
+    value: 'salary', subject: 'gross salary',
+    plain: 'What you would have to earn, before tax, with your spending and everything else unchanged.',
+  },
+  {
+    value: 'savings', subject: 'annual savings',
+    plain: 'How much you would have to put away each working year, funded by spending less while you work.',
+  },
+  {
+    value: 'fire_age', subject: 'FIRE age',
+    plain: 'How long you would have to keep working, with pay, saving and spending unchanged.',
+  },
+  {
+    value: 'retirement_spending', subject: 'retirement spending',
+    plain: 'What you would have to live on each month once you stop working, with working-life spending unchanged.',
+  },
+  {
+    value: 'starting_capital', subject: 'extra starting capital',
+    plain: 'How much you would have to hold today on top of your current assets — a windfall, not a plan.',
+  },
+  {
+    value: 'pension_contribution', subject: 'pension contribution',
+    plain: 'What share of your pay would have to go into the pension, which shelters tax but locks the money up.',
+  },
+];
+
+export const solverQuestion = (id: SolverModeId): SolverQuestionOption => {
+  const found = SOLVER_QUESTIONS.find(option => option.value === id);
+  if (!found) throw new RangeError(`Unknown solver mode ${id}`);
+  return found;
+};
+
+/** The reader-facing outcome. `budget_exhausted` is a `solved` search that ran out of evaluations. */
+export type SolverAnswerStatus = 'achieved' | 'already_met' | 'budget_exhausted' | 'infeasible' | 'unsupported';
+
+export interface SolverAnswerModel {
+  status: SolverAnswerStatus;
+  /** The whole answer in ordinary words, honesty clause included. */
+  sentence: string;
+  /** That honesty clause alone: the confirmed bracket, or the bound that was not cleared. */
+  honesty: string;
+  /** The answer itself, formatted, or null when there is no value to give. */
+  value: string | null;
+  tone: 'good' | 'bad' | 'neutral';
+}
+
+/**
+ * A search whose bracket is still wider than its own precision after using every evaluation it was
+ * allowed has not finished narrowing. Both facts are read off the result rather than off the
+ * engine's prose, so this state cannot drift if a note is reworded.
+ */
+function budgetExhausted(result: SolverResult): boolean {
+  if (result.status !== 'solved' || result.requiredValue === null || result.excludedValue === null) return false;
+  const bracket = Math.abs(result.requiredValue - result.excludedValue);
+  return result.evaluations.length >= result.metadata.maxEvaluations
+    && bracket > result.precision * (1 + 1e-9);
+}
+
+/**
+ * Every solver outcome as one plain sentence a non-financial reader can act on.
+ *
+ * The sentence never rounds away what the search did and did not establish: an achieved answer
+ * carries the confirmed bracket, an unfinished one carries the range the requirement still lies in,
+ * and an unreachable one carries the bound it failed at. Nothing here re-derives a probability.
+ */
+export function solverAnswer(result: SolverResult): SolverAnswerModel {
+  const unit = result.unit;
+  const subject = solverQuestion(result.mode).subject;
+  const target = percent(result.targetProbability, 0);
+  const value = (raw: number | null) => formatSolverValue(raw, unit);
+
+  if (result.status === 'unsupported') {
+    const honesty = result.message
+      ?? 'This search does not apply to the settings this run used, so no value was searched for.';
+    return {
+      status: 'unsupported', tone: 'neutral', value: null, honesty,
+      sentence: `This question cannot be answered for your current settings. ${honesty}`,
+    };
+  }
+
+  if (result.status === 'already_met') {
+    const honesty = `the search stopped at your current ${subject} rather than looking for a smaller one, `
+      + 'so this is not the least you could get away with';
+    return {
+      status: 'already_met', tone: 'good', value: value(result.currentValue), honesty,
+      sentence: `Your ${subject} does not have to change: at ${value(result.currentValue)} this plan already `
+        + `reaches ${probabilityWithUncertainty(result.currentProbability, result.standardError)} against your `
+        + `${target} target (${honesty}).`,
+    };
+  }
+
+  if (result.status === 'infeasible') {
+    const reached = result.bound.probability === null
+      ? 'was never reached'
+      : `reaches only ${percent(result.bound.probability, 2)}`;
+    const honesty = `${value(result.bound.value)} was the far end of the search and it ${reached}, short of `
+      + `your ${target} target; nothing beyond that bound was tested, so widen it or change something else too`;
+    return {
+      status: 'infeasible', tone: 'bad', value: null, honesty,
+      sentence: `Changing your ${subject} on its own would not be enough (${honesty}).`,
+    };
+  }
+
+  const answer = value(result.requiredValue);
+  const confirmation = result.confirmed
+    ? `we confirmed ${answer} clears your ${target} target`
+    : `${answer} cleared your ${target} target during the search, but the re-run did not reproduce it, so treat it as unverified`;
+  if (budgetExhausted(result)) {
+    const honesty = `${confirmation}, but the search ran out of evaluations before it could narrow that down: `
+      + `the least that would do is somewhere above ${value(result.excludedValue)} and at or below ${answer}`;
+    return {
+      status: 'budget_exhausted', tone: 'good', value: answer, honesty,
+      sentence: `Your ${subject} would have to be about ${answer} (${honesty}). Raise the evaluation budget to close the gap.`,
+    };
+  }
+  const honesty = result.excludedValue === null
+    ? `${confirmation}; nothing below it was tested, so the true requirement may be lower`
+    : `${confirmation} and that ${value(result.excludedValue)} does not`;
+  return {
+    status: 'achieved', tone: 'good', value: answer, honesty,
+    sentence: `You would need a ${subject} of about ${answer} (${honesty}).`,
+  };
+}

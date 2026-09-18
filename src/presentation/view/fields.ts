@@ -8,6 +8,7 @@
  * value — "invalid input cannot silently enter the engine" (work package 4).
  */
 import { profileSchema, type Profile } from '../../domain/contracts.js';
+import { parseDisplayText } from './field-display.js';
 
 export type FieldGroupId =
   | 'personal' | 'income' | 'household' | 'spending' | 'assets' | 'pension'
@@ -764,11 +765,14 @@ export function toDisplay(def: ControlFieldDef, stored: number): string {
   return String(tidy(stored * displayScale(def.kind)));
 }
 
-/** An unparseable draft becomes NaN so `profileSchema` rejects it; it never falls back to the old value. */
+/**
+ * An unparseable draft becomes NaN so `profileSchema` rejects it; it never falls back to the old value.
+ *
+ * `parseDisplayText` is the shared rule for what counts as a number in a box — it tolerates the
+ * field's own unit and correct thousands grouping, and nothing else. This function only rescales.
+ */
 export function fromDisplay(def: ControlFieldDef, text: string): number {
-  const trimmed = text.trim();
-  if (trimmed === '') return Number.NaN;
-  const parsed = Number(trimmed);
+  const parsed = parseDisplayText(def, text);
   if (!Number.isFinite(parsed)) return Number.NaN;
   return tidy(parsed / displayScale(def.kind));
 }
@@ -882,6 +886,16 @@ export const SCENARIO_FIRE_TO_FIELD: ControlFieldDef = {
 export const MARGINAL_DEBT_FIELD: ControlFieldDef = {
   id: 'marginal.maximumDebt', label: 'Maximum acceptable debt, today', kind: 'money', step: 1000,
   help: 'A hard ceiling across every sampled path. Enter the debt exposure you accept.',
+};
+
+/**
+ * The FIRE screen's spending override. Registered here like every other numeric control even though
+ * its input is hand-rolled: blank is a third state ("use the profile's own schedule"), so the box
+ * stays `type="number"`, but the unit and the annual equivalent come from the registry all the same.
+ */
+export const HOUSEHOLD_OVERRIDE_FIELD: ControlFieldDef = {
+  id: 'household-override', label: 'Household spending override', kind: 'monthlyMoney', step: 25,
+  help: 'Replaces the household monthly total in every phase. Blank uses the profile’s own schedule.',
 };
 
 export const STRESS_AGE_FIELD: ControlFieldDef = {

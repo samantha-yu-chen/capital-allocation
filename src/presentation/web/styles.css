@@ -189,6 +189,27 @@ body { min-height: 100vh; }
 .field-suffix .input { flex: 1; }
 .unit { font-size: 12px; color: color-mix(in srgb, var(--color-text) 60%, transparent); }
 
+/*
+ * The unit lives inside the input's own frame, so the reader sees "£ 55,000" as one object rather
+ * than a bare number next to a parenthesised note. The adornment never takes the pointer: clicking
+ * anywhere in the frame must still land the caret in the text.
+ */
+.field-input { position: relative; display: block; }
+.field-affix {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  font-size: 13px; line-height: 1; pointer-events: none;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.field-affix-prefix { inset-inline-start: 14px; }
+.field-affix-suffix { inset-inline-end: 14px; }
+.field-input[data-kind='money'] .input,
+.field-input[data-kind='monthlyMoney'] .input { padding-inline-start: 26px; }
+.field-input[data-kind='monthlyMoney'] .input { padding-inline-end: 42px; }
+.field-input[data-kind='percent'] .input { padding-inline-end: 30px; }
+.field-input[data-kind='multiple'] .input { padding-inline-end: 30px; }
+/* The yearly size of a monthly figure: inert, and set apart from the sentences that explain it. */
+.field-annual { font-variant-numeric: tabular-nums; font-weight: 600; }
+
 /* — value provenance: whose value is this, and the way back to the default — */
 .field-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
 .provenance { display: inline-flex; align-items: baseline; gap: 6px; }

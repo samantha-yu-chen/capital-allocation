@@ -306,7 +306,19 @@ are in `docs/handoffs/ux-4.md`.
 5. All eight reference tabs remain reachable while the wizard exists, at desktop and mobile widths.
 6. `npm run check` green; both worker smoke variants pass; handoff written.
 
-### UX-5 (M) — Question-led headline: "When can I be financially independent?"
+### UX-5 (M) — Question-led headline: "When can I be financially independent?" — **delivered**
+
+Delivered. Overview now opens with one question-led answer backed only by the App's completed
+Monte Carlo and FIRE-age-curve states. The starter's completed runs read: “At your target of 45,
+this plan succeeds in 69.0% of simulated futures (‘Fragile’). The earliest age that meets your 90%
+target is 50.” The band comes from `confidenceBand`; probability precision is chosen from its
+binomial standard error rather than fixed extra decimals. Each figure is a button to its owning tab
+and names the paths, seed and engine/curve version behind it. Before a run, after cancellation or
+failure, and synchronously on an input-key mismatch, the card contains no result figure. The curve
+runner and drafts now live in `App`, so its completed result can reach Overview without a second
+calculation. 284 tests pass; both worker smoke variants and the dedicated desktop/mobile Chrome
+harness pass at the full configured count. Details and the UX-6 inheritance note are in
+`docs/handoffs/ux-5.md`.
 
 **Problem.** The app's central answer is scattered across FIRE, Curve and Solver tabs (findings
 A.1.4/A.1.5).

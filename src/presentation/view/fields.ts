@@ -38,6 +38,20 @@ export const FIELD_GROUPS: readonly FieldGroup[] = [
 export type FieldKind = 'money' | 'monthlyMoney' | 'percent' | 'age' | 'integer' | 'decimal' | 'multiple';
 
 /**
+ * How much weight an input carries for a reader who is not a finance professional.
+ *
+ * `essential` is the handful of personal numbers nobody can leave at a default without the answer
+ * becoming somebody else's. `common` is what a reasonably engaged person knows about their own
+ * situation. `expert` is everything with a defensible default — modelling assumptions, tax edge
+ * cases, and the machinery of the simulation itself. The tier is presentation only: it decides
+ * what is on screen, never what reaches an engine.
+ */
+export type FieldTier = 'essential' | 'common' | 'expert';
+
+/** The reader's chosen depth. `common` means "essential and common", `all` means everything. */
+export type TierMode = 'essential' | 'common' | 'all';
+
+/**
  * A numeric input's presentation metadata. Profile fields extend it with a path into the shared
  * contract; screen-level controls that are not part of the profile (search bounds, an age range)
  * use it directly, so `NumberField` has exactly one input shape to render.
@@ -55,100 +69,101 @@ export interface NumberFieldDef extends ControlFieldDef {
   group: FieldGroupId;
   /** Dot-joined path into `Profile`; it is also this field's id. */
   path: readonly (string | number)[];
+  tier: FieldTier;
 }
 
 const id = (path: readonly (string | number)[]): string => path.join('.');
 
 function field(
   path: readonly (string | number)[], label: string, group: FieldGroupId, kind: FieldKind,
-  step: number, help?: string,
+  step: number, tier: FieldTier, help?: string,
 ): NumberFieldDef {
   return help === undefined
-    ? { id: id(path), label, group, path, kind, step }
-    : { id: id(path), label, group, path, kind, step, help };
+    ? { id: id(path), label, group, path, kind, step, tier }
+    : { id: id(path), label, group, path, kind, step, tier, help };
 }
 
 const ASSET_HELP = 'Balance today, in today’s money.';
 
 /** Scalar numeric fields. Array-backed fields are generated per profile by `arrayFields`. */
 export const NUMBER_FIELDS: readonly NumberFieldDef[] = [
-  field(['personal', 'currentAge'], 'Current age', 'personal', 'age', 1),
-  field(['personal', 'targetFireAge'], 'Target FIRE age', 'personal', 'age', 1, 'Retirement starts here; it must be at or after the current age and before the end age.'),
-  field(['personal', 'endAge'], 'Simulation end age', 'personal', 'age', 1),
-  field(['personal', 'targetSuccessProbability'], 'Target success probability', 'personal', 'percent', 1, 'The bar the plan is judged against. It does not change the simulation.'),
+  field(['personal', 'currentAge'], 'Current age', 'personal', 'age', 1, 'essential'),
+  field(['personal', 'targetFireAge'], 'Target FIRE age', 'personal', 'age', 1, 'essential', 'Retirement starts here; it must be at or after the current age and before the end age.'),
+  field(['personal', 'endAge'], 'Simulation end age', 'personal', 'age', 1, 'common'),
+  field(['personal', 'targetSuccessProbability'], 'Target success probability', 'personal', 'percent', 1, 'common', 'The bar the plan is judged against. It does not change the simulation.'),
 
-  field(['income', 'salaryAnnual'], 'Gross salary', 'income', 'money', 500),
-  field(['income', 'bonusAnnual'], 'Bonus', 'income', 'money', 500, 'Taxed as employment income; not pensionable by default.'),
-  field(['income', 'otherNonSavingsAnnual'], 'Other non-savings income', 'income', 'money', 250),
-  field(['income', 'salaryGrowthReal'], 'Real salary growth', 'income', 'percent', 0.1, 'Above inflation. Nominal salary compounds this and inflation together.'),
-  field(['income', 'retirementEmploymentAnnual'], 'Post-FIRE employment income', 'income', 'money', 250, 'Paid from the FIRE age onwards. Not pensionable.'),
-  field(['income', 'statePensionAnnual'], 'State pension', 'income', 'money', 250),
-  field(['income', 'statePensionAge'], 'State pension age', 'income', 'age', 1, 'National Insurance also moves to category C from this age.'),
+  field(['income', 'salaryAnnual'], 'Gross salary', 'income', 'money', 500, 'essential'),
+  field(['income', 'bonusAnnual'], 'Bonus', 'income', 'money', 500, 'common', 'Taxed as employment income; not pensionable by default.'),
+  field(['income', 'otherNonSavingsAnnual'], 'Other non-savings income', 'income', 'money', 250, 'common'),
+  field(['income', 'salaryGrowthReal'], 'Real salary growth', 'income', 'percent', 0.1, 'common', 'Above inflation. Nominal salary compounds this and inflation together.'),
+  field(['income', 'retirementEmploymentAnnual'], 'Post-FIRE employment income', 'income', 'money', 250, 'expert', 'Paid from the FIRE age onwards. Not pensionable.'),
+  field(['income', 'statePensionAnnual'], 'State pension', 'income', 'money', 250, 'common'),
+  field(['income', 'statePensionAge'], 'State pension age', 'income', 'age', 1, 'common', 'National Insurance also moves to category C from this age.'),
 
-  field(['household', 'adults'], 'Adults', 'household', 'integer', 1),
-  field(['household', 'children'], 'Children', 'household', 'integer', 1),
+  field(['household', 'adults'], 'Adults', 'household', 'integer', 1, 'expert'),
+  field(['household', 'children'], 'Children', 'household', 'integer', 1, 'expert'),
 
-  field(['spending', 'current', 'essentialMonthly'], 'Current essential', 'spending', 'monthlyMoney', 25),
-  field(['spending', 'current', 'discretionaryMonthly'], 'Current discretionary', 'spending', 'monthlyMoney', 25),
-  field(['spending', 'retirement', 'essentialMonthly'], 'Retirement essential', 'spending', 'monthlyMoney', 25),
-  field(['spending', 'retirement', 'discretionaryMonthly'], 'Retirement discretionary', 'spending', 'monthlyMoney', 25),
-  field(['spending', 'retirementFloorAnnual'], 'Retirement floor (annual)', 'spending', 'money', 250, 'The “floor” run. Must be at or below the target total.'),
-  field(['spending', 'retirementComfortAnnual'], 'Retirement comfort (annual)', 'spending', 'money', 250, 'The “comfort” run. Must be at or above the target total.'),
-  field(['spending', 'currentRentMonthlyIncluded'], 'Rent already inside current spending', 'spending', 'monthlyMoney', 25, 'Included rent component in your spending schedules. Removed once during owner occupation; restored on sale.'),
-  field(['spending', 'lifestyleCreepRate'], 'Lifestyle creep on real pay rises', 'spending', 'percent', 1, 'Share of each real salary increase that becomes discretionary spending.'),
-  field(['spending', 'scenarioMonthly', 'low'], 'Low spending case', 'spending', 'monthlyMoney', 25),
-  field(['spending', 'scenarioMonthly', 'base'], 'Base spending case', 'spending', 'monthlyMoney', 25),
-  field(['spending', 'scenarioMonthly', 'high'], 'High spending case', 'spending', 'monthlyMoney', 25),
+  field(['spending', 'current', 'essentialMonthly'], 'Current essential', 'spending', 'monthlyMoney', 25, 'essential'),
+  field(['spending', 'current', 'discretionaryMonthly'], 'Current discretionary', 'spending', 'monthlyMoney', 25, 'essential'),
+  field(['spending', 'retirement', 'essentialMonthly'], 'Retirement essential', 'spending', 'monthlyMoney', 25, 'essential'),
+  field(['spending', 'retirement', 'discretionaryMonthly'], 'Retirement discretionary', 'spending', 'monthlyMoney', 25, 'essential'),
+  field(['spending', 'retirementFloorAnnual'], 'Retirement floor (annual)', 'spending', 'money', 250, 'expert', 'The “floor” run. Must be at or below the target total.'),
+  field(['spending', 'retirementComfortAnnual'], 'Retirement comfort (annual)', 'spending', 'money', 250, 'expert', 'The “comfort” run. Must be at or above the target total.'),
+  field(['spending', 'currentRentMonthlyIncluded'], 'Rent already inside current spending', 'spending', 'monthlyMoney', 25, 'common', 'Included rent component in your spending schedules. Removed once during owner occupation; restored on sale.'),
+  field(['spending', 'lifestyleCreepRate'], 'Lifestyle creep on real pay rises', 'spending', 'percent', 1, 'common', 'Share of each real salary increase that becomes discretionary spending.'),
+  field(['spending', 'scenarioMonthly', 'low'], 'Low spending case', 'spending', 'monthlyMoney', 25, 'expert'),
+  field(['spending', 'scenarioMonthly', 'base'], 'Base spending case', 'spending', 'monthlyMoney', 25, 'expert'),
+  field(['spending', 'scenarioMonthly', 'high'], 'High spending case', 'spending', 'monthlyMoney', 25, 'expert'),
 
-  field(['assets', 'cash'], 'Cash', 'assets', 'money', 500, ASSET_HELP),
-  field(['assets', 'isa'], 'ISA', 'assets', 'money', 500, ASSET_HELP),
-  field(['assets', 'gia', 'marketValue'], 'GIA market value', 'assets', 'money', 500, ASSET_HELP),
-  field(['assets', 'gia', 'costBasis'], 'GIA cost basis', 'assets', 'money', 500, 'May legitimately exceed market value.'),
-  field(['assets', 'gia', 'carriedLosses'], 'GIA carried losses', 'assets', 'money', 100),
-  field(['assets', 'pension'], 'Workplace pension', 'assets', 'money', 500, ASSET_HELP),
-  field(['assets', 'sipp'], 'SIPP', 'assets', 'money', 500, 'Tracked separately from the workplace pension.'),
-  field(['assets', 'pensionTaxFreeCashUsed'], 'Lifetime lump sum already taken', 'assets', 'money', 500),
+  field(['assets', 'cash'], 'Cash', 'assets', 'money', 500, 'essential', ASSET_HELP),
+  field(['assets', 'isa'], 'ISA', 'assets', 'money', 500, 'essential', ASSET_HELP),
+  field(['assets', 'gia', 'marketValue'], 'GIA market value', 'assets', 'money', 500, 'common', ASSET_HELP),
+  field(['assets', 'gia', 'costBasis'], 'GIA cost basis', 'assets', 'money', 500, 'expert', 'May legitimately exceed market value.'),
+  field(['assets', 'gia', 'carriedLosses'], 'GIA carried losses', 'assets', 'money', 100, 'expert'),
+  field(['assets', 'pension'], 'Workplace pension', 'assets', 'money', 500, 'essential', ASSET_HELP),
+  field(['assets', 'sipp'], 'SIPP', 'assets', 'money', 500, 'common', 'Tracked separately from the workplace pension.'),
+  field(['assets', 'pensionTaxFreeCashUsed'], 'Lifetime lump sum already taken', 'assets', 'money', 500, 'expert'),
 
-  field(['pension', 'employeeRate'], 'Employee contribution', 'pension', 'percent', 0.5),
-  field(['pension', 'employerRate'], 'Employer contribution', 'pension', 'percent', 0.5),
-  field(['pension', 'matchUpToRate'], 'Employer matches up to', 'pension', 'percent', 0.5, 'Match = pensionable pay × min(employee rate, this) × match multiple. Added on top of the employer rate.'),
-  field(['pension', 'matchRate'], 'Match multiple', 'pension', 'multiple', 0.25, '1 means pound for pound.'),
-  field(['pension', 'employerNiSharebackRate'], 'Employer NI shareback', 'pension', 'percent', 1, 'Share of the employer’s NI saving added to the pension under salary sacrifice.'),
-  field(['pension', 'accessAge'], 'Pension access age', 'pension', 'age', 1, 'Nothing in the pension can fund spending before this age.'),
-  field(['pension', 'carryForwardAllowance'], 'Verified carry-forward allowance', 'pension', 'money', 1000, 'Entered explicitly; no historical eligibility is inferred.'),
+  field(['pension', 'employeeRate'], 'Employee contribution', 'pension', 'percent', 0.5, 'essential'),
+  field(['pension', 'employerRate'], 'Employer contribution', 'pension', 'percent', 0.5, 'essential'),
+  field(['pension', 'matchUpToRate'], 'Employer matches up to', 'pension', 'percent', 0.5, 'common', 'Match = pensionable pay × min(employee rate, this) × match multiple. Added on top of the employer rate.'),
+  field(['pension', 'matchRate'], 'Match multiple', 'pension', 'multiple', 0.25, 'common', '1 means pound for pound.'),
+  field(['pension', 'employerNiSharebackRate'], 'Employer NI shareback', 'pension', 'percent', 1, 'expert', 'Share of the employer’s NI saving added to the pension under salary sacrifice.'),
+  field(['pension', 'accessAge'], 'Pension access age', 'pension', 'age', 1, 'common', 'Nothing in the pension can fund spending before this age.'),
+  field(['pension', 'carryForwardAllowance'], 'Verified carry-forward allowance', 'pension', 'money', 1000, 'expert', 'Entered explicitly; no historical eligibility is inferred.'),
 
-  field(['isa', 'allowanceUsed'], 'ISA allowance already used this year', 'wrappers', 'money', 500),
-  field(['gia', 'dividendYield'], 'GIA dividend yield', 'wrappers', 'percent', 0.1, 'Taxed each year and added to the GIA cost basis as accumulated units.'),
-  field(['gia', 'turnoverRate'], 'GIA turnover', 'wrappers', 'percent', 1, 'Share of the holding sold and rebought each year.'),
-  field(['gia', 'gainRealisationRate'], 'Share of turnover gain realised', 'wrappers', 'percent', 1),
+  field(['isa', 'allowanceUsed'], 'ISA allowance already used this year', 'wrappers', 'money', 500, 'expert'),
+  field(['gia', 'dividendYield'], 'GIA dividend yield', 'wrappers', 'percent', 0.1, 'expert', 'Taxed each year and added to the GIA cost basis as accumulated units.'),
+  field(['gia', 'turnoverRate'], 'GIA turnover', 'wrappers', 'percent', 1, 'expert', 'Share of the holding sold and rebought each year.'),
+  field(['gia', 'gainRealisationRate'], 'Share of turnover gain realised', 'wrappers', 'percent', 1, 'expert'),
 
-  field(['liquidity', 'emergencyFundMonths'], 'Emergency reserve (months of essentials)', 'liquidity', 'decimal', 1),
-  field(['liquidity', 'minimumLiquidYears'], 'Minimum liquid years', 'liquidity', 'decimal', 0.5, 'Reported as a coverage check each year; it does not force a reallocation.'),
+  field(['liquidity', 'emergencyFundMonths'], 'Emergency reserve (months of essentials)', 'liquidity', 'decimal', 1, 'common'),
+  field(['liquidity', 'minimumLiquidYears'], 'Minimum liquid years', 'liquidity', 'decimal', 0.5, 'expert', 'Reported as a coverage check each year; it does not force a reallocation.'),
 
-  field(['portfolios', 'isa', 'equities'], 'ISA equities', 'portfolios', 'percent', 1),
-  field(['portfolios', 'isa', 'bonds'], 'ISA bonds', 'portfolios', 'percent', 1),
-  field(['portfolios', 'isa', 'cash'], 'ISA cash', 'portfolios', 'percent', 1),
-  field(['portfolios', 'gia', 'equities'], 'GIA equities', 'portfolios', 'percent', 1),
-  field(['portfolios', 'gia', 'bonds'], 'GIA bonds', 'portfolios', 'percent', 1),
-  field(['portfolios', 'gia', 'cash'], 'GIA cash', 'portfolios', 'percent', 1),
-  field(['portfolios', 'pension', 'equities'], 'Pension equities', 'portfolios', 'percent', 1),
-  field(['portfolios', 'pension', 'bonds'], 'Pension bonds', 'portfolios', 'percent', 1),
-  field(['portfolios', 'pension', 'cash'], 'Pension cash', 'portfolios', 'percent', 1),
+  field(['portfolios', 'isa', 'equities'], 'ISA equities', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'isa', 'bonds'], 'ISA bonds', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'isa', 'cash'], 'ISA cash', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'gia', 'equities'], 'GIA equities', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'gia', 'bonds'], 'GIA bonds', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'gia', 'cash'], 'GIA cash', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'pension', 'equities'], 'Pension equities', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'pension', 'bonds'], 'Pension bonds', 'portfolios', 'percent', 1, 'expert'),
+  field(['portfolios', 'pension', 'cash'], 'Pension cash', 'portfolios', 'percent', 1, 'expert'),
 
-  field(['market', 'equities', 'meanNominal'], 'Equities mean return', 'market', 'percent', 0.1),
-  field(['market', 'equities', 'volatility'], 'Equities volatility', 'market', 'percent', 0.1),
-  field(['market', 'bonds', 'meanNominal'], 'Bonds mean return', 'market', 'percent', 0.1),
-  field(['market', 'bonds', 'volatility'], 'Bonds volatility', 'market', 'percent', 0.1),
-  field(['market', 'cash', 'meanNominal'], 'Cash mean return', 'market', 'percent', 0.1),
-  field(['market', 'cash', 'volatility'], 'Cash volatility', 'market', 'percent', 0.1),
-  field(['market', 'property', 'meanNominal'], 'Property mean return', 'market', 'percent', 0.1, 'Annual value growth while the property is owned.'),
-  field(['market', 'property', 'volatility'], 'Property volatility', 'market', 'percent', 0.1),
-  field(['market', 'inflation', 'mean'], 'Inflation mean', 'market', 'percent', 0.1),
-  field(['market', 'inflation', 'volatility'], 'Inflation volatility', 'market', 'percent', 0.1),
+  field(['market', 'equities', 'meanNominal'], 'Equities mean return', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'equities', 'volatility'], 'Equities volatility', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'bonds', 'meanNominal'], 'Bonds mean return', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'bonds', 'volatility'], 'Bonds volatility', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'cash', 'meanNominal'], 'Cash mean return', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'cash', 'volatility'], 'Cash volatility', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'property', 'meanNominal'], 'Property mean return', 'market', 'percent', 0.1, 'expert', 'Annual value growth while the property is owned.'),
+  field(['market', 'property', 'volatility'], 'Property volatility', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'inflation', 'mean'], 'Inflation mean', 'market', 'percent', 0.1, 'expert'),
+  field(['market', 'inflation', 'volatility'], 'Inflation volatility', 'market', 'percent', 0.1, 'expert'),
 
-  field(['simulation', 'count'], 'Simulation paths', 'simulation', 'integer', 1000, 'The default is 10,000. The count is never reduced to fit a time budget.'),
-  field(['simulation', 'seed'], 'Random seed', 'simulation', 'integer', 1, 'Path streams depend on the seed and path index only, never on scenario decisions.'),
-  field(['simulation', 'referenceWithdrawalRate'], 'Reference withdrawal rate', 'simulation', 'percent', 0.1, 'Used only for the reference FIRE number. It is not the safety result.'),
+  field(['simulation', 'count'], 'Simulation paths', 'simulation', 'integer', 1000, 'expert', 'The default is 10,000. The count is never reduced to fit a time budget.'),
+  field(['simulation', 'seed'], 'Random seed', 'simulation', 'integer', 1, 'expert', 'Path streams depend on the seed and path index only, never on scenario decisions.'),
+  field(['simulation', 'referenceWithdrawalRate'], 'Reference withdrawal rate', 'simulation', 'percent', 0.1, 'expert', 'Used only for the reference FIRE number. It is not the safety result.'),
 ];
 
 export const MARKET_VARIABLES = ['equities', 'bonds', 'cash', 'property', 'inflation'] as const;
@@ -159,61 +174,61 @@ export function arrayFields(profile: Profile): NumberFieldDef[] {
   const defs: NumberFieldDef[] = [];
   if (profile.property) {
     defs.push(
-      field(['property', 'marketValue'], 'Existing property value', 'property', 'money', 1000),
-      field(['property', 'mortgageBalance'], 'Existing mortgage balance', 'property', 'money', 1000),
-      field(['property', 'mortgageAnnualRate'], 'Mortgage annual rate', 'property', 'percent', 0.1),
-      field(['property', 'mortgageTermYears'], 'Remaining mortgage term (years)', 'property', 'integer', 1),
-      field(['property', 'maintenanceAnnual'], 'Annual maintenance', 'property', 'money', 100),
-      field(['property', 'insuranceAnnual'], 'Annual insurance', 'property', 'money', 50),
-      field(['property', 'serviceChargeAnnual'], 'Annual service charge', 'property', 'money', 100),
-      field(['property', 'councilTaxAnnual'], 'Annual council tax paid by owner', 'property', 'money', 100),
-      field(['property', 'rentAnnual'], 'Annual gross rent at full occupancy', 'property', 'money', 500),
-      field(['property', 'occupancyRate'], 'Rental occupancy', 'property', 'percent', 1),
-      field(['property', 'managementRate'], 'Rental management fee', 'property', 'percent', 1),
-      field(['property', 'acquisitionCostBasis'], 'Existing rental acquisition cost basis', 'property', 'money', 1000),
-      field(['property', 'purchaseTaxOverride'], 'Manual purchase tax', 'property', 'money', 100),
+      field(['property', 'marketValue'], 'Existing property value', 'property', 'money', 1000, 'common'),
+      field(['property', 'mortgageBalance'], 'Existing mortgage balance', 'property', 'money', 1000, 'common'),
+      field(['property', 'mortgageAnnualRate'], 'Mortgage annual rate', 'property', 'percent', 0.1, 'common'),
+      field(['property', 'mortgageTermYears'], 'Remaining mortgage term (years)', 'property', 'integer', 1, 'common'),
+      field(['property', 'maintenanceAnnual'], 'Annual maintenance', 'property', 'money', 100, 'expert'),
+      field(['property', 'insuranceAnnual'], 'Annual insurance', 'property', 'money', 50, 'expert'),
+      field(['property', 'serviceChargeAnnual'], 'Annual service charge', 'property', 'money', 100, 'expert'),
+      field(['property', 'councilTaxAnnual'], 'Annual council tax paid by owner', 'property', 'money', 100, 'expert'),
+      field(['property', 'rentAnnual'], 'Annual gross rent at full occupancy', 'property', 'money', 500, 'expert'),
+      field(['property', 'occupancyRate'], 'Rental occupancy', 'property', 'percent', 1, 'expert'),
+      field(['property', 'managementRate'], 'Rental management fee', 'property', 'percent', 1, 'expert'),
+      field(['property', 'acquisitionCostBasis'], 'Existing rental acquisition cost basis', 'property', 'money', 1000, 'expert'),
+      field(['property', 'purchaseTaxOverride'], 'Manual purchase tax', 'property', 'money', 100, 'expert'),
     );
     if (profile.property.purchase) defs.push(
-      field(['property', 'purchase', 'age'], 'Purchase age', 'property', 'age', 1),
-      field(['property', 'purchase', 'price'], 'Purchase price', 'property', 'money', 1000),
-      field(['property', 'purchase', 'deposit'], 'Purchase deposit', 'property', 'money', 1000),
-      field(['property', 'purchase', 'transactionCosts'], 'Legal and other purchase costs (excluding tax)', 'property', 'money', 100),
+      field(['property', 'purchase', 'age'], 'Purchase age', 'property', 'age', 1, 'expert'),
+      field(['property', 'purchase', 'price'], 'Purchase price', 'property', 'money', 1000, 'expert'),
+      field(['property', 'purchase', 'deposit'], 'Purchase deposit', 'property', 'money', 1000, 'expert'),
+      field(['property', 'purchase', 'transactionCosts'], 'Legal and other purchase costs (excluding tax)', 'property', 'money', 100, 'expert'),
     );
     if (profile.property.sale) defs.push(
-      field(['property', 'sale', 'age'], 'Sale age', 'property', 'age', 1),
-      field(['property', 'sale', 'sellingCostRate'], 'Selling costs', 'property', 'percent', 0.1),
+      field(['property', 'sale', 'age'], 'Sale age', 'property', 'age', 1, 'expert'),
+      field(['property', 'sale', 'sellingCostRate'], 'Selling costs', 'property', 'percent', 0.1, 'expert'),
     );
     profile.property.rateChanges.forEach((_, i) => defs.push(
-      field(['property', 'rateChanges', i, 'age'], `Refinance ${i + 1} age`, 'property', 'age', 1),
-      field(['property', 'rateChanges', i, 'annualRate'], `Refinance ${i + 1} rate`, 'property', 'percent', .1),
+      field(['property', 'rateChanges', i, 'age'], `Refinance ${i + 1} age`, 'property', 'age', 1, 'expert'),
+      field(['property', 'rateChanges', i, 'annualRate'], `Refinance ${i + 1} rate`, 'property', 'percent', .1, 'expert'),
     ));
   }
 
   profile.spending.phases.forEach((_, i) => {
     defs.push(
-      field(['spending', 'phases', i, 'startAge'], `Phase ${i + 1} start age`, 'spending', 'age', 1),
-      field(['spending', 'phases', i, 'endAge'], `Phase ${i + 1} end age`, 'spending', 'age', 1),
-      field(['spending', 'phases', i, 'essentialMonthly'], `Phase ${i + 1} essential`, 'spending', 'monthlyMoney', 25),
-      field(['spending', 'phases', i, 'discretionaryMonthly'], `Phase ${i + 1} discretionary`, 'spending', 'monthlyMoney', 25),
+      field(['spending', 'phases', i, 'startAge'], `Phase ${i + 1} start age`, 'spending', 'age', 1, 'expert'),
+      field(['spending', 'phases', i, 'endAge'], `Phase ${i + 1} end age`, 'spending', 'age', 1, 'expert'),
+      field(['spending', 'phases', i, 'essentialMonthly'], `Phase ${i + 1} essential`, 'spending', 'monthlyMoney', 25, 'expert'),
+      field(['spending', 'phases', i, 'discretionaryMonthly'], `Phase ${i + 1} discretionary`, 'spending', 'monthlyMoney', 25, 'expert'),
     );
   });
   profile.liquidity.capitalNeeds.forEach((_, i) => {
     defs.push(
-      field(['liquidity', 'capitalNeeds', i, 'age'], `Capital need ${i + 1} age`, 'liquidity', 'age', 1),
-      field(['liquidity', 'capitalNeeds', i, 'amount'], `Capital need ${i + 1} amount`, 'liquidity', 'money', 500),
+      field(['liquidity', 'capitalNeeds', i, 'age'], `Capital need ${i + 1} age`, 'liquidity', 'age', 1, 'expert'),
+      field(['liquidity', 'capitalNeeds', i, 'amount'], `Capital need ${i + 1} amount`, 'liquidity', 'money', 500, 'expert'),
     );
   });
   if (profile.spending.breakdown) {
     defs.push(
-      field(['spending', 'breakdown', 'sharedMonthly'], 'Shared monthly', 'spending', 'monthlyMoney', 25),
-      field(['spending', 'breakdown', 'perAdultMonthly'], 'Per adult monthly', 'spending', 'monthlyMoney', 25),
-      field(['spending', 'breakdown', 'perChildMonthly'], 'Per child monthly', 'spending', 'monthlyMoney', 25),
+      field(['spending', 'breakdown', 'sharedMonthly'], 'Shared monthly', 'spending', 'monthlyMoney', 25, 'expert'),
+      field(['spending', 'breakdown', 'perAdultMonthly'], 'Per adult monthly', 'spending', 'monthlyMoney', 25, 'expert'),
+      field(['spending', 'breakdown', 'perChildMonthly'], 'Per child monthly', 'spending', 'monthlyMoney', 25, 'expert'),
     );
   }
   for (let row = 0; row < 5; row++) {
     for (let column = row + 1; column < 5; column++) {
       defs.push(field(['market', 'correlation', row, column],
-        `${MARKET_VARIABLES[row]} / ${MARKET_VARIABLES[column]} log-shock correlation`, 'market', 'decimal', 0.05));
+        `${MARKET_VARIABLES[row]} / ${MARKET_VARIABLES[column]} log-shock correlation`, 'market', 'decimal', 0.05, 'expert'));
     }
   }
   return defs.filter(def => {
@@ -230,6 +245,185 @@ export function arrayFields(profile: Profile): NumberFieldDef[] {
 /** Every field applicable to this profile, scalar and array-backed. */
 export function fieldsFor(profile: Profile): NumberFieldDef[] {
   return [...NUMBER_FIELDS, ...arrayFields(profile)];
+}
+
+/**
+ * The non-numeric inputs, described as data alongside the numeric ones.
+ *
+ * `select` and `checkbox` entries own their options here rather than inline in the form, so a tier
+ * covers the whole editable surface. `text` is a free-text or read-only box. `editor` is a bespoke
+ * composite (the correlation matrix, the phase list) whose own numeric fields are registered above
+ * but which the form renders as one unit; registering the unit gives it a tier and a handle for
+ * the "an error is never filtered away" rule.
+ */
+export type ChoiceControl = 'select' | 'checkbox' | 'text' | 'editor';
+
+export interface ChoiceOption { value: string; label: string }
+
+export interface ChoiceFieldDef {
+  /** The dot-joined profile path the control writes, so an issue path can be matched against it. */
+  id: string;
+  label: string;
+  group: FieldGroupId;
+  control: ChoiceControl;
+  tier: FieldTier;
+  options?: readonly ChoiceOption[];
+  help?: string;
+}
+
+const choice = (
+  id: string, label: string, group: FieldGroupId, control: ChoiceControl, tier: FieldTier,
+  extra: { options?: readonly ChoiceOption[]; help?: string } = {},
+): ChoiceFieldDef => ({ id, label, group, control, tier, ...extra });
+
+/** Controls that exist on every profile. Property controls are added by `choiceFieldsFor`. */
+export const CHOICE_FIELDS: readonly ChoiceFieldDef[] = [
+  choice('personal.taxRegion', 'Tax region', 'personal', 'select', 'essential', {
+    options: [{ value: 'scotland', label: 'Scotland' }, { value: 'rest_of_uk', label: 'Rest of UK' }],
+  }),
+  choice('personal.taxYear', 'Tax year', 'personal', 'text', 'expert', {
+    help: 'The only configured year. An unsupported year fails rather than silently falling back.',
+  }),
+
+  choice('pension.method', 'Contribution method', 'pension', 'select', 'common', {
+    options: [
+      { value: 'salary_sacrifice', label: 'Salary sacrifice' },
+      { value: 'net_pay', label: 'Net pay' },
+      { value: 'relief_at_source', label: 'Relief at source' },
+    ],
+  }),
+  choice('pension.salarySacrificeAvailable', 'Salary sacrifice available', 'pension', 'checkbox', 'common'),
+  choice('pension.sacrificeAddedBackForTaper', 'Sacrifice added back for the allowance taper', 'pension', 'checkbox', 'expert', {
+    help: 'Post-8 July 2015 sacrifice is added back to threshold income.',
+  }),
+  choice('pension.moneyPurchaseAnnualAllowanceTriggered', 'Money purchase annual allowance triggered', 'pension', 'checkbox', 'expert'),
+
+  choice('spending.breakdown', 'Break the current total down by household member', 'spending', 'checkbox', 'expert', {
+    help: 'Optional. The household totals stay authoritative; the breakdown must reconcile to them.',
+  }),
+  choice('spending.phases', 'Spending phases', 'spending', 'editor', 'expert'),
+
+  choice('liquidity.capitalNeeds', 'Known capital needs', 'liquidity', 'editor', 'expert'),
+
+  choice('market.assumptionVersion', 'Assumption version', 'market', 'text', 'expert', {
+    help: 'Recorded in the reproducibility metadata of every run.',
+  }),
+  choice('market.correlation', 'Correlation of Gaussian log-growth shocks', 'market', 'editor', 'expert'),
+
+  choice('simulation.withdrawalOrder', 'Withdrawal order', 'simulation', 'editor', 'expert'),
+];
+
+/** Property controls only exist once a property does, mirroring `arrayFields`. */
+export function choiceFieldsFor(profile: Profile): ChoiceFieldDef[] {
+  const defs = [...CHOICE_FIELDS,
+    choice('property', 'Include a property', 'property', 'checkbox', 'common')];
+  if (!profile.property) return defs;
+  defs.push(
+    choice('property.use', 'Property use', 'property', 'select', 'common', {
+      options: [{ value: 'owner_occupied', label: 'Owner occupied' }, { value: 'rental', label: 'Rental' }],
+    }),
+    choice('property.mortgageType', 'Mortgage type', 'property', 'select', 'common', {
+      options: [
+        { value: 'repayment', label: 'Repayment' },
+        { value: 'interest_only', label: 'Interest only (balloon at term)' },
+      ],
+    }),
+    choice('property.taxLocation', 'Property tax location', 'property', 'select', 'expert', {
+      options: [
+        { value: 'scotland', label: 'Scotland (LBTT)' },
+        { value: 'england_ni', label: 'England / Northern Ireland (SDLT)' },
+        { value: 'manual', label: 'Wales / special case: enter tax manually' },
+      ],
+    }),
+    choice('property.buyerStatus', 'Buyer status', 'property', 'select', 'expert', {
+      options: [
+        { value: 'standard', label: 'Standard / replacement main home' },
+        { value: 'first_time', label: 'Eligible first-time owner occupier' },
+        { value: 'additional', label: 'Additional dwelling' },
+      ],
+    }),
+    choice('property.purchase', 'Plan a purchase (otherwise already owned)', 'property', 'checkbox', 'expert'),
+    choice('property.sale', 'Schedule a sale to release equity', 'property', 'checkbox', 'expert'),
+    choice('property.rateChanges', 'Refinance rates', 'property', 'editor', 'expert'),
+  );
+  return defs;
+}
+
+/** Numeric fields owned by a composite editor rather than laid out in the plain field grid. */
+const EDITOR_OWNED = new Set(['correlation', 'phases', 'capitalNeeds', 'breakdown', 'rateChanges']);
+
+export const isGridField = (def: NumberFieldDef): boolean =>
+  !def.path.some(part => typeof part === 'string' && EDITOR_OWNED.has(part));
+
+const TIER_DEPTH: Record<FieldTier, number> = { essential: 0, common: 1, expert: 2 };
+const MODE_DEPTH: Record<TierMode, number> = { essential: 0, common: 1, all: 2 };
+
+export const tierInMode = (tier: FieldTier, mode: TierMode): boolean => TIER_DEPTH[tier] <= MODE_DEPTH[mode];
+
+export const TIER_MODES: readonly { mode: TierMode; label: string }[] = [
+  { mode: 'essential', label: 'Essential only' },
+  { mode: 'common', label: 'Essential + common' },
+  { mode: 'all', label: 'Everything' },
+];
+
+export const DEFAULT_TIER_MODE: TierMode = 'common';
+
+/**
+ * Registry ids an issue belongs to.
+ *
+ * An issue at `market.correlation.0.1` belongs both to that cell and to the matrix that owns it, so
+ * matching on "the id, or the id followed by a dot" reaches the composite editor as well as the
+ * individual field. This is what makes validation unfilterable: a forced id is shown whatever the
+ * tier says.
+ */
+export function forcedFieldIds(issues: readonly FieldIssue[], ids: Iterable<string>): Set<string> {
+  const forced = new Set<string>();
+  for (const candidate of ids) {
+    if (issues.some(issue => issue.path === candidate || issue.path.startsWith(`${candidate}.`))) {
+      forced.add(candidate);
+    }
+  }
+  return forced;
+}
+
+export interface Visibility {
+  mode: TierMode;
+  /** True when this registry entry must be rendered. */
+  shows: (fieldId: string) => boolean;
+  /** True when the group has anything to render, including a cross-field issue of its own. */
+  showsGroup: (group: FieldGroupId) => boolean;
+  /** Entries shown because of an issue rather than because of the tier. */
+  forced: ReadonlySet<string>;
+  /** Visible inputs: numeric grid fields plus selects, checkboxes and text boxes. */
+  inputCount: number;
+}
+
+/**
+ * Which registry entries a given depth shows. Display only: it reads the profile's validation
+ * issues and the tiers, and never touches the profile, the drafts or the run key.
+ */
+export function fieldVisibility(
+  mode: TierMode,
+  numbers: readonly NumberFieldDef[],
+  choices: readonly ChoiceFieldDef[],
+  issues: readonly FieldIssue[] = [],
+): Visibility {
+  const entries = [
+    ...numbers.map(def => ({ id: def.id, group: def.group, tier: def.tier, counts: isGridField(def) })),
+    ...choices.map(def => ({ id: def.id, group: def.group, tier: def.tier, counts: def.control !== 'editor' })),
+  ];
+  const forced = forcedFieldIds(issues, entries.map(entry => entry.id));
+  const shown = entries.filter(entry => forced.has(entry.id) || tierInMode(entry.tier, mode));
+  const shownIds = new Set(shown.map(entry => entry.id));
+  const groups = new Set<FieldGroupId>(shown.map(entry => entry.group));
+  for (const issue of issues) if (issue.group !== null) groups.add(issue.group);
+  return {
+    mode,
+    shows: (fieldId: string) => shownIds.has(fieldId),
+    showsGroup: (group: FieldGroupId) => groups.has(group),
+    forced,
+    inputCount: shown.filter(entry => entry.counts).length,
+  };
 }
 
 export function readPath(root: unknown, path: readonly (string | number)[]): unknown {

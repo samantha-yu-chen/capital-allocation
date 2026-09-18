@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { createExampleProfile } from '../src/domain/fixtures.js';
 import { defaultLedgerOptions } from '../src/engine/index.js';
 import {
-  NUMBER_FIELDS, applyDrafts, displayValue, fieldValue, fieldsFor, fromDisplay,
-  pruneDrafts, toDisplay, validateCandidate, validateDrafts, readPath, writePath,
+  CHOICE_FIELDS, DEFAULT_TIER_MODE, NUMBER_FIELDS, TIER_MODES, applyDrafts, choiceFieldsFor, displayValue,
+  fieldValue, fieldVisibility, fieldsFor, forcedFieldIds, fromDisplay, isGridField,
+  pruneDrafts, tierInMode, toDisplay, validateCandidate, validateDrafts, readPath, writePath,
+  type FieldTier, type TierMode,
 } from '../src/presentation/view/fields.js';
 import { runKey, stableStringify } from '../src/presentation/view/run-key.js';
 import { TABS, isTabId, tabById } from '../src/presentation/view/tabs.js';
@@ -27,6 +29,160 @@ test('every registered field addresses a real number on the example profile', ()
   // The registry must not have drifted away from the schema's editable surface.
   assert.ok(NUMBER_FIELDS.length > 60);
   assert.equal(new Set(defs.map(def => def.id)).size, defs.length, 'duplicate field id');
+});
+
+/**
+ * The recorded essential set (UX-1). Changing it is a product decision, not an implementation
+ * detail, so it is spelled out here rather than derived from the registry.
+ */
+const ESSENTIAL_IDS = [
+  'personal.currentAge',
+  'personal.targetFireAge',
+  'personal.taxRegion',
+  'income.salaryAnnual',
+  'spending.current.essentialMonthly',
+  'spending.current.discretionaryMonthly',
+  'spending.retirement.essentialMonthly',
+  'spending.retirement.discretionaryMonthly',
+  'assets.cash',
+  'assets.isa',
+  'assets.pension',
+  'pension.employeeRate',
+  'pension.employerRate',
+];
+
+/** The groups the Overview profile form renders; property has its own screen. */
+const OVERVIEW_GROUPS = new Set([
+  'personal', 'income', 'household', 'spending', 'assets', 'pension',
+  'wrappers', 'liquidity', 'portfolios', 'market', 'simulation',
+]);
+
+const withProperty = validateCandidate(writePath(example, ['property'], {
+  use: 'owner_occupied', mortgageType: 'repayment', marketValue: 450_000, mortgageBalance: 220_000,
+  mortgageAnnualRate: 0.045, mortgageTermYears: 18, maintenanceAnnual: 2_000, insuranceAnnual: 400,
+  serviceChargeAnnual: 0, councilTaxAnnual: 2_100, rentAnnual: 0, occupancyRate: 0, managementRate: 0,
+  purchase: null, sale: null, rateChanges: [],
+}), []);
+
+test('every registry entry carries a tier, and the essential set is exactly the recorded list', () => {
+  const tiers: readonly FieldTier[] = ['essential', 'common', 'expert'];
+  // Completeness: no entry, numeric or otherwise, may reach the form untiered.
+  for (const def of defs) {
+    assert.ok(tiers.includes(def.tier), `${def.id} has no valid tier`);
+  }
+  for (const def of choiceFieldsFor(example)) {
+    assert.ok(tiers.includes(def.tier), `${def.id} has no valid tier`);
+  }
+  assert.ok(withProperty.ok, 'the property fixture must parse');
+  for (const def of [...fieldsFor(withProperty.profile), ...choiceFieldsFor(withProperty.profile)]) {
+    assert.ok(tiers.includes(def.tier), `${def.id} has no valid tier`);
+  }
+  assert.ok(CHOICE_FIELDS.length > 0);
+
+  const essential = [...defs, ...choiceFieldsFor(example)]
+    .filter(def => def.tier === 'essential').map(def => def.id).sort();
+  assert.deepEqual(essential, [...ESSENTIAL_IDS].sort());
+});
+
+test('the default filter keeps the profile form to a readable number of inputs', () => {
+  const numbers = defs.filter(def => OVERVIEW_GROUPS.has(def.group));
+  const choices = choiceFieldsFor(example).filter(def => OVERVIEW_GROUPS.has(def.group));
+  assert.equal(DEFAULT_TIER_MODE, 'common');
+
+  const shown = fieldVisibility(DEFAULT_TIER_MODE, numbers, choices);
+  assert.ok(shown.inputCount <= 40, `default view renders ${shown.inputCount} inputs`);
+  // It must still be a usable form, not a stub.
+  assert.ok(shown.inputCount >= 25, `default view renders only ${shown.inputCount} inputs`);
+
+  const minimal = fieldVisibility('essential', numbers, choices);
+  assert.equal(minimal.inputCount, ESSENTIAL_IDS.length);
+
+  const everything = fieldVisibility('all', numbers, choices);
+  const total = numbers.filter(isGridField).length + choices.filter(def => def.control !== 'editor').length;
+  assert.equal(everything.inputCount, total, 'Everything must hide nothing');
+  assert.ok(everything.inputCount > 60, 'the full surface is the one the audit found');
+
+  // Groups whose fields are all filtered out disappear; ones with a visible field stay.
+  assert.equal(shown.showsGroup('market'), false);
+  assert.equal(shown.showsGroup('portfolios'), false);
+  assert.equal(shown.showsGroup('wrappers'), false);
+  assert.equal(shown.showsGroup('simulation'), false);
+  assert.equal(shown.showsGroup('personal'), true);
+  assert.equal(shown.showsGroup('assets'), true);
+  assert.equal(everything.showsGroup('market'), true);
+  assert.equal(minimal.showsGroup('income'), true);
+  assert.equal(minimal.showsGroup('liquidity'), false);
+});
+
+test('tier depth is cumulative, so a filter only ever adds to the one below it', () => {
+  assert.equal(tierInMode('essential', 'essential'), true);
+  assert.equal(tierInMode('common', 'essential'), false);
+  assert.equal(tierInMode('common', 'common'), true);
+  assert.equal(tierInMode('expert', 'common'), false);
+  assert.equal(tierInMode('expert', 'all'), true);
+  assert.deepEqual(TIER_MODES.map(option => option.mode), ['essential', 'common', 'all']);
+
+  const choices = choiceFieldsFor(example);
+  const ids = (mode: TierMode) => {
+    const visibility = fieldVisibility(mode, defs, choices);
+    return new Set([...defs, ...choices].map(def => def.id).filter(id => visibility.shows(id)));
+  };
+  const essential = ids('essential');
+  const common = ids('common');
+  const all = ids('all');
+  for (const id of essential) assert.ok(common.has(id), `${id} vanished when the filter widened`);
+  for (const id of common) assert.ok(all.has(id), `${id} vanished at Everything`);
+  assert.equal(all.size, defs.length + choices.length);
+});
+
+test('filtering is display only: the profile, the validation and the run key never move', () => {
+  const options = defaultLedgerOptions();
+  const drafts = { 'income.salaryAnnual': '61000' };
+  const before = JSON.stringify(example);
+  const baselineKey = runKey(example, options);
+  const baselineIssues = JSON.stringify(validateDrafts(example, drafts).issues);
+
+  for (const option of TIER_MODES) {
+    const visibility = fieldVisibility(option.mode, defs, choiceFieldsFor(example),
+      validateDrafts(example, drafts).issues);
+    assert.ok(visibility.inputCount >= 0);
+    assert.equal(JSON.stringify(example), before, `${option.mode} mutated the profile`);
+    assert.equal(runKey(example, options), baselineKey, `${option.mode} moved the run key`);
+    assert.equal(JSON.stringify(validateDrafts(example, drafts).issues), baselineIssues,
+      `${option.mode} changed the validation state`);
+    // A hidden field still holds its stored value, and the engine still receives it.
+    assert.equal(fieldValue(example, defFor('market.equities.meanNominal')), 0.07);
+  }
+
+  // The same edit produces the same key whichever filter was on screen when it was made.
+  const edited = writePath(example, ['income', 'salaryAnnual'], 61_000);
+  assert.equal(runKey(edited, options), runKey(writePath(createExampleProfile(), ['income', 'salaryAnnual'], 61_000), options));
+  assert.notEqual(runKey(edited, options), baselineKey);
+});
+
+test('a validation issue is never filtered away, however deep the field is', () => {
+  // Correlation asymmetry is reported against the matrix, whose fields are all expert.
+  const asymmetric = writePath(example, ['market', 'correlation', 0, 1], 0.9);
+  const state = validateCandidate(asymmetric, defs);
+  assert.equal(state.ok, false);
+  const visibility = fieldVisibility('essential', defs, choiceFieldsFor(example), state.issues);
+  assert.ok(visibility.shows('market.correlation'), 'the matrix must surface in Essential only');
+  assert.ok(visibility.showsGroup('market'), 'its group must surface with it');
+  // Nothing else expert came along for the ride.
+  assert.equal(visibility.shows('simulation.seed'), false);
+  assert.equal(visibility.shows('market.equities.volatility'), false);
+
+  // A cell-level issue forces both the cell and the editor that owns it.
+  const cellIssues = [{ fieldId: 'market.correlation.0.1', group: 'market' as const, path: 'market.correlation.0.1', message: 'x' }];
+  const forced = forcedFieldIds(cellIssues, ['market.correlation', 'market.correlation.0.1', 'market.correlation.0.2']);
+  assert.deepEqual([...forced].sort(), ['market.correlation', 'market.correlation.0.1']);
+
+  // An expert numeric field with its own issue surfaces in Essential only too.
+  const badSeed = validateDrafts(example, { 'simulation.seed': '-1' });
+  assert.equal(badSeed.ok, false);
+  const seedVisible = fieldVisibility('essential', defs, choiceFieldsFor(example), badSeed.issues);
+  assert.ok(seedVisible.shows('simulation.seed'));
+  assert.ok(seedVisible.showsGroup('simulation'));
 });
 
 test('percent fields round-trip without binary noise', () => {

@@ -344,7 +344,20 @@ A.1.4/A.1.5).
    never more decimal places than the sampling error supports).
 4. `npm run check` green; Chrome desktop + mobile; handoff written.
 
-### UX-6 (M) — Reverse mode, question-first: "What do I need to change to hit my goal?"
+### UX-6 (M) — Reverse mode, question-first: "What do I need to change to hit my goal?" — **delivered**
+
+Delivered. The Reverse Solver now opens on the spoken question “To hit my goal, what would my …
+need to be?”, with the six existing searches as its answers in a real radio group (`gross salary`,
+`annual savings`, `FIRE age`, `retirement spending`, `extra starting capital`, `pension
+contribution`). Nothing under `src/engine/` changed: the request, bounds, seed, path count and
+evaluation budget are the same objects, and each mode's precise definition stays on screen beneath
+the plain one. `solverAnswer` turns every outcome into one sentence that keeps its honesty — the
+reference profile reports “You would need a gross salary of about £87,600 (we confirmed £87,600
+clears your 90% target and that £87,500 does not).” at the full 10,000 paths. A completed Overview
+probability below the target now offers “What would it take to reach 90%?”, which selects the salary
+question and starts nothing. 287 tests pass; both worker smoke variants, the chunk-6 regression
+harness and a new UX-6 harness pass at the configured count on desktop and mobile. Details and the
+UX-7 inheritance note are in `docs/handoffs/ux-6.md`.
 
 **Problem.** The Reverse Solver already answers "what salary do I need" (§33/§61, confirmed to
 £100), but the screen is engine-shaped (finding A.1.5).

@@ -23,6 +23,14 @@ import { CurveScreen } from './screen-curve.js';
 import { SolverScreen } from './screen-solver.js';
 import { ScenariosScreen } from './screen-scenarios.js';
 import { GlossaryBar } from './glossary-ui.js';
+import { WizardScreen } from './screen-wizard.js';
+
+const WIZARD_DISMISSED_KEY = 'capital-allocation:start-here-dismissed:v1';
+
+const initiallyShowWizard = (): boolean => {
+  try { return typeof localStorage === 'undefined' || localStorage.getItem(WIZARD_DISMISSED_KEY) !== 'true'; }
+  catch { return true; }
+};
 
 const defaultConcurrency = (): number =>
   Math.min(4, Math.max(1, typeof navigator === 'undefined' ? 1 : navigator.hardwareConcurrency || 1));
@@ -68,6 +76,7 @@ function Navigation(props: { active: TabId; onSelect: (tab: TabId) => void }): R
 
 export function App(): ReactNode {
   const [active, setActive] = useState<TabId>('overview');
+  const [wizardOpen, setWizardOpen] = useState(initiallyShowWizard);
   const store = useProfileStore();
   const [settings, setSettings] = useState<RunSettings>({
     retirementLevel: 'target',
@@ -99,6 +108,13 @@ export function App(): ReactNode {
   const tab = tabById(active);
   const shown = store.editable;
   const probability = runner.state.status === 'done' ? runner.state.result.successProbability : null;
+  const selectTab = (id: TabId) => { setActive(id); setWizardOpen(false); };
+  const dismissWizard = () => {
+    try { localStorage.setItem(WIZARD_DISMISSED_KEY, 'true'); } catch { /* storage is optional */ }
+    setWizardOpen(false);
+    setActive('overview');
+  };
+  const openFire = () => { setWizardOpen(false); setActive('fire'); };
 
   return (
     <div className="shell">
@@ -108,7 +124,11 @@ export function App(): ReactNode {
           <h1 className="brand-title">Freedom Capital</h1>
           <div className="text-muted brand-sub">Lifetime allocation &amp; FIRE model</div>
         </div>
-        <Navigation active={active} onSelect={setActive} />
+        <button type="button" className="start-here-button" aria-current={wizardOpen ? 'page' : undefined}
+          onClick={() => setWizardOpen(true)}>
+          <span>Start here</span><small>Build your first result</small>
+        </button>
+        <Navigation active={active} onSelect={selectTab} />
         <p className="sidebar-note">
           Illustrative decision-support model, not regulated financial advice. It uses the configured UK/Scotland
           tax rules for {shown.personal.taxYear} and a parametric Monte Carlo market model. Sampled results are
@@ -125,8 +145,8 @@ export function App(): ReactNode {
       <main className="main" id="main">
         <div className="page-header">
           <div>
-            <h2>{tab.label}</h2>
-            <p className="text-muted">{tab.summary}</p>
+            <h2>{wizardOpen ? 'Start here' : tab.label}</h2>
+            <p className="text-muted">{wizardOpen ? 'A guided path from the figures you know to your first personal result.' : tab.summary}</p>
           </div>
           <div className="tag-row">
             <span className="tag tag-neutral">Age {shown.personal.currentAge}</span>
@@ -143,9 +163,12 @@ export function App(): ReactNode {
         </div>
 
         {/* One place, so no destination can quietly go without an explanation of its own words. */}
-        <GlossaryBar tab={active} />
+        {wizardOpen ? null : <GlossaryBar tab={active} />}
 
-        <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>
+        {wizardOpen ? (
+          <WizardScreen store={store} options={ledgerOptions} state={runner.state} onRun={onRun}
+            onCancel={runner.cancel} onDismiss={dismissWizard} onOpenFire={openFire} />
+        ) : <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>
           {active === 'attribution' ? <AttributionScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'marginal' ? <MarginalScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'property' ? <PropertyScreen store={store} ledgerOptions={ledgerOptions} /> : null}
@@ -168,7 +191,7 @@ export function App(): ReactNode {
             />
           ) : null}
           {tab.status === 'planned' ? <PlannedScreen tab={tab} /> : null}
-        </div>
+        </div>}
       </main>
     </div>
   );

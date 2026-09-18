@@ -256,7 +256,20 @@ pass in Chrome. Details, deviations and the UX-4 inheritance note are in `docs/h
 5. `npm run check` green; desktop + mobile Chrome verification (popovers must be usable at 400px
    width); handoff written.
 
-### UX-4 (L) — "Start here" wizard producing a first personal result
+### UX-4 (L) — "Start here" wizard producing a first personal result — **delivered**
+
+Delivered. A persistent sidebar entry opens a five-step route over the existing field registry and
+profile store; it is an entry point beside, rather than a ninth member of, the eight-tab analysis
+navigation. The wizard covers every essential field plus the three `common` fields explicitly named
+by the ticket (bonus, included rent and GIA), retains starter defaults for everything else, blocks a
+step with UX-3's plain issue, and keeps UX-2 provenance visible on every edited control. Step 5 reads
+the existing deterministic Overview model and labels its £565,714 reference FIRE number and
+£755,017 projected FIRE-age wealth as single-path arithmetic. Its explicit 10,000-path button drives
+the same App-level runner and run key as FIRE & Monte Carlo, including progress, cancellation and
+stale-result invalidation. Chrome reproduced 68.98% on both surfaces, kept drawing with a 16.8 ms
+maximum frame gap, passed both worker smoke variants, and had zero overflow at 390px. Dismissal is
+stored in `localStorage`; the sidebar entry always reopens it. Details and the UX-5 inheritance note
+are in `docs/handoffs/ux-4.md`.
 
 **Problem.** No guided path from empty-headed arrival to "my own number" (finding A.1.4).
 

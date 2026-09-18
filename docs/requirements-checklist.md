@@ -42,6 +42,17 @@ popover at 390px. It also records one correction outside the ticket: a household
 set on the FIRE screen used to rewrite the Overview cash-flow card silently, and now says so.
 `handoffs/ux-3.md` records the details.
 
+**UX-4 added the guided path to a first personal result.** `Start here` is a persistent entry point
+beside the unchanged eight-tab analysis navigation. Its five steps render the existing registry
+controls against the shared profile store, so plain help, provenance, schema validation and run-key
+invalidation are the same mechanisms used everywhere else. Step 5 reads the deterministic Overview
+model for its clearly qualified reference figures and launches the App's one Monte Carlo runner only
+after an explicit click. `tests/presentation-wizard.test.ts` checks tier coverage, schema validity,
+plain issue ownership and exact run-key reuse; `tests/browser-wizard-ui.mjs` carries the Chrome
+evidence for invalid-step blocking, 10,000-path progress/cancellation, identical 68.98% results on
+the wizard and FIRE tab, stale invalidation, persistent dismissal, both worker smoke variants and a
+390px layout with all eight tabs still reachable. `handoffs/ux-4.md` records the details.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

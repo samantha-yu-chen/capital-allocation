@@ -73,6 +73,8 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 950, devi
 const results = {};
 
 await nav('/');
+await ev('document.getElementById("tab-overview").click()');
+await settle();
 await wait('!!document.getElementById("personal.currentAge")');
 
 // 1. A jargon label is replaced, and the plain sentence comes before the modelling convention.

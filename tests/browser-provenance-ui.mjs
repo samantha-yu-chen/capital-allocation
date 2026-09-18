@@ -70,6 +70,8 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 950, devi
 const results = {};
 
 await nav('/');
+await ev('document.getElementById("tab-overview").click()');
+await settle();
 await wait('!!document.getElementById("personal.currentAge")');
 await ev(`document.querySelectorAll('details.group').forEach(e=>e.open=true)`);
 await settle();

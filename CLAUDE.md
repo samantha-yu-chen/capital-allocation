@@ -15,8 +15,9 @@ interface, a prototype output or a placeholder is not delivered functionality.
 
 Node 24. `npm run check` (strict typecheck → full test suite → production build) is the gate and
 must be green before you commit work you intend to merge. `npm run dev -- --port 5176 --strictPort`
-serves the app and the worker smoke page at `/tests/browser-worker-smoke.html`. Node may not be on
-`PATH`; a local install has been used at `/tmp/node-v24.21.0-darwin-arm64/bin`.
+serves the app and the worker smoke page at `/tests/browser-worker-smoke.html`. Node 24 is the
+keg-only Homebrew formula at `/opt/homebrew/opt/node@24/bin`; prepend it to `PATH` in a shell that
+sources neither `~/.zprofile` nor `~/.zshrc`. A fresh worktree needs its own `npm ci`.
 
 ## The short list of things that silently invalidate results
 

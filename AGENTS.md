@@ -110,9 +110,14 @@ If work is interrupted, leave an accurate checkpoint. Never mark incomplete work
 
 ## Local environment notes
 
-Node may not be on `PATH` in a fresh shell on the development machine. A local install has been used
-at `/tmp/node-v24.21.0-darwin-arm64/bin` — prepend it to `PATH` if it is still present, otherwise
-install Node 24 normally.
+Node 24 is installed with Homebrew at `/opt/homebrew/opt/node@24/bin`. The formula is keg-only, so
+Homebrew does not link it into `/opt/homebrew/bin`; `~/.zprofile` and `~/.zshrc` prepend it to
+`PATH`, and a non-interactive shell that sources neither needs it prepended explicitly.
+
+A previous unpacked install at `/tmp/node-v24.21.0-darwin-arm64/bin` was used until UX-1 and should
+not be: `/tmp` is not durable on macOS, and that install lost `npm` while leaving `node` working,
+which fails in a confusing way. A fresh worktree needs its own `npm ci`; `node_modules` is not
+shared between worktrees.
 
 Browser verification uses an isolated headless Chrome, so it cannot disturb a browser the human is
 using:

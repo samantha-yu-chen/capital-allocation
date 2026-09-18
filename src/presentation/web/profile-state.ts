@@ -80,7 +80,19 @@ export function useProfileStore(): ProfileStore {
     setDrafts(previous => pruneDrafts(next, previous));
   }, [editable]);
 
-  const provenance = useMemo(() => fieldProvenance(editable, starter), [editable, starter]);
+  /**
+   * Provenance describes what is in the boxes, not what last passed validation.
+   *
+   * So it reads the drafted candidate rather than `editable`: while any field is mid-edit and the
+   * profile as a whole is invalid, the other fields must still say whose values they hold, and a
+   * box holding an unparseable draft is certainly not holding the default any more. The candidate
+   * has the shape of `base` with the drafts written into it, so the registry still resolves.
+   */
+  const drafted = useMemo(
+    () => applyDrafts(base, drafts, defs) as Profile,
+    [base, drafts, defs],
+  );
+  const provenance = useMemo(() => fieldProvenance(drafted, starter), [drafted, starter]);
 
   /**
    * A reset is an ordinary edit. It writes the starter's value into the profile and drops only the

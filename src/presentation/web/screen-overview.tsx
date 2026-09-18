@@ -295,6 +295,7 @@ export function OverviewScreen(props: { store: ProfileStore; ledgerOptions: Ledg
             store={store}
             groups={['personal', 'income', 'household', 'spending', 'assets', 'pension', 'wrappers', 'liquidity', 'portfolios', 'market', 'simulation']}
             openByDefault={['personal', 'income', 'spending', 'assets']}
+            filterable
           />
           <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={store.reset}>
             Reset to the specification’s example profile

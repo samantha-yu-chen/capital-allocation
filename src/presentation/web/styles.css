@@ -391,3 +391,30 @@ details.group[open] > summary::before { content: '▾ '; }
   .two-numbers-parts { grid-template-columns: minmax(0, 1fr); }
   .two-numbers-parts dd { grid-row: auto; margin-bottom: var(--space-2); }
 }
+
+/* UX-9: starter situations. A card is a whole situation, so the caveat sits with the figures and
+   cannot be scrolled away from them; the grid collapses to one column before a card gets narrow
+   enough to wrap a fact label. */
+.starter-grid {
+  list-style: none; margin: var(--space-3) 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: var(--space-3);
+}
+.starter-card {
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 0;
+  padding: var(--space-3); background: var(--color-surface);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.starter-card.is-chosen { border-color: var(--color-accent-2-500); background: color-mix(in srgb, var(--color-accent-2-100) 72%, transparent); }
+.starter-card h4 { margin: 0; font-family: var(--font-heading); font-size: 15px; line-height: 1.25; }
+.starter-who { margin: 0; font-size: 13px; line-height: 1.55; }
+.starter-caveat {
+  margin: 0; font-size: 12px; line-height: 1.5; font-style: italic;
+  color: color-mix(in srgb, var(--color-text) 68%, transparent);
+}
+.starter-facts { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--space-2); }
+.starter-facts > div { display: contents; }
+.starter-facts dt { font-size: 12px; color: color-mix(in srgb, var(--color-text) 65%, transparent); }
+.starter-facts dd { margin: 0; font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.starter-reasoning { margin: var(--space-2) 0 0; padding-left: 1.1em; }
+.starter-reasoning li { font-size: 12px; line-height: 1.55; margin-bottom: 4px; }
+.starter-card > button { margin-top: auto; align-self: flex-start; }

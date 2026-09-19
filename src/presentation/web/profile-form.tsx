@@ -528,6 +528,8 @@ export function ProfileChoiceFields(props: { store: ProfileStore; ids: readonly 
 /** The depth chooser. Local to the form: it is a view preference, not part of the profile. */
 function TierFilter(props: {
   mode: TierMode; onChange: (mode: TierMode) => void; visibility: Visibility; summary: string;
+  /** Which starter situation "default" currently means. UX-9 made that a choice, so it is named. */
+  starterNote: string;
 }): ReactNode {
   return (
     <div className="card elev-sm stack-tight">
@@ -556,7 +558,7 @@ function TierFilter(props: {
       </p>
       <p className="field-help" style={{ margin: 0 }}>
         {props.summary} A value you changed is marked <span className="tag tag-outline">edited</span> and can
-        be put back on its own, or a whole section at a time.
+        be put back on its own, or a whole section at a time. {props.starterNote}
       </p>
     </div>
   );
@@ -596,7 +598,8 @@ export function ProfileForm(props: {
   return (
     <>
       {props.filterable
-        ? <TierFilter mode={mode} onChange={setMode} visibility={visibility} summary={provenanceSummary(store.provenance)} />
+        ? <TierFilter mode={mode} onChange={setMode} visibility={visibility}
+            summary={provenanceSummary(store.provenance)} starterNote={store.starterNote} />
         : null}
       {props.groups.map(groupId => {
         const group = FIELD_GROUPS.find(item => item.id === groupId);

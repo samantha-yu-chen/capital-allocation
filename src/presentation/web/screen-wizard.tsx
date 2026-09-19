@@ -7,6 +7,7 @@ import { twoNumbersStoryFor } from '../view/two-numbers.js';
 import { Banner, Card, Progress, Stat } from './components.js';
 import { TwoNumbers } from './two-numbers.js';
 import { ProfileChoiceFields, ProfileFields } from './profile-form.js';
+import { StarterPicker } from './starter-picker.js';
 import type { ProfileStore } from './profile-state.js';
 import type { RunState } from './use-monte-carlo.js';
 
@@ -131,7 +132,7 @@ export function WizardScreen(props: {
         <div>
           <p className="wizard-overline">A first personal result in five steps</p>
           <h2 id="wizard-title">Build the outline of your plan</h2>
-          <p>Use the figures you know. Everything else keeps the visible starter default and remains editable in Overview.</p>
+          <p>Pick a starting situation if one looks like yours, then use the figures you know. Everything else keeps the visible starter default and remains editable in Overview.</p>
         </div>
         <button type="button" className="link-button" onClick={props.onDismiss}>Dismiss start here</button>
       </div>
@@ -149,6 +150,8 @@ export function WizardScreen(props: {
             </Banner>
           ) : null}
           {step.id === 'about' ? <>
+            <StarterPicker chosenId={props.store.starterId} onChoose={props.store.chooseStarter} />
+            <p className="wizard-note">{props.store.starterNote}</p>
             <ProfileFields store={props.store} ids={step.fieldIds.filter(id => id !== 'personal.taxRegion')} />
             <ProfileChoiceFields store={props.store} ids={['personal.taxRegion']} />
           </> : null}

@@ -129,6 +129,37 @@ annual line following the value, a completed 10,000-path FIRE run still at 68.98
 layout with zero overflow and all eight tabs), plus all thirteen existing browser harnesses re-run green.
 `handoffs/ux-8.md` records the measured evidence.
 
+**UX-9 gave a blank-slate reader somewhere plausible to start, and made “default” mean the place
+they started from.** `src/domain/starter-situations.ts` holds six labelled whole situations — the
+specification's worked example, a late-20s renter, a higher earner inside the personal-allowance
+withdrawal band, a contractor with no employer contribution, a family part-way through a mortgage,
+and someone in their fifties whose wealth is mostly locked in a pension — each built through
+`parseProfile`, so `profileSchema` stays the only validation authority and a situation cannot hold a
+profile an engine would reject. Choosing one replaces both the values on the form and the UX-2
+provenance baseline, because a baseline the values did not come from would mark real defaults as
+edits; the reset then leads back to the chosen situation, and the worked example is one of the six so
+the choice is reversible. What a situation may change is deliberately narrow: `market`, `simulation`
+and `portfolios` are copied verbatim from the worked example in every entry, so no seed, path count,
+withdrawal order, return assumption or asset weight moved, and a test asserts each of them. Target
+FIRE ages were chosen by measurement — each situation funds itself on the reference path with about
+the margin the worked example leaves itself (projected wealth 1.20–1.35× its own reference FIRE
+number) — and the suite fails if one stops doing so. Every card carries one caveat string built in by
+`view/starter-picker.ts` rather than passed in by a screen, states nothing that could be read as a
+result, and lists facts read off its own parsed profile instead of restated literals.
+`tests/presentation-starter-situations.test.ts` (11 tests) pins the parse, the zero-failure
+deterministic run at each situation's own target, the model-invariance guard, the independence of two
+`starterProfile` calls and of a library built entirely from starters, that provenance quotes the
+*chosen* starter's value and not the profile it replaced, and — derived from the sources — that every
+screen building a card renders the caveat and that no picker surface starts a run. Chrome evidence:
+`tests/browser-starter-ui.mjs` (both worker smokes at 10,000 paths and 68.98%/35.18%; six cards each
+with the caveat verbatim and twelve facts; choosing rewrote age 31→43 and FIRE age 45→61 with zero
+edited markers and zero progress bars; one edit offered “Reset Gross salary to the default £74000”
+and never £55000; the global reset landed on 74,000; the family's £320,000 property arrived as a
+default rather than an edit; two Scenario-screen choices saved two named library entries without
+rewriting the first; the worked example was reachable again at 55,000; 390px with zero overflow, all
+six caveats still rendered and all eight tabs), plus all fourteen existing browser harnesses re-run
+green. `handoffs/ux-9.md` records the measured evidence.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

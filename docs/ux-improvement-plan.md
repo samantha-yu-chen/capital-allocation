@@ -463,7 +463,7 @@ are in `docs/handoffs/ux-8.md`.
 4. Chrome verification includes keyboard-only entry and mobile width.
 5. `npm run check` green; handoff written.
 
-### UX-9 (M) — Starter situations ("people like me") as labelled scenario presets
+### UX-9 (M) — Starter situations ("people like me") as labelled scenario presets — **delivered**
 
 **Problem.** A blank-slate general user does not know plausible values (findings A.1.2/A.1.4).
 

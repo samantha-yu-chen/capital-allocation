@@ -131,7 +131,7 @@ export const starterName = (id: string): string => starterSituation(id).name;
  */
 export const starterProvenanceNote = (id: string): string =>
   id === DEFAULT_STARTER_ID
-    ? `“Default” here means ${starterName(id)}, the situation the app opens with. Choose another under Start here and every marker is measured against that one instead.`
+    ? `“Default” here means the situation the app opens with, ${starterName(id)}. Choose another under Start here and every marker is measured against that one instead.`
     : `“Default” here means the starter situation you chose, ${starterName(id)}. Every edited marker and every reset on this form is measured against it.`;
 
 /**

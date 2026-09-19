@@ -197,6 +197,72 @@ their first-sweep failures were a closed CDP connection and two run timeouts in 
 already served twelve harnesses, not assertion failures. None needed retuning.
 `handoffs/ux-10.md` records the measured evidence and the browser-hygiene rule it implies.
 
+**UX-11 closed the dead end after a starting situation was chosen, and explained the flat spending
+column that made a correct ledger look broken.** Two reader-reported problems, both presentation.
+
+*Finding 2, the substantial one.* A starter card advertised twelve figures and none of them said
+where any of them could be changed; worse, `household.adults` and `household.children` sat at the
+`expert` tier, so going from the contractor situation (one adult) to a two-adult family meant
+leaving the picker, finding a filterable form, changing a display setting nobody had mentioned and
+scrolling. `src/presentation/view/field-navigation.ts` is the React-free answer: it resolves a
+registry id to its reader-facing name, its group, the destination whose form renders that group and
+its tier; `raiseModeFor` computes the smallest widening of the reader's chosen depth that would put
+the target on screen and returns null when none is needed; `tierRaiseNote` authors the sentence the
+reader is shown when it moves. An id this profile has no input for resolves to `null`, so a fact
+about a property nobody owns stays plain text rather than becoming a link to nothing. `StarterFact`
+now carries the ids it is read from, with honest arity — "Household" is two inputs, "Cash, ISA and
+GIA" is three, "Property" is whichever inputs that profile's shape has — and only the card in use
+turns them into links, because a fact on a card you have not chosen describes a profile the form
+does not hold. Four labelled jumps ("Change your household / your salary / your spending / the age
+you want to stop") sit beneath the grid, authored in `view/starter-picker.ts`. `ProfileForm` serves
+a focus request by widening its own filter, opening the group, scrolling to the box and focusing it,
+and prints what it did; the depth itself moved to the shell so it survives leaving the screen.
+`household.adults` and `household.children` were re-tiered `expert` → `common`, which changes
+visibility and nothing else: no default, no validation and no figure on any screen moved.
+`tests/presentation-field-navigation.test.ts` (8 tests) pins the registry→target map, that every
+group names a destination, the re-tiering and that the default depth shows it, that widening is
+minimal and one-directional, that the note names the field and says the plan did not change, that
+every fact id and every jump id resolves for all six situations, that no jump target is an expert
+input, and — derived from the sources — that only `profile-form.tsx` may move the filter and only
+while rendering `tierRaiseNote`. `tests/presentation-starter-situations.test.ts` gained the audit
+that links are gated on the chosen card and resolved against the reader's profile, and that no
+picker surface can start a run to serve one.
+
+*Finding 1, the comprehension fix.* The reported "spending is the same across all years" was the
+correct appearance of constant real spending on the ledger's default money basis, not a missing
+compound: `inflationIndices` accumulates a running product and `spendingForYear` multiplies real
+spending by it. No engine changed and the default did not move — "every result is in today's money"
+is the app's contract in the `todays-money` glossary entry, the learn panel and every other screen.
+`moneyBasisExplanation` in `overview-model.ts` authors, beside the basis it describes, why the
+column behaves as it does and where the growing figure is; `inflationComparison` quotes one chosen
+year in both bases from the row the ledger produced, opening on the first year the plan stops
+earning (`defaultComparisonAge`, derived from the recorded phase). Both render next to the
+money-basis control. `tests/presentation-screens.test.ts` gained four tests, including the one that
+pins what the explanation claims — twenty years on the index has compounded past 1.4, nominal
+spending has grown with it and real spending is flat to a rounding error — plus an audit failing any
+surface that offers the basis choice without the explanation, or that types the wording into the TSX
+instead of reading it from the view model. 343 tests pass (329 before UX-11; 14 new).
+
+Chrome evidence: `tests/browser-field-navigation-ui.mjs` (both worker smokes at 10,000 paths and
+68.98%/35.18%; all twelve facts on the card in use are buttons and all twelve on a card that is not
+are plain text; ten fact links and all four jumps landed on their own input, focused, with the group
+open and the box inside the viewport, including the `personal.taxRegion` select that had no
+addressable id before UX-11; the property fact crossed to Property & Leverage; household visible at
+the default depth, and from a deliberately narrowed "Essential only" the jump moved the radio to
+"Essential + common" and printed "Detail raised to … Nothing about your plan changed"; zero progress
+bars and zero published probabilities from any jump; a completed 10,000-path result unchanged at
+72.31% across a jump and discarded by a real edit; the real-terms spending column £19,800 → £19,800
+from age 31 to 51 while the cash-terms column ran £19,800 → £32,445, with the explanation reading
+"prices do rise here, every year" and the pair quoting age 45 at 41.3%; all eight tabs; zero
+overflow at 390px before and after a jump). The app's own 10,000-path FIRE run still reads **68.98%**
+with progress shown, still empties on an edit, and still publishes nothing when cancelled. All
+fifteen existing browser harnesses are green, the three longest each on a freshly started Chrome
+(`scenario` 334 s, `section61` 31 s, `solver` 475 s with §61's £87,600 confirmed in 383.09 s). Two
+needed retuning, both deliberately: `browser-tier-filter-ui.mjs` pinned Household as hidden at the
+default depth, which is exactly what UX-11 changed, so the assertion is inverted rather than deleted;
+and `browser-starter-ui.mjs` read the choose button as "the first button in the card", which fact
+links now precede. `handoffs/ux-11.md` records the measured evidence.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

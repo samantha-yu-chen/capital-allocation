@@ -15,7 +15,7 @@ export interface WizardStep {
 
 export const WIZARD_STEPS: readonly WizardStep[] = [
   {
-    id: 'about', title: 'About you', prompt: 'Set the dates and tax region that shape the plan.',
+    id: 'about', title: 'About you', prompt: 'Start from a situation like yours, then set the dates and tax region that shape the plan.',
     fieldIds: ['personal.currentAge', 'personal.targetFireAge', 'personal.taxRegion'],
   },
   {

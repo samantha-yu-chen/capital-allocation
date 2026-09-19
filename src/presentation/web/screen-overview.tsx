@@ -14,6 +14,7 @@ import {
 } from '../view/overview-model.js';
 import { money, moneyExact, moneySigned, percent, ratio, years } from '../view/format.js';
 import { twoNumbersStoryFor } from '../view/two-numbers.js';
+import { STARTER_ILLUSTRATION_CAVEAT } from '../view/starter-picker.js';
 import { Banner, Card, ExpandableRow, Line, SelectField } from './components.js';
 import { TwoNumbers } from './two-numbers.js';
 import { ProfileForm } from './profile-form.js';
@@ -398,9 +399,7 @@ export function OverviewScreen(props: {
             Reset everything to the starter profile
           </button>
           <p className="footnote" style={{ margin: 0 }}>
-            The starter profile is the specification’s worked example: an illustration chosen to exercise
-            the model, not a recommendation and not a benchmark. Every “edited” marker on this form, and
-            every reset, is measured against it.
+            {store.starterNote} {STARTER_ILLUSTRATION_CAVEAT}
           </p>
         </div>
 

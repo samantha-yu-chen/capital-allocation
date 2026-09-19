@@ -15,6 +15,7 @@ import type { LedgerOptions } from '../../engine/ledger.js';
 import type { ScenarioBatchResult, ScenarioProgress } from '../../engine/scenario.js';
 import { runScenariosBrowser } from '../../engine/analysis-browser.js';
 import type { ScenarioOptions } from '../../domain/scenarios.js';
+import { starterProfile, starterSituation } from '../../domain/starter-situations.js';
 import {
   SCENARIO_FIRE_FROM_FIELD, SCENARIO_FIRE_TO_FIELD, SCENARIO_PREVIEW_FIELD,
   SCENARIO_SALARY_DEFAULTS, SCENARIO_SALARY_FIELDS, toDisplay, type ControlFieldDef,
@@ -32,6 +33,7 @@ import { twoNumbersStoryFor, type TwoNumbersStory } from '../view/two-numbers.js
 import { Banner, Card, CheckboxField, NumberField, Progress, SelectField, Stat } from './components.js';
 import { TwoNumbers } from './two-numbers.js';
 import { ProfileFields } from './profile-form.js';
+import { StarterPicker } from './starter-picker.js';
 import type { ProfileStore } from './profile-state.js';
 import { useAnalysis } from './use-analysis.js';
 import { useScenarioLibrary } from './use-scenario-library.js';
@@ -221,6 +223,21 @@ function LibraryCard(props: {
           : status.kind === 'rejected' ? 'Nothing is loaded; the stored document was refused.'
           : 'No scenarios are saved in this browser yet.'}
       </p>
+      <StarterPicker
+        chosenId={store.starterId}
+        onChoose={id => {
+          const situation = starterSituation(id);
+          // One act, two effects, both stated on the card: the working profile becomes this
+          // situation, and the same situation is saved as a named scenario. `library.add` parses it
+          // again into its own copy, so the saved entry and the form can never alias each other.
+          store.chooseStarter(id);
+          library.add({ name: situation.name, profile: starterProfile(id), options: situation.options,
+            origin: `starter:${id}`, note: situation.who });
+        }}
+        effectNote={'Choosing a situation replaces every value on the form and saves it here as a named scenario '
+          + 'you can compare against later. It runs nothing, and it becomes the “default” that every edited marker '
+          + 'and every reset is measured against until you choose another.'}
+      />
       <h4 className="card-title" style={{ fontSize: 15 }}>Create from a preset</h4>
       <p className="footnote">Each preset is an explicit transform of the current profile, not a stored example result.</p>
       <div className="row">

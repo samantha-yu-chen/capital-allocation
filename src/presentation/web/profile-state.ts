@@ -16,7 +16,8 @@ import {
   draftsClearedBy, fieldProvenance, resetToStarter, resettableInGroup, type ProvenanceEntry,
 } from '../view/provenance.js';
 import { issueFields, plainIssues } from '../view/messages.js';
-import { createStarterProfile } from '../view/starter-profile.js';
+import { DEFAULT_STARTER_ID, starterProfile } from '../../domain/starter-situations.js';
+import { starterName, starterProvenanceNote } from '../view/starter-picker.js';
 
 export interface ProfileStore {
   base: Profile;
@@ -37,6 +38,15 @@ export interface ProfileStore {
   edit: (updater: (profile: Profile) => Profile) => void;
   /** Whether each registry entry still holds the starter profile's value, and what that value is. */
   provenance: ReadonlyMap<string, ProvenanceEntry>;
+  /** The starter situation the form is measured against, and how it is named and explained. */
+  starterId: string;
+  starterName: string;
+  starterNote: string;
+  /**
+   * Adopt a starter situation: it becomes both the values on the form and the baseline provenance
+   * compares against. It runs nothing, and it is reversible — every situation stays choosable.
+   */
+  chooseStarter: (id: string) => void;
   /** Put one entry back to the starter value. A reset is an edit: the schema judges it as one. */
   resetField: (fieldId: string) => void;
   /** Put every edited entry in one group back, leaving the rest of the form alone. */
@@ -45,10 +55,15 @@ export interface ProfileStore {
 }
 
 export function useProfileStore(): ProfileStore {
-  const [base, setBase] = useState<Profile>(createStarterProfile);
+  const [starterId, setStarterId] = useState<string>(DEFAULT_STARTER_ID);
+  const [base, setBase] = useState<Profile>(() => starterProfile(DEFAULT_STARTER_ID));
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  /** One starter for the life of the session, so every reset means the same thing. */
-  const starter = useMemo(createStarterProfile, []);
+  /**
+   * One starter at a time, so every reset means the same thing. Choosing another is an explicit act
+   * that replaces the form and the baseline together — they are never allowed to disagree, because
+   * a baseline the values did not come from would mark real defaults as edits.
+   */
+  const starter = useMemo(() => starterProfile(starterId), [starterId]);
 
   const defs = useMemo(() => fieldsFor(base), [base]);
   const validation = useMemo(() => validateCandidate(applyDrafts(base, drafts, defs), defs), [base, drafts, defs]);
@@ -131,7 +146,18 @@ export function useProfileStore(): ProfileStore {
   );
 
   const reset = useCallback(() => {
-    setBase(createStarterProfile());
+    setBase(starterProfile(starterId));
+    setDrafts({});
+  }, [starterId]);
+
+  /**
+   * Choosing a situation is a fresh parse, not an assignment: the form and the baseline are two
+   * independent copies, so editing the form can never reach into the thing it is compared against.
+   * Drafts are dropped because they were text typed against a profile that no longer exists.
+   */
+  const chooseStarter = useCallback((id: string) => {
+    setStarterId(id);
+    setBase(starterProfile(id));
     setDrafts({});
   }, []);
 
@@ -139,5 +165,7 @@ export function useProfileStore(): ProfileStore {
     base, drafts, defs, validation, profile, editable, plainIssues: readable,
     errorsFor, issuesForGroup, crossFieldIssues, setDraft, edit,
     provenance, resetField, resetGroup, reset,
+    starterId, starterName: starterName(starterId), starterNote: starterProvenanceNote(starterId),
+    chooseStarter,
   };
 }

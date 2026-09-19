@@ -487,7 +487,22 @@ are in `docs/handoffs/ux-8.md`.
 4. Cards carry the illustration caveat — Chrome-verified.
 5. `npm run check` green; handoff written.
 
-### UX-10 (M) — In-app "Learn" panel and a written learning doc
+### UX-10 (M) — In-app "Learn" panel and a written learning doc — **delivered**
+
+Delivered. `docs/learnings/how-the-model-works.md` (1,931 words) is the written walkthrough, and
+`src/presentation/view/learn.ts` is the same explanation as view data: five sections on the method —
+a year, tax and pensions, the simulation, reading the numbers, and the refusals — then one section
+per screen keyed on `TabId`, each stating the question that screen answers and how to read its
+output. `src/presentation/web/learn-panel.tsx` is the only component that renders one, reached from
+a sidebar entry beneath the eight destinations.
+
+The mechanism that keeps the two halves honest is `LEARN_SHARED_CLAIMS`: eight conventions a reader
+can be actively misled by, each one string, which a test requires verbatim in both the panel data and
+the markdown file. Wording another module already owns — `AUTHORITY_CLAUSE`,
+`STARTER_ILLUSTRATION_CAVEAT`, the three pension-relief labels — is interpolated rather than
+paraphrased. The panel shows no money figure and no percentage at all, asserted in the suite and in
+Chrome, and it cannot start a run. 329 tests pass (318 before; 11 new unit tests). Both worker smoke
+variants and all fifteen existing browser harnesses re-run green. Details in `docs/handoffs/ux-10.md`.
 
 **Problem.** No conceptual on-ramp; the only deck is a PDF outside the app (finding A.1.9; the
 user had to write their own learning notes to use their own product).

@@ -65,7 +65,7 @@ export function LearnPanel(props: {
         <p className="learn-doc-note">
           The same walkthrough is written up at <code>{LEARN_DOC_PATH}</code> for reading away from the app.
         </p>
-        <button type="button" className="btn btn-secondary" data-testid="learn-close" onClick={props.onClose}>
+        <button type="button" className="btn btn-secondary learn-back" data-testid="learn-close" onClick={props.onClose}>
           Back to {current.title}
         </button>
       </Card>

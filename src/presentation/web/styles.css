@@ -434,6 +434,8 @@ details.group[open] > summary::before { content: '▾ '; }
   border-color: var(--color-accent-400); background: var(--color-accent-100); color: var(--color-accent-900);
 }
 .learn-paragraph { margin: 0 0 var(--space-2); max-width: 68ch; font-size: 14px; line-height: 1.65; }
+/* The card stretches its children; the way back is a button, not a banner. */
+.learn-back { align-self: flex-start; width: fit-content; }
 .learn-doc-note {
   margin: 0 0 var(--space-3); font-size: 12px;
   color: color-mix(in srgb, var(--color-text) 62%, transparent);

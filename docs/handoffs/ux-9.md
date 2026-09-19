@@ -186,7 +186,8 @@ CDP on 9230. New harness `tests/browser-starter-ui.mjs` wrote `/tmp/ux9-ui-resul
 
 All fourteen existing harnesses were re-run green against this branch: `provenance`, `tier-filter`,
 `wizard`, `number-field`, `language`, `two-numbers`, `overview-headline`, `solver-question`,
-`attribution`, `marginal`, `property`, `section61`, `scenario` and `solver`. **None needed retuning**
+`attribution`, `marginal`, `property`, `section61`, `scenario` (the 60-cell matrix) and `solver`
+(§61's £87,600 confirmed in 419.08 s). **None needed retuning**
 — the wording added to the provenance summary paragraph is appended after the sentence
 `provenanceSummary` owns, which is what the existing regexes already allowed for.
 

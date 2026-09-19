@@ -158,7 +158,8 @@ and never £55000; the global reset landed on 74,000; the family's £320,000 pro
 default rather than an edit; two Scenario-screen choices saved two named library entries without
 rewriting the first; the worked example was reachable again at 55,000; 390px with zero overflow, all
 six caveats still rendered and all eight tabs), plus all fourteen existing browser harnesses re-run
-green. `handoffs/ux-9.md` records the measured evidence.
+green and unretuned, including the 60-cell scenario matrix and §61's £87,600 confirmed in 419.08 s.
+`handoffs/ux-9.md` records the measured evidence.
 
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for

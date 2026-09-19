@@ -632,9 +632,22 @@ export function ProfileForm(props: {
    * changes nothing about the plan.
    */
   focus?: FieldFocusRequest | null | undefined;
+  /**
+   * The reader's chosen depth, held by the shell so it survives a visit to another destination
+   * (UX-11). Without that, "Essential only" silently became "Essential + common" every time the
+   * reader opened Start here and came back — and a jump that had to widen the filter could never
+   * be seen to widen it, because it was never narrow by the time the jump arrived.
+   *
+   * Omitted, the form keeps its own. It is still a display preference either way: it never reaches
+   * the profile, the drafts, the validation or the run key.
+   */
+  mode?: TierMode | undefined;
+  onMode?: ((mode: TierMode) => void) | undefined;
 }): ReactNode {
   const { store } = props;
-  const [mode, setMode] = useState<TierMode>(DEFAULT_TIER_MODE);
+  const [ownMode, setOwnMode] = useState<TierMode>(DEFAULT_TIER_MODE);
+  const mode = props.mode ?? ownMode;
+  const setMode = props.onMode ?? setOwnMode;
   const effective: TierMode = props.filterable ? mode : 'all';
   const choices = useMemo(() => choiceFieldsFor(store.base), [store.base]);
   const visibility = useMemo(

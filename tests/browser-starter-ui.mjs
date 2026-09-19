@@ -52,7 +52,9 @@ const cards = () => ev(`[...document.querySelectorAll('[data-testid="starter-pic
   caveat: li.querySelector('[data-testid="starter-caveat"]') ? li.querySelector('[data-testid="starter-caveat"]').textContent.replace(/\\s+/g,' ').trim() : null,
   facts: [...li.querySelectorAll('.starter-facts dt')].length,
   chosen: li.classList.contains('is-chosen'),
-  pressed: li.querySelector('button').getAttribute('aria-pressed'),
+  // UX-11 put fact links inside the card, ahead of the choose button, so the choose button is
+  // addressed by its own test id rather than by being the first button in the card.
+  pressed: li.querySelector('[data-testid^=\"starter-choose-\"]').getAttribute('aria-pressed'),
   text: li.innerText.replace(/\\s+/g,' ').trim(),
 }))`);
 const choose = async (starterId) => { await ev(`document.querySelector('[data-testid="starter-choose-${starterId}"]').click()`); await settle(); };

@@ -17,6 +17,7 @@ import { money, moneyExact, moneySigned, percent, ratio, years } from '../view/f
 import { twoNumbersStoryFor } from '../view/two-numbers.js';
 import { STARTER_ILLUSTRATION_CAVEAT } from '../view/starter-picker.js';
 import type { FieldFocusRequest } from '../view/field-navigation.js';
+import type { TierMode } from '../view/fields.js';
 import { Banner, Card, ExpandableRow, Line, SelectField } from './components.js';
 import { GlossaryTerms } from './glossary-ui.js';
 import { TwoNumbers } from './two-numbers.js';
@@ -399,6 +400,9 @@ export function OverviewScreen(props: {
   onOpenSolverQuestion: (question: SolverModeId) => void;
   /** UX-11: an input the reader asked to be taken to, served by the profile form below. */
   focus?: FieldFocusRequest | null;
+  /** UX-11: the reader's chosen depth, held by the shell so it survives leaving this screen. */
+  tierMode: TierMode;
+  onTierMode: (mode: TierMode) => void;
 }): ReactNode {
   const { store } = props;
   const profile = store.profile;
@@ -437,6 +441,8 @@ export function OverviewScreen(props: {
             openByDefault={['personal', 'income', 'spending', 'assets']}
             filterable
             focus={props.focus}
+            mode={props.tierMode}
+            onMode={props.onTierMode}
           />
           <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={store.reset}>
             Reset everything to the starter profile

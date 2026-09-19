@@ -16,6 +16,7 @@ import {
 import type { SolverModeId } from '../../engine/solver.js';
 import { TABS, tabById, type TabId } from '../view/tabs.js';
 import { fieldTarget, nextFocusRequest, type FieldFocusRequest } from '../view/field-navigation.js';
+import { DEFAULT_TIER_MODE, type TierMode } from '../view/fields.js';
 import { runKey, stableStringify } from '../view/run-key.js';
 import { curvePlan } from '../view/solver-model.js';
 import { money, percent } from '../view/format.js';
@@ -104,6 +105,10 @@ export function App(): ReactNode {
   // owns the solver question — the request comes from one surface and is served by another — and it
   // is a request, never an edit: nothing about the profile or any run moves with it.
   const [fieldFocus, setFieldFocus] = useState<FieldFocusRequest | null>(null);
+  // The reader's chosen depth on the profile form. Shell state so it survives a visit to Start here
+  // or to another destination — a display preference that resets itself is not a preference. It
+  // reaches no engine: `runKey` is built from the profile and the ledger options only.
+  const [tierMode, setTierMode] = useState<TierMode>(DEFAULT_TIER_MODE);
 
   const ledgerOptions = useMemo<LedgerOptions>(() => ({
     ...defaultLedgerOptions(),
@@ -239,7 +244,8 @@ export function App(): ReactNode {
               currentCurveKey={curveKey}
               monteCarloState={runner.state} curveState={curveRunner.state} onRun={onRun}
               onOpenFire={openFire} onOpenCurve={openCurve}
-              onOpenSolverQuestion={openSolverQuestion} focus={fieldFocus} />
+              onOpenSolverQuestion={openSolverQuestion} focus={fieldFocus}
+              tierMode={tierMode} onTierMode={setTierMode} />
           ) : null}
           {active === 'curve' ? (
             <CurveScreen store={store} ledgerOptions={ledgerOptions} drafts={curveDrafts}

@@ -148,10 +148,20 @@ assert.ok(results.defaultInputs.length < results.allInputs.length);
 assert.deepEqual(results.essentialInputs.filter(i => i !== 'select').sort(), [...ESSENTIAL].sort());
 assert.equal(results.essentialInputs.filter(i => i === 'select').length, 1, 'tax region is the one essential select');
 // Groups with nothing to show are gone; the full view has them all back.
-for (const hidden of ['Household', 'ISA & GIA behaviour', 'Portfolios by wrapper', 'Market assumptions', 'Simulation']) {
+// UX-11 deliberately moved Household out of this list. `household.adults` and `household.children`
+// were re-tiered from expert to common because every starter situation card states the household it
+// describes, and a figure advertised on the entry-level surface and then hidden behind the expert
+// filter is the dead end the reader reported. The group is therefore expected at the default depth
+// now, and that expectation is asserted rather than merely dropped.
+for (const hidden of ['ISA & GIA behaviour', 'Portfolios by wrapper', 'Market assumptions', 'Simulation']) {
   assert.ok(!results.defaultGroups.includes(hidden), `${hidden} should be hidden by default`);
   assert.ok(results.allGroups.includes(hidden), `${hidden} should return at Everything`);
 }
+assert.ok(results.defaultGroups.includes('Household'),
+  'UX-11: household size is a common input, so the default depth shows it');
+assert.ok(!results.essentialGroups.includes('Household'), 'it is still not one of the essentials');
+assert.ok(results.defaultInputs.includes('household.adults'));
+assert.ok(results.defaultInputs.includes('household.children'));
 assert.ok(results.essentialGroups.includes('Personal & target'));
 assert.ok(!results.essentialGroups.includes('Liquidity & known capital needs'));
 // Filtering changed no figure the model produced, and no stored value.

@@ -90,7 +90,9 @@ const resultText = await body();
 results.reference = {
   fireNumber: resultText.includes('£565,714'),
   wealth: resultText.includes('£755,017'),
-  arithmeticLabel: resultText.includes('Simple arithmetic, not the safety result'),
+  // UX-7 replaced this step's hand-written half-sentence with the shared two-numbers story, so the
+  // claim to check is the arbitration clause that story carries.
+  arithmeticLabel: resultText.includes('the number your target is judged against'),
   deterministicLabel: resultText.includes('One deterministic path'),
   noImplicitRun: !resultText.includes('Your plan succeeded in'),
 };

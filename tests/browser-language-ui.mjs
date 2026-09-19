@@ -186,9 +186,9 @@ assert.equal(results.fireAge.label, 'Age you want to stop needing a salary (targ
 assert.ok(results.fireAge.plain?.startsWith('The age from which the plan stops assuming you earn'));
 assert.ok(results.fireAge.help?.startsWith('Retirement starts here'), 'the precise sentence must survive');
 assert.deepEqual(results.fireAge.order, ['field-plain', 'field-help'], 'plain first, convention second');
-assert.equal(results.salary.label, 'Gross salary (£)', 'a label that is already plain is left alone');
+assert.equal(results.salary.label, 'Gross salary, in pounds', 'a label that is already plain is left alone');
 assert.ok(results.salary.plain?.includes('before tax'));
-assert.equal(results.isa.label, 'ISA savings and investments (£)');
+assert.equal(results.isa.label, 'ISA savings and investments, in pounds');
 assert.ok(results.plainCount >= 25, `only ${results.plainCount} plain sentences on the default form`);
 
 // — the glossary —

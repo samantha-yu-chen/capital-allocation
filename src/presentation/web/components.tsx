@@ -7,8 +7,9 @@
  */
 import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
-import type { ControlFieldDef, NumberFieldDef } from '../view/fields.js';
-import { fieldName } from '../view/fields.js';
+import type { ControlFieldDef } from '../view/fields.js';
+import { fieldName, fromDisplay } from '../view/fields.js';
+import { annualEquivalent, fieldAffix, fieldText, spokenUnit, stepDraft } from '../view/field-display.js';
 import { moneyCompact } from '../view/format.js';
 import { bandPath, linearScale, linePath, niceDomain, niceTicks } from '../view/chart.js';
 import { GlossaryTerms } from './glossary-ui.js';
@@ -58,9 +59,6 @@ export function Banner(props: { tone: 'error' | 'notice' | 'neutral'; title: str
   );
 }
 
-const UNIT: Record<NumberFieldDef['kind'], string> = {
-  money: '£', monthlyMoney: '£ / month', percent: '%', age: 'age', integer: '', decimal: '', multiple: '×',
-};
 
 /**
  * What a control says about where its value came from.
@@ -98,38 +96,85 @@ export function ProvenanceMark(props: { mark?: FieldMark | undefined }): ReactNo
   );
 }
 
+/**
+ * The frame the unit is printed in.
+ *
+ * One place decides that money leads with £ and a monthly figure trails with `/mo`, so a control
+ * that is not a `NumberField` — the FIRE screen's nullable spending override — still wears the unit
+ * the same way instead of spelling it into its own label.
+ */
+export function FieldFrame(props: { kind: ControlFieldDef['kind']; children: ReactNode }): ReactNode {
+  const affix = fieldAffix(props.kind);
+  return (
+    <div className="field-input" data-kind={props.kind}>
+      {affix.prefix ? <span className="field-affix field-affix-prefix" aria-hidden="true">{affix.prefix}</span> : null}
+      {props.children}
+      {affix.suffix ? <span className="field-affix field-affix-suffix" aria-hidden="true">{affix.suffix}</span> : null}
+    </div>
+  );
+}
+
+/**
+ * A numeric input that reads like the thing it holds.
+ *
+ * The unit sits inside the frame (£ before, `/mo` or `%` after) rather than in the label, and a
+ * money figure settles into `55,000` the moment the reader leaves it. Both are display only:
+ * `fieldText` chooses between the raw draft and the grouped form at render time, so blurring calls
+ * no `onChange` and therefore cannot be an edit. The box is `type="text"` because no `type="number"`
+ * will hold a separator at all; `stepDraft` puts arrow-key stepping back.
+ */
 export function NumberField(props: {
   def: ControlFieldDef; value: string; errors: readonly string[];
   onChange: (text: string) => void; compact?: boolean; mark?: FieldMark | undefined;
 }): ReactNode {
   const { def } = props;
+  const [focused, setFocused] = useState(false);
   const plainId = `${def.id}-plain`;
   const helpId = `${def.id}-help`;
   const errorId = `${def.id}-error`;
   const originId = `${def.id}-origin`;
+  const annualId = `${def.id}-annual`;
   const origin = props.compact ? undefined : def.derivedFrom;
   // Plain first, then the modelling convention: the concept before the rule that implements it.
   const plain = props.compact ? undefined : def.plainHelp;
-  const described = [plain ? plainId : null, def.help ? helpId : null, origin ? originId : null,
-    props.errors.length ? errorId : null].filter(Boolean).join(' ');
-  const unit = UNIT[def.kind];
+  // `fromDisplay` is the only conversion authority, so the annual figure is the stored value × 12.
+  const annual = annualEquivalent(def, fromDisplay(def, props.value));
+  const described = [annual ? annualId : null, plain ? plainId : null, def.help ? helpId : null,
+    origin ? originId : null, props.errors.length ? errorId : null].filter(Boolean).join(' ');
+  const spoken = spokenUnit(def.kind);
   return (
     <div className="field">
       <span className="field-label-row">
-        <label htmlFor={def.id}>{fieldName(def)}{unit && unit !== 'age' ? <span className="unit"> ({unit})</span> : null}</label>
+        <label htmlFor={def.id}>
+          {fieldName(def)}
+          {spoken ? <span className="visually-hidden">, {spoken}</span> : null}
+        </label>
         <ProvenanceMark mark={props.mark} />
       </span>
-      <input
-        id={def.id}
-        className="input"
-        type="number"
-        inputMode="decimal"
-        step={def.step}
-        value={props.value}
-        aria-invalid={props.errors.length > 0}
-        {...(described ? { 'aria-describedby': described } : {})}
-        onChange={event => props.onChange(event.target.value)}
-      />
+      <FieldFrame kind={def.kind}>
+        <input
+          id={def.id}
+          className="input"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          spellCheck={false}
+          value={fieldText(def, props.value, focused)}
+          aria-invalid={props.errors.length > 0}
+          {...(described ? { 'aria-describedby': described } : {})}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onChange={event => props.onChange(event.target.value)}
+          onKeyDown={event => {
+            if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+            const next = stepDraft(def, props.value, event.key === 'ArrowUp' ? 1 : -1);
+            if (next === null) return;
+            event.preventDefault();
+            props.onChange(next);
+          }}
+        />
+      </FieldFrame>
+      {annual ? <p className="field-help field-annual" id={annualId} data-annual>{annual}</p> : null}
       {plain ? <p className="field-plain" id={plainId}>{plain}</p> : null}
       {def.help && !props.compact ? <p className="field-help" id={helpId}>{def.help}</p> : null}
       {origin ? <p className="field-help" id={originId}>The default is {origin}.</p> : null}

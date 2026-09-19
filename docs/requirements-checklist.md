@@ -100,6 +100,35 @@ curve and the full-count scenario spending table, the rate retuned live to 4.25%
 invalidated or cancelled run, and a 390px layout with zero overflow and all eight tabs).
 `handoffs/ux-7.md` records the measured evidence.
 
+**UX-8 made the numeric inputs read like the things they hold, without loosening what they accept.**
+The unit moved out of the label and into the input's own frame — £ leading a money field, `/mo`
+trailing a monthly one, `%` trailing a percent one — and survives in the accessible name as a word
+(“Gross salary, in pounds”), so a screen-reader user still hears the unit the adornment shows.
+Money figures rest with thousands separators and return to raw digits on focus, which is display
+only: `fieldText` picks between the draft and the grouped form at render time, so no blur path calls
+`onChange`, and Chrome measures every value on the form as identical across a focus/blur cycle with
+no edited marker appearing. `parseDisplayText` in `view/field-display.ts` is now the single rule for
+what counts as a number in a box and `fromDisplay` only rescales it, so the box, the arrow keys and
+`profileSchema` cannot disagree: the field's own unit typed back into it (`£55,000` off a payslip)
+and correct thousands grouping are accepted, while `1,2,3`, `£12` in a percent box and an empty box
+all still reach the schema as NaN and are rejected there — work package 4's NaN-on-invalid contract
+is unchanged. Because no `type="number"` input will hold a separator, the box is `type="text"` with
+a decimal keypad and `stepDraft` restores arrow-key stepping in the registry's own step; the
+correlation matrix and the FIRE spending override stay native numeric inputs for stated reasons, and
+an audit test fails the next input added outside that named set. Monthly fields carry the annual
+equivalent (`= £15,600/yr`) derived through the registry's own conversion. `view/pension-relief.ts`
+names A.2 note 1's two figures apart — “Tax relief” excludes employee NI, “Tax and National
+Insurance you no longer pay” includes it, “What it actually costs you” is `personalNetCost` — with
+an audit that fails any surface reading the raw fields without those names. No engine file, seed,
+path count or stored value changed. `tests/presentation-field-display.test.ts` pins the units, the
+grouping (including that a malformed grouping is never rewritten into a plausible number), the
+round-trip corpus, the annual equivalents, the stepping guards and both audits. Chrome evidence:
+`tests/browser-number-field-ui.mjs` (both worker smokes at 10,000 paths and 68.98%/35.18%,
+keyboard-only entry and arrow-key stepping through CDP key events, the typo refused in words, the
+annual line following the value, a completed 10,000-path FIRE run still at 68.98%, and a 390px
+layout with zero overflow and all eight tabs), plus all thirteen existing browser harnesses re-run green.
+`handoffs/ux-8.md` records the measured evidence.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

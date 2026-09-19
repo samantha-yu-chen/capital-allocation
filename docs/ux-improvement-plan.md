@@ -424,7 +424,22 @@ A.1.8, A.2 note 2).
 3. No numeric output changes anywhere (existing screen tests unchanged).
 4. `npm run check` green; handoff written.
 
-### UX-8 (S) — Money and percent inputs that read like money and percent
+### UX-8 (S) — Money and percent inputs that read like money and percent — **delivered**
+
+Delivered. The unit now sits inside the input's own frame (£ leading, `/mo` or `%` trailing) instead
+of in a parenthesis in the label, where it survives as the word a screen reader hears; money figures
+rest grouped (`£ 55,000`) and hand the reader back their raw digits the moment they focus the box.
+Both are pure display: `fieldText` chooses between the draft and the grouped form at render time, so
+blurring calls no `onChange` and cannot be an edit — measured in Chrome across the whole form, not
+argued. `parseDisplayText` is now the single rule for what counts as a number in a box, and
+`fromDisplay` only rescales it; it accepts the field's own unit typed back into it and *correct*
+thousands grouping, while `1,2,3` stays NaN rather than being guessed at as 123. The box is
+`type="text"` because no number input will hold a separator at all, so `stepDraft` puts arrow-key
+stepping back, in the registry's own step. Monthly fields print `= £19,800/yr` beneath, and
+`pension-relief.ts` gives A.2 note 1's two figures names that cannot be confused. 307 tests pass;
+both worker smoke variants, keyboard-only entry, a completed 10,000-path FIRE run and a 390px layout
+were Chrome-verified, along with all thirteen existing harnesses. Details and the UX-9 inheritance note
+are in `docs/handoffs/ux-8.md`.
 
 **Problem.** Raw `<input type=number>` ergonomics (finding A.1.7).
 

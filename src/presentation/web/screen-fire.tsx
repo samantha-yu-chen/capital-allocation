@@ -15,7 +15,9 @@ import {
   sequenceRows, successSplit, wealthSeries, type WealthCategoryId,
 } from '../view/monte-carlo-model.js';
 import { twoNumbersStoryFor } from '../view/two-numbers.js';
-import { Banner, BarList, Card, FanChart, Line, Progress, ProportionBar, SelectField, Stat } from './components.js';
+import { annualEquivalent, spokenUnit } from '../view/field-display.js';
+import { HOUSEHOLD_OVERRIDE_FIELD } from '../view/fields.js';
+import { Banner, BarList, Card, FanChart, FieldFrame, Line, Progress, ProportionBar, SelectField, Stat } from './components.js';
 import { TwoNumbers } from './two-numbers.js';
 import { ProfileForm } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
@@ -43,6 +45,9 @@ function Controls(props: {
 }): ReactNode {
   const running = props.state.status === 'running';
   const profile = props.store.profile;
+  // Null is "use the profile's own schedule", which has no yearly size of its own to print.
+  const overrideAnnual = props.settings.monthlyHouseholdOverride === null
+    ? null : annualEquivalent(HOUSEHOLD_OVERRIDE_FIELD, props.settings.monthlyHouseholdOverride);
   return (
     <Card kicker="Simulation" title="Run the model" elevation="md">
       <ProfileForm store={props.store} groups={['simulation']} />
@@ -70,20 +75,34 @@ function Controls(props: {
           help="A transparent default, not an optimised answer; package 7 owns that decision."
         />
         <div className="field">
-          <label htmlFor="household-override">Household spending override (£ / month)</label>
-          <input
-            id="household-override"
-            className="input"
-            type="number"
-            step={25}
-            placeholder="profile schedule"
-            value={props.settings.monthlyHouseholdOverride ?? ''}
-            aria-describedby="household-override-help"
-            onChange={event => props.onSettings({
-              ...props.settings,
-              monthlyHouseholdOverride: event.target.value.trim() === '' ? null : Number(event.target.value),
-            })}
-          />
+          <label htmlFor="household-override">
+            Household spending override<span className="visually-hidden">, {spokenUnit('monthlyMoney')}</span>
+          </label>
+          {/*
+            The one numeric control that is not a `NumberField`: blank is a meaningful third state
+            here ("use the profile's own schedule"), which the NaN-on-invalid draft contract has no
+            way to express. Keeping the native numeric input is what makes blank-or-a-number the
+            only two things this can send, so a typo can never reach the run as NaN. It wears the
+            shared unit frame so the £ still sits where every other money box puts it.
+          */}
+          <FieldFrame kind="monthlyMoney">
+            <input
+              id="household-override"
+              className="input"
+              type="number"
+              step={25}
+              placeholder="profile schedule"
+              value={props.settings.monthlyHouseholdOverride ?? ''}
+              aria-describedby="household-override-annual household-override-help"
+              onChange={event => props.onSettings({
+                ...props.settings,
+                monthlyHouseholdOverride: event.target.value.trim() === '' ? null : Number(event.target.value),
+              })}
+            />
+          </FieldFrame>
+          {overrideAnnual
+            ? <p className="field-help field-annual" id="household-override-annual" data-annual>{overrideAnnual}</p>
+            : null}
           <p className="field-help" id="household-override-help">
             Replaces the household monthly total in every phase, so spending’s double effect — less surplus and a
             bigger capital requirement — shows up in one run. Blank uses the profile’s own schedule.

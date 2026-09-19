@@ -201,7 +201,9 @@ assert.deepEqual(results.untouchedGroupResets, [], 'no group offers a reset when
 // 2/3/4. Money, percent and select each mark, and each goes back. (AC 2)
 assert.equal(results.moneyEdited.edited, true);
 assert.equal(results.moneyEdited.reset, 'Reset Gross salary to the default £55000');
-assert.deepEqual(results.moneyEditedLabels, ['Gross salary (£)']);
+// UX-8 moved the unit off the label and into the input's own frame; what remains in the label
+// text is the visually-hidden word a screen reader needs.
+assert.deepEqual(results.moneyEditedLabels, ['Gross salary, in pounds']);
 assert.match(results.moneySummary ?? '', /^1 of \d+ values is yours/);
 assert.equal(results.moneyAfterReset.mark.edited, false);
 assert.equal(results.moneyAfterReset.value, results.baselineSalary);
@@ -228,16 +230,18 @@ assert.equal(results.invalidAfterReset.salary, results.baselineSalary, 'the rese
 assert.equal(results.invalidAfterReset.salaryMark.edited, false);
 assert.equal(results.invalidAfterReset.cashMark.edited, true, 'an unrelated edit is untouched by the reset');
 assert.equal(results.repaired.salary, results.baselineSalary);
-assert.deepEqual(results.repaired.edited, ['Cash (£)']);
+assert.deepEqual(results.repaired.edited, ['Cash, in pounds']);
 
 // 6. A group reset is a group's worth of resets, no more.
-assert.deepEqual(results.beforeGroupReset.edited.sort(), ['Bonus (£)', 'Cash (£)', 'Gross salary (£)']);
+assert.deepEqual(results.beforeGroupReset.edited.sort(),
+  ['Bonus, in pounds', 'Cash, in pounds', 'Gross salary, in pounds']);
 assert.ok(results.beforeGroupReset.buttons.some(t => /^Reset income \(2 values\) to the default$/.test(t)),
   `income offered: ${results.beforeGroupReset.buttons.join(' | ')}`);
-assert.deepEqual(results.afterGroupReset.edited, ['Cash (£)'], 'only the income group went back');
+assert.deepEqual(results.afterGroupReset.edited, ['Cash, in pounds'], 'only the income group went back');
 assert.equal(results.afterGroupReset.salary, results.baselineSalary);
 assert.equal(results.afterGroupReset.bonus, '0');
-assert.equal(results.afterGroupReset.cash, '25000');
+// Money rests grouped now (UX-8); the value behind it is the same 25000.
+assert.equal(results.afterGroupReset.cash, '25,000');
 assert.deepEqual(results.afterSecondGroupReset.edited, []);
 assert.equal(results.afterSecondGroupReset.netWorth, results.baselineNetWorth,
   'resetting every edit reproduces the starter’s own figures');
@@ -251,14 +255,14 @@ assert.equal(results.equitiesAfterReset.mark.edited, false);
 
 // 8. One idea of "the default" across the whole screen.
 assert.deepEqual(results.afterGlobalReset.edited, []);
-assert.equal(results.afterGlobalReset.isa, '50000');
+assert.equal(results.afterGlobalReset.isa, '50,000');
 assert.equal(results.afterGlobalReset.netWorth, results.baselineNetWorth);
 assert.match(results.afterGlobalReset.summary ?? '', /^Every one of these \d+ values is still the starter profile’s\. /);
 
 // 9. Mobile.
 assert.equal(results.mobileOverflow, 0, `mobile overflowed by ${results.mobileOverflow}px`);
-assert.deepEqual(results.mobileEdited.sort(), ['Cash (£)', 'Gross salary (£)']);
-assert.deepEqual(results.mobileAfterReset, ['Cash (£)']);
+assert.deepEqual(results.mobileEdited.sort(), ['Cash, in pounds', 'Gross salary, in pounds']);
+assert.deepEqual(results.mobileAfterReset, ['Cash, in pounds']);
 
 assert.equal(errors.length, 0, JSON.stringify(errors));
 

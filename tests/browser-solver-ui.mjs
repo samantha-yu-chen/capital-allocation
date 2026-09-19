@@ -132,7 +132,9 @@ results.solverCancelled = await ev('!document.body.innerText.includes("Completed
 
 await ask('retirement_spending');
 await new Promise(r => setTimeout(r, 200));
-results.spendingBoundUnit = await ev('document.querySelector("label[for=\'solver.bound\']").textContent');
+results.spendingBoundUnit = await ev('(()=>{const f=document.getElementById("solver.bound").closest(".field-input");'
+  + 'const p=document.querySelector("label[for=\'solver.bound\']").textContent;'
+  + 'return p+" | "+(f?.querySelector(".field-affix-prefix")?.textContent ?? "")+(f?.querySelector(".field-affix-suffix")?.textContent ?? "");})()');
 results.spendingRunLabel = await ev('document.querySelector("button.btn-primary")?.textContent ?? null');
 await ask('starting_capital');
 await new Promise(r => setTimeout(r, 200));
@@ -199,7 +201,10 @@ assert.equal(results.backToSalary, 'salary', 'the question picker is a single ch
 assert.equal(results.solverCancelled, true, 'a cancelled search publishes nothing');
 assert.ok(results.solverTraceRows > 3, 'the evaluation trace lists the candidates that were simulated');
 assert.equal(results.solverSensitivity, true, 'section 33 sensitivity cases were solved');
-assert.match(results.spendingBoundUnit, /£ \/ month/, 'the bound control follows the searched input’s units');
+// UX-8 moved the unit into the input's own frame; the label keeps it as the word a screen reader
+// hears. The control still has to follow the searched input's units, which is what this checks.
+assert.match(results.spendingBoundUnit, /in pounds per month \| £\/mo/,
+  'the bound control follows the searched input’s units');
 assert.equal(results.destinationVisible, true);
 assert.equal(results.pensionDefinition, true);
 assert.equal(results.boundRejected, true, 'an out-of-direction bound blocks the run');

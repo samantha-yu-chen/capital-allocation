@@ -73,12 +73,24 @@ test('thousands separators appear on money and nowhere a separator would mislead
   assert.equal(groupedText(age, '1000'), '1000');
 });
 
-test('a draft that is not a plain decimal is handed back untouched for the schema to reject', () => {
-  for (const bad of ['', '  ', 'abc', '1e5', '12/3', '-', '.', '1.2.3', '£12']) {
+test('a draft the parser refuses is handed back untouched for the schema to reject', () => {
+  for (const bad of ['', '  ', 'abc', '1e5', '12/3', '-', '.', '1.2.3', '12%', '$12']) {
     assert.equal(groupedText(salary, bad), bad, `groupedText rewrote ${JSON.stringify(bad)}`);
   }
-  // A bare fraction is the one normalisation: ".5" reads as £0.5, not as a stray full stop.
+  // The one that matters, and the one Chrome caught: regrouping "1,2,3" into "123" would show the
+  // reader a plausible figure while the schema was rejecting their draft as NaN.
+  assert.equal(groupedText(salary, '1,2,3'), '1,2,3');
+  assert.ok(Number.isNaN(fromDisplay(salary, groupedText(salary, '1,2,3'))));
+  // What the parser does accept is regrouped, including the field's own unit typed back into it.
   assert.equal(groupedText(salary, '.5'), '0.5');
+  assert.equal(groupedText(salary, '£55000'), '55,000');
+  assert.equal(groupedText(monthly, '£1650/mo'), '1,650');
+  // Whatever comes back still means the same number, or is still refused. Nothing in between.
+  for (const text of ['55000', '1,234.50', '£55,000', '.5', '1,2,3', 'abc', '1e5']) {
+    const shown = groupedText(salary, text);
+    assert.equal(String(fromDisplay(salary, shown)), String(fromDisplay(salary, text)),
+      `grouping changed what ${JSON.stringify(text)} means`);
+  }
 });
 
 test('focused shows the reader’s own keystrokes; blurred shows the grouped figure', () => {

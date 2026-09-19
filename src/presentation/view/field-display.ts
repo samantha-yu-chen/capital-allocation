@@ -59,14 +59,18 @@ const PLAIN_DECIMAL = /^(-?)(\d*)(?:\.(\d*))?$/;
 /**
  * The resting form of a draft: `55000` → `55,000`.
  *
- * Display only, and deliberately total — anything that is not a plain decimal comes back untouched,
- * because the authority on a bad draft is `profileSchema`'s message and not a silent rewrite here.
+ * Display only, and it regroups *only* text the parser actually accepts. Rewriting `1,2,3` into
+ * `123` would show the reader a plausible number while the schema was rejecting their draft as NaN
+ * — the worst of both. A draft that is not a number comes back exactly as typed, and the authority
+ * on what is wrong with it stays `profileSchema`'s message.
  */
 export function groupedText(def: ControlFieldDef, text: string): string {
   if (!isGrouped(def.kind)) return text;
   const trimmed = text.trim();
-  if (trimmed === '') return text;
-  const match = PLAIN_DECIMAL.exec(trimmed.replace(/,/g, ''));
+  if (trimmed === '' || !Number.isFinite(parseDisplayText(def, trimmed))) return text;
+  const body = stripUnit(def, trimmed);
+  const match = PLAIN_DECIMAL.exec(GROUPED.test(body) ? body.replace(/,/g, '') : body);
+  // Exponent notation parses but is not a plain decimal; leave it as the reader wrote it.
   if (!match) return text;
   const [, sign = '', whole = '', fraction] = match;
   if (whole === '' && !fraction) return text;

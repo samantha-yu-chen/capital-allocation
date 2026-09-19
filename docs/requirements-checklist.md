@@ -190,8 +190,12 @@ From; 1,827 words rendered with zero money figures, zero percentages and zero ad
 prose; zero progress bars and zero published probabilities from opening it; a completed 10,000-path
 run still reading 68.98% after a visit to the panel and back; a stale result still discarded and a
 cancelled run still publishing nothing; 390px with zero overflow, all eight tabs, all eight sections
-and zero overflow again after expanding one), plus all fifteen existing browser harnesses re-run
-green. `handoffs/ux-10.md` records the measured evidence.
+and zero overflow again after expanding one). All fifteen existing browser harnesses are green,
+twelve in one sweep and the three longest — `scenario` (the 60-cell matrix), `section61` and
+`solver` (§61's £87,600 confirmed in 387.22 s) — after being re-run on a freshly started Chrome:
+their first-sweep failures were a closed CDP connection and two run timeouts in a browser that had
+already served twelve harnesses, not assertion failures. None needed retuning.
+`handoffs/ux-10.md` records the measured evidence and the browser-hygiene rule it implies.
 
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for

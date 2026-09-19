@@ -502,7 +502,8 @@ the markdown file. Wording another module already owns — `AUTHORITY_CLAUSE`,
 `STARTER_ILLUSTRATION_CAVEAT`, the three pension-relief labels — is interpolated rather than
 paraphrased. The panel shows no money figure and no percentage at all, asserted in the suite and in
 Chrome, and it cannot start a run. 329 tests pass (318 before; 11 new unit tests). Both worker smoke
-variants and all fifteen existing browser harnesses re-run green. Details in `docs/handoffs/ux-10.md`.
+variants pass, and all fifteen existing browser harnesses are green — the three longest after a
+Chrome restart, for reasons `docs/handoffs/ux-10.md` records along with the rest of the evidence.
 
 **Problem.** No conceptual on-ramp; the only deck is a PDF outside the app (finding A.1.9; the
 user had to write their own learning notes to use their own product).

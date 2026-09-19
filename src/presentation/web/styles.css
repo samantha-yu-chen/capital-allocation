@@ -418,3 +418,49 @@ details.group[open] > summary::before { content: '▾ '; }
 .starter-reasoning { margin: var(--space-2) 0 0; padding-left: 1.1em; }
 .starter-reasoning li { font-size: 12px; line-height: 1.55; margin-bottom: 4px; }
 .starter-card > button { margin-top: auto; align-self: flex-start; }
+
+/* UX-10: the "How this works" panel. Prose, so the measure is capped rather than stretched across a
+   wide screen, and the sidebar entry is quieter than "Start here" — it explains the destinations, it
+   does not compete with them for the first click. */
+.learn-button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; padding: 10px 14px; border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg); cursor: pointer; text-align: left;
+  color: var(--color-text); background: transparent;
+}
+.learn-button span { font-family: var(--font-heading); font-size: 14px; }
+.learn-button small { font-size: 11px; color: color-mix(in srgb, var(--color-text) 58%, transparent); }
+.learn-button:hover, .learn-button[aria-current='page'] {
+  border-color: var(--color-accent-400); background: var(--color-accent-100); color: var(--color-accent-900);
+}
+.learn-paragraph { margin: 0 0 var(--space-2); max-width: 68ch; font-size: 14px; line-height: 1.65; }
+/* The card stretches its children; the way back is a button, not a banner. */
+.learn-back { align-self: flex-start; width: fit-content; }
+.learn-doc-note {
+  margin: 0 0 var(--space-3); font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 62%, transparent);
+}
+.learn-doc-note code { font-size: 12px; overflow-wrap: anywhere; }
+.learn-sources {
+  margin: var(--space-2) 0 0; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 52%, transparent);
+}
+.learn-sources-lead { color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+.learn-screens { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+.learn-screen {
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md); background: var(--color-surface);
+}
+.learn-screen > summary { cursor: pointer; padding: var(--space-2) var(--space-3); }
+.learn-screen > summary b { font-family: var(--font-heading); font-size: 14px; }
+.learn-screen > summary small {
+  display: block; margin-top: 2px; font-size: 12px; line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 62%, transparent);
+}
+.learn-screen[open] > summary { border-bottom: 1px solid var(--color-divider); }
+.learn-screen-body { padding: var(--space-3); }
+
+@media (max-width: 760px) {
+  /* The sidebar is a horizontal strip at this width, so the entry becomes a chip beside the tabs. */
+  .learn-button { flex-direction: row; align-items: baseline; gap: var(--space-2); padding: 8px 12px; }
+  .learn-paragraph { font-size: 13px; }
+}

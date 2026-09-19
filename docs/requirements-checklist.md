@@ -161,6 +161,42 @@ six caveats still rendered and all eight tabs), plus all fourteen existing brows
 green and unretuned, including the 60-cell scenario matrix and §61's £87,600 confirmed in 419.08 s.
 `handoffs/ux-9.md` records the measured evidence.
 
+**UX-10 gave the model an explanation of itself, and made the written and in-app versions unable to
+contradict each other.** `docs/learnings/how-the-model-works.md` (1,931 words, under the ticket's
+2,500 cap, asserted) walks a general adult through one projected year, tax and pensions, what the
+simulation adds, how to read the two verdict numbers, and what the model deliberately refuses to do;
+every claim that is a rule names the file it comes from. `src/presentation/view/learn.ts` is the same
+explanation as view data — five method sections plus one per screen, keyed on `TabId` so the
+coverage test derives its list from `TABS` rather than restating it — and
+`src/presentation/web/learn-panel.tsx` is the only component that renders a section, reached from a
+sidebar entry beneath the eight destinations. The mechanism holding the two halves together is
+`LEARN_SHARED_CLAIMS`: the eight conventions a reader can be actively misled by (ADR 002's fixed
+event order and half-open year, a recorded failure a later good market cannot erase, nominal in the
+ledger and real on screen, no dynamic in-run spending cut, the arbitration clause, sampling error,
+"explains and simulates") are one string each, and the test reads the markdown file to prove both
+surfaces still carry them verbatim — a claim reworded in either place fails the suite, verified by
+breaking one. Wording other modules own (`AUTHORITY_CLAUSE`, `STARTER_ILLUSTRATION_CAVEAT`, the
+three pension-relief labels) is interpolated, never paraphrased. The panel reports nothing: no `£`
+and no percentage reaches the prose, no phrase that reads as advice, and an audit derived from the
+sources fails any second component that starts rendering learn sections or any learn surface that
+could start a run. No engine, schema or profile file changed — a test walks `src/engine` and
+`src/domain` and fails if either reaches the learn copy. `tests/presentation-learn.test.ts`
+(11 tests) pins the eight-tab coverage, the 2–4 paragraph shape, the shared claims on both surfaces,
+the quoted constants, that every cited path exists and every glossary term resolves, and both audits.
+Chrome evidence: `tests/browser-learn-ui.mjs` (both worker smokes at 10,000 paths and
+68.98%/35.18%; the panel reachable from the sidebar with all eight tabs still beside it; the section
+that opens is the screen the reader came from, measured from Overview, Property and Where It Comes
+From; 1,827 words rendered with zero money figures, zero percentages and zero advice phrases in the
+prose; zero progress bars and zero published probabilities from opening it; a completed 10,000-path
+run still reading 68.98% after a visit to the panel and back; a stale result still discarded and a
+cancelled run still publishing nothing; 390px with zero overflow, all eight tabs, all eight sections
+and zero overflow again after expanding one). All fifteen existing browser harnesses are green,
+twelve in one sweep and the three longest — `scenario` (the 60-cell matrix), `section61` and
+`solver` (§61's £87,600 confirmed in 387.22 s) — after being re-run on a freshly started Chrome:
+their first-sweep failures were a closed CDP connection and two run timeouts in a browser that had
+already served twelve harnesses, not assertion failures. None needed retuning.
+`handoffs/ux-10.md` records the measured evidence and the browser-hygiene rule it implies.
+
 Earlier interfaces and their boundaries stay authoritative: `handoffs/chunk-9.md` for
 attribution/sensitivity/stress, `handoffs/chunk-8.md` for scenarios, `handoffs/chunk-7.md` for
 marginal allocation, `handoffs/chunk-6.md` for the solvers and `property-model.md` for property.

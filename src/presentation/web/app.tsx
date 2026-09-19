@@ -27,6 +27,7 @@ import { CurveScreen } from './screen-curve.js';
 import { SolverScreen } from './screen-solver.js';
 import { ScenariosScreen } from './screen-scenarios.js';
 import { GlossaryBar } from './glossary-ui.js';
+import { LearnPanel } from './learn-panel.js';
 import { WizardScreen } from './screen-wizard.js';
 import { useAnalysis } from './use-analysis.js';
 
@@ -82,6 +83,10 @@ function Navigation(props: { active: TabId; onSelect: (tab: TabId) => void }): R
 export function App(): ReactNode {
   const [active, setActive] = useState<TabId>('overview');
   const [wizardOpen, setWizardOpen] = useState(initiallyShowWizard);
+  // The explanation is a destination in the shell, not a screen: it holds no state of its own, and
+  // `active` keeps pointing at the screen the reader came from so the panel can open that section
+  // and the way back can name it.
+  const [learnOpen, setLearnOpen] = useState(false);
   const store = useProfileStore();
   const [settings, setSettings] = useState<RunSettings>({
     retirementLevel: 'target',
@@ -126,19 +131,21 @@ export function App(): ReactNode {
   const tab = tabById(active);
   const shown = store.editable;
   const probability = runner.state.status === 'done' ? runner.state.result.successProbability : null;
-  const selectTab = (id: TabId) => { setActive(id); setWizardOpen(false); };
+  const selectTab = (id: TabId) => { setActive(id); setWizardOpen(false); setLearnOpen(false); };
   const dismissWizard = () => {
     try { localStorage.setItem(WIZARD_DISMISSED_KEY, 'true'); } catch { /* storage is optional */ }
     setWizardOpen(false);
     setActive('overview');
   };
-  const openFire = () => { setWizardOpen(false); setActive('fire'); };
-  const openCurve = () => { setWizardOpen(false); setActive('curve'); };
+  const openFire = () => { setWizardOpen(false); setLearnOpen(false); setActive('fire'); };
+  const openCurve = () => { setWizardOpen(false); setLearnOpen(false); setActive('curve'); };
   const openSolverQuestion = (question: SolverModeId) => {
     setWizardOpen(false);
+    setLearnOpen(false);
     setSolverMode(question);
     setActive('solver');
   };
+  const openLearn = () => { setWizardOpen(false); setLearnOpen(true); };
 
   return (
     <div className="shell">
@@ -149,10 +156,15 @@ export function App(): ReactNode {
           <div className="text-muted brand-sub">Lifetime allocation &amp; FIRE model</div>
         </div>
         <button type="button" className="start-here-button" aria-current={wizardOpen ? 'page' : undefined}
-          onClick={() => setWizardOpen(true)}>
+          onClick={() => { setLearnOpen(false); setWizardOpen(true); }}>
           <span>Start here</span><small>Build your first result</small>
         </button>
         <Navigation active={active} onSelect={selectTab} />
+        {/* Beneath the eight destinations, because it explains them rather than competing with them. */}
+        <button type="button" className="learn-button" aria-current={learnOpen ? 'page' : undefined}
+          data-testid="open-learn" onClick={openLearn}>
+          <span>How this works</span><small>The model in plain language</small>
+        </button>
         <p className="sidebar-note">
           Illustrative decision-support model, not regulated financial advice. It uses the configured UK/Scotland
           tax rules for {shown.personal.taxYear} and a parametric Monte Carlo market model. Sampled results are
@@ -169,8 +181,12 @@ export function App(): ReactNode {
       <main className="main" id="main">
         <div className="page-header">
           <div>
-            <h2>{wizardOpen ? 'Start here' : tab.label}</h2>
-            <p className="text-muted">{wizardOpen ? 'A guided path from the figures you know to your first personal result.' : tab.summary}</p>
+            <h2>{learnOpen ? 'How this works' : wizardOpen ? 'Start here' : tab.label}</h2>
+            <p className="text-muted">{
+              learnOpen ? 'What the model does with your numbers, and what its results do and do not mean.'
+                : wizardOpen ? 'A guided path from the figures you know to your first personal result.'
+                  : tab.summary
+            }</p>
           </div>
           <div className="tag-row">
             <span className="tag tag-neutral">Age {shown.personal.currentAge}</span>
@@ -187,9 +203,11 @@ export function App(): ReactNode {
         </div>
 
         {/* One place, so no destination can quietly go without an explanation of its own words. */}
-        {wizardOpen ? null : <GlossaryBar tab={active} />}
+        {wizardOpen || learnOpen ? null : <GlossaryBar tab={active} />}
 
-        {wizardOpen ? (
+        {learnOpen ? (
+          <LearnPanel tab={active} onClose={() => setLearnOpen(false)} />
+        ) : wizardOpen ? (
           <WizardScreen store={store} options={ledgerOptions} state={runner.state} onRun={onRun}
             onCancel={runner.cancel} onDismiss={dismissWizard} onOpenFire={openFire} />
         ) : <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>

@@ -15,6 +15,7 @@ import {
 import { money, moneyExact, moneySigned, percent, ratio, years } from '../view/format.js';
 import { twoNumbersStoryFor } from '../view/two-numbers.js';
 import { STARTER_ILLUSTRATION_CAVEAT } from '../view/starter-picker.js';
+import type { FieldFocusRequest } from '../view/field-navigation.js';
 import { Banner, Card, ExpandableRow, Line, SelectField } from './components.js';
 import { TwoNumbers } from './two-numbers.js';
 import { ProfileForm } from './profile-form.js';
@@ -357,6 +358,8 @@ export function OverviewScreen(props: {
   onOpenFire: () => void;
   onOpenCurve: () => void;
   onOpenSolverQuestion: (question: SolverModeId) => void;
+  /** UX-11: an input the reader asked to be taken to, served by the profile form below. */
+  focus?: FieldFocusRequest | null;
 }): ReactNode {
   const { store } = props;
   const profile = store.profile;
@@ -394,6 +397,7 @@ export function OverviewScreen(props: {
             groups={['personal', 'income', 'household', 'spending', 'assets', 'pension', 'wrappers', 'liquidity', 'portfolios', 'market', 'simulation']}
             openByDefault={['personal', 'income', 'spending', 'assets']}
             filterable
+            focus={props.focus}
           />
           <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={store.reset}>
             Reset everything to the starter profile

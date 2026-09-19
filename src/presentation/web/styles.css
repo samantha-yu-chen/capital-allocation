@@ -419,6 +419,25 @@ details.group[open] > summary::before { content: '▾ '; }
 .starter-reasoning li { font-size: 12px; line-height: 1.55; margin-bottom: 4px; }
 .starter-card > button { margin-top: auto; align-self: flex-start; }
 
+/* UX-11: a fact on the situation you are using is the way to the input behind it. It stays the same
+   size and alignment as the plain value it replaces, so the card does not reflow when a different
+   situation is chosen; the underline is what says it is a link. */
+.starter-fact-link {
+  font-size: 12px; font-variant-numeric: tabular-nums; text-align: right;
+  text-underline-offset: 2px;
+}
+.starter-next {
+  margin-top: var(--space-3); padding-top: var(--space-3);
+  border-top: 1px solid var(--color-divider);
+}
+.starter-next .row { margin-top: var(--space-2); gap: var(--space-2); }
+
+/* UX-11: what a jump did, above the form it landed on. It reports a display change and carries no
+   figure, so it is quiet — a notice, not a result. */
+.field-arrival {
+  border-left: 3px solid var(--color-accent-2-500);
+}
+
 /* UX-10: the "How this works" panel. Prose, so the measure is capped rather than stretched across a
    wide screen, and the sidebar entry is quieter than "Start here" — it explains the destinations, it
    does not compete with them for the first click. */

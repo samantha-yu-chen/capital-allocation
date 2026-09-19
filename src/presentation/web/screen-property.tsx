@@ -5,10 +5,11 @@ import { runKey } from '../view/run-key.js';
 import { money, percent } from '../view/format.js';
 import { Card, Line, Stat, Banner } from './components.js';
 import { ProfileForm } from './profile-form.js';
+import type { FieldFocusRequest } from '../view/field-navigation.js';
 import type { ProfileStore } from './profile-state.js';
 import { usePropertyComparison } from './use-property-comparison.js';
 
-export function PropertyScreen({store,ledgerOptions}:{store:ProfileStore;ledgerOptions:LedgerOptions}):ReactNode {
+export function PropertyScreen({store,ledgerOptions,focus}:{store:ProfileStore;ledgerOptions:LedgerOptions;focus?:FieldFocusRequest|null}):ReactNode {
   const outcome=useMemo(()=>{
     if(!store.profile)return {model:null,error:''};
     try{return {model:computeProperty(store.profile,ledgerOptions),error:''};}
@@ -18,7 +19,7 @@ export function PropertyScreen({store,ledgerOptions}:{store:ProfileStore;ledgerO
   const comparison=usePropertyComparison(key);
   const m=outcome.model,p=store.profile?.property;
   return <div className="stack">
-    <ProfileForm store={store} groups={['property','spending']} openByDefault={['property']}/>
+    <ProfileForm store={store} groups={['property','spending']} openByDefault={['property']} focus={focus}/>
     {!store.profile?<Banner tone="error" title="Correct the property or profile inputs to project"/>:null}
     {outcome.error?<Banner tone="error" title="Projection unavailable">{outcome.error}</Banner>:null}
     {!p&&store.profile?<Banner tone="notice" title="Add a property to model ownership">Enable the property above to plan a purchase or enter an existing home.</Banner>:null}

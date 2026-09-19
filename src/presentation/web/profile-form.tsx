@@ -17,7 +17,7 @@ import { toggleProperty, togglePurchase, toggleSale, addRefinance } from '../vie
  * and the registry-described selects, checkboxes and composite editors.
  */
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Profile } from '../../domain/contracts.js';
 import {
   DEFAULT_TIER_MODE, MARKET_VARIABLES, TIER_MODES, choiceFieldsFor, displayValue, fieldName,
@@ -25,6 +25,10 @@ import {
   type TierMode, type Visibility,
 } from '../view/fields.js';
 import { FIELD_GROUPS } from '../view/fields.js';
+import {
+  fieldArrivalNote, fieldTarget, raiseModeFor, tierRaiseNote,
+  type FieldFocusRequest, type FieldTarget,
+} from '../view/field-navigation.js';
 import { provenanceSummary, resettableInGroup } from '../view/provenance.js';
 import { CheckboxField, NumberField, ProvenanceMark, SelectField, type FieldMark } from './components.js';
 import { GlossaryTerms } from './glossary-ui.js';
@@ -103,9 +107,17 @@ function Choice(props: {
 const optionsOf = <T extends string>(def: ChoiceFieldDef): readonly { value: T; label: string }[] =>
   (def.options ?? []) as readonly { value: T; label: string }[];
 
-/** Everything a registry-described control says in words, so no call site spells it out again. */
-const textOf = (def: ChoiceFieldDef): { label: string; help?: string; plainHelp?: string; terms?: readonly string[] } => ({
+/**
+ * Everything a registry-described control says in words, so no call site spells it out again.
+ *
+ * `controlId` is the registry id, which makes a select or a checkbox addressable by the same id a
+ * numeric input already uses — without it a jump could reach "Gross salary" but not "Tax region".
+ */
+const textOf = (def: ChoiceFieldDef): {
+  label: string; controlId: string; help?: string; plainHelp?: string; terms?: readonly string[];
+} => ({
   label: fieldName(def),
+  controlId: def.id,
   ...(def.help === undefined ? {} : { help: def.help }),
   ...(def.plainHelp === undefined ? {} : { plainHelp: def.plainHelp }),
   ...(def.terms === undefined ? {} : { terms: def.terms }),
@@ -580,10 +592,46 @@ function GroupReset(props: { store: ProfileStore; group: FieldGroupId; label: st
   );
 }
 
+/**
+ * What a jump did, once it has landed (UX-11).
+ *
+ * Shown above the form rather than announced only to assistive technology, because the thing it
+ * reports — the reader's chosen depth moving — is visible on screen and must be attributable. It is
+ * dismissible and it carries no figure.
+ */
+function ArrivalNote(props: { arrival: Arrival; onDismiss: () => void }): ReactNode {
+  return (
+    <div className="card elev-sm stack-tight field-arrival" role="status" data-testid="field-arrival">
+      <p className="field-plain" style={{ margin: 0 }}>{fieldArrivalNote(props.arrival.target)}</p>
+      {props.arrival.raisedTo
+        ? <p className="field-help" style={{ margin: 0 }} data-testid="tier-raised">
+            {tierRaiseNote(props.arrival.target, props.arrival.raisedTo)}
+          </p>
+        : null}
+      <button type="button" className="link-button" style={{ alignSelf: 'flex-start' }} onClick={props.onDismiss}>
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
+interface Arrival {
+  target: FieldTarget;
+  /** The depth the filter was widened to, or null when it was already wide enough. */
+  raisedTo: TierMode | null;
+}
+
 export function ProfileForm(props: {
   store: ProfileStore; groups: readonly FieldGroupId[]; openByDefault?: readonly FieldGroupId[];
   /** Opt in to the tier filter. Screens that render one targeted group leave it off. */
   filterable?: boolean;
+  /**
+   * A request to put one registry input in front of the reader (UX-11). The form widens its own
+   * filter far enough for the target to be visible, opens the group holding it, scrolls to it and
+   * focuses it — and says so, because the filter is the reader's setting even though moving it
+   * changes nothing about the plan.
+   */
+  focus?: FieldFocusRequest | null | undefined;
 }): ReactNode {
   const { store } = props;
   const [mode, setMode] = useState<TierMode>(DEFAULT_TIER_MODE);
@@ -593,10 +641,44 @@ export function ProfileForm(props: {
     () => fieldVisibility(effective, store.defs, choices, store.validation.issues),
     [effective, store.defs, choices, store.validation.issues],
   );
+  const [arrival, setArrival] = useState<Arrival | null>(null);
+  const [pending, setPending] = useState<FieldTarget | null>(null);
+  const focusSequence = props.focus?.sequence ?? null;
+
+  // A request decides what has to change; it never touches the DOM, because the target may not be
+  // rendered yet. Asking for the same field twice is two requests, so a second click still works.
+  useEffect(() => {
+    const request = props.focus;
+    if (!request) return;
+    const target = fieldTarget(store.base, request.fieldId);
+    if (!target || !props.groups.includes(target.group)) return;
+    const raise = props.filterable ? raiseModeFor(target.tier, mode) : null;
+    if (raise) setMode(raise);
+    setArrival({ target, raisedTo: raise });
+    setPending(target);
+    // Deliberately keyed on the request alone: the rest is read at the moment it fires, and a
+    // re-render caused by the mode change it makes must not re-enter this.
+  }, [focusSequence]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The second pass runs after the widened filter has rendered, so the box exists to be focused.
+  useEffect(() => {
+    if (!pending) return;
+    setPending(null);
+    const element = document.getElementById(pending.id);
+    if (!element) return;
+    // A collapsed group hides its inputs without removing them, and a hidden input cannot take focus.
+    const group = element.closest('details');
+    if (group && !group.open) group.open = true;
+    element.scrollIntoView({ block: 'center' });
+    (element as HTMLElement).focus({ preventScroll: true });
+  }, [pending, effective]);
+
   const open = new Set(props.openByDefault ?? props.groups);
+  if (arrival) open.add(arrival.target.group);
   const show: Show = fieldId => visibility.shows(fieldId);
   return (
     <>
+      {arrival ? <ArrivalNote arrival={arrival} onDismiss={() => setArrival(null)} /> : null}
       {props.filterable
         ? <TierFilter mode={mode} onChange={setMode} visibility={visibility}
             summary={provenanceSummary(store.provenance)} starterNote={store.starterNote} />

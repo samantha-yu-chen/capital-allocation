@@ -296,3 +296,34 @@ test('the picker surfaces exist and choosing on one of them runs nothing', () =>
       assert.ok(!source.includes(forbidden), `${file} must not run anything when a card is chosen`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// UX-11 — a card that says where its figures live
+// ---------------------------------------------------------------------------
+
+test('only the situation in use turns its facts into links, and it resolves them against the reader’s profile', () => {
+  const source = readFileSync(`${WEB}/starter-picker.tsx`, 'utf8');
+
+  // A fact on a card you have not chosen describes a profile you are not holding. Sending the
+  // reader to a box with a different number in it would be a lie, so the link is gated on `chosen`.
+  assert.ok(source.includes('linkable={chosen}'),
+    'every card linking its facts would navigate to values the form does not hold');
+  // And it is resolved against the profile the reader has, not against the card, because that is
+  // where the jump lands: `props.profile`, threaded in by the screen.
+  assert.ok(source.includes('firstFieldTarget(props.profile'),
+    'a fact link must resolve against the profile the form holds');
+  assert.ok(source.includes('profile: Profile'), 'the picker takes the reader’s profile as a prop');
+
+  // A jump is navigation, not a run — the UX-9 rule, restated for the thing UX-11 added.
+  for (const forbidden of ['runner.run(', 'runMonteCarlo', 'onRun'])
+    assert.ok(!source.includes(forbidden), `a fact link must not start anything (${forbidden})`);
+
+  // Every screen that renders the picker has to hand it both, or the links silently disappear.
+  for (const file of readdirSync(WEB).filter(name => name.endsWith('.tsx'))) {
+    const screen = readFileSync(join(WEB, file), 'utf8');
+    if (!screen.includes('<StarterPicker')) continue;
+    assert.ok(screen.includes('profile={store.base}') || screen.includes('profile={props.store.base}'),
+      `${WEB}/${file} renders the picker without the profile its links resolve against`);
+    assert.ok(screen.includes('onOpenField'), `${WEB}/${file} renders a picker that cannot navigate`);
+  }
+});

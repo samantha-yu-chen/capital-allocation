@@ -2,9 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExampleProfile } from '../src/domain/fixtures.js';
 import { defaultLedgerOptions, runDeterministicProjection, runMonteCarlo, type FireAgeCurveResult } from '../src/engine/index.js';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  computeOverview, ledgerRow, marginalOnIncrement, overviewHeadline, sampledProbabilityDigits,
+  MONEY_BASIS_OPTIONS, computeOverview, defaultComparisonAge, inflationComparison, ledgerRow,
+  marginalOnIncrement, moneyBasisExplanation, overviewHeadline, sampledProbabilityDigits,
 } from '../src/presentation/view/overview-model.js';
+import { glossaryEntry } from '../src/presentation/view/glossary.js';
 import {
   CONFIDENCE_BANDS, WEALTH_CATEGORIES, confidenceBand, diagnosticRows, distributionRows, metadataRows,
   observedFailureRows, sequenceRows, successSplit, wealthSeries,
@@ -305,4 +309,100 @@ test('formatting keeps infinities, negatives and missing values honest', () => {
   assert.equal(moneyCompact(2_041_888), '£2.0m');
   assert.equal(moneyCompact(645_336), '£645k');
   assert.equal(moneyCompact(-980), '-£980');
+});
+
+/**
+ * UX-11: the flat real-terms spending line, explained where it is read.
+ *
+ * The reader reported "spending is the same across all years; shouldn't inflation compound?". It
+ * does compound — `inflationIndices` accumulates a running product and `spendingForYear` multiplies
+ * by it — and the flat line is the correct appearance of constant real spending on the ledger's
+ * default money basis. The bug was that nothing said so. These tests pin both halves: that the
+ * compounding is genuinely in the numbers, and that the explanation next to them is true of it.
+ */
+test('inflation compounds in the ledger, and the real basis is what flattens it', () => {
+  const model = computeOverview(example);
+  const first = model.rows[0]!;
+  const later = model.rows[20]!;
+
+  // Year zero is the current year, so the two bases agree there by construction.
+  assert.equal(first.inflationIndex, 1);
+  assert.equal(first.real.spendingRequired, first.nominal.spendingRequired);
+
+  // Twenty years on, the index is a compounded product, not a sum: a constant real budget costs
+  // materially more in the cash of that year.
+  assert.ok(later.inflationIndex > 1.4, `inflation index only reached ${later.inflationIndex}`);
+  close(later.nominal.spendingRequired, later.real.spendingRequired * later.inflationIndex, 1e-6,
+    'nominal spending is the real budget at that year’s prices');
+  assert.ok(later.nominal.spendingRequired > first.nominal.spendingRequired * 1.4,
+    'the cash-terms figure must visibly grow');
+  // And the real figure is flat, which is the appearance that prompted the report.
+  close(later.real.spendingRequired, first.real.spendingRequired, 1e-6,
+    'a constant standard of living is a flat line in today’s money');
+});
+
+test('the money basis explains itself, in the words of the basis that is showing', () => {
+  assert.deepEqual(MONEY_BASIS_OPTIONS.map(option => option.value), ['real', 'nominal']);
+  for (const option of MONEY_BASIS_OPTIONS)
+    assert.equal(option.label, moneyBasisExplanation(option.value).label);
+
+  const real = moneyBasisExplanation('real');
+  assert.equal(real.basis, 'real');
+  assert.match(real.spendingNote, /flat/, 'the sentence names the thing the reader is looking at');
+  assert.match(real.spendingNote, /prices do rise here, every year/,
+    'and refuses the wrong conclusion explicitly rather than by implication');
+  assert.match(real.switchNote, /cash terms/, 'and says where the growing figure is');
+  assert.deepEqual([...real.terms], ['todays-money', 'inflation-index']);
+
+  const nominal = moneyBasisExplanation('nominal');
+  assert.match(nominal.spendingNote, /grows/);
+  assert.match(nominal.switchNote, /today’s money/);
+  // The default is not moved: today's money stays the app's contract on every surface.
+  assert.equal(MONEY_BASIS_OPTIONS[0]!.value, 'real');
+
+  // The glossary already owns both definitions; nothing here restates one.
+  for (const term of [...real.terms, ...nominal.terms]) assert.ok(glossaryEntry(term), `${term} is dangling`);
+});
+
+test('a chosen year is quotable in both bases, from the row the ledger produced', () => {
+  const model = computeOverview(example);
+  const opening = inflationComparison(model.rows[0]!);
+  assert.equal(opening.priceRise, 0);
+  assert.equal(opening.realSpending, opening.nominalSpending);
+  assert.match(opening.sentence, /the year you are in now/);
+
+  const row = model.rows.find(candidate => candidate.age === defaultComparisonAge(model.rows))!;
+  const pair = inflationComparison(row);
+  assert.equal(pair.age, row.age);
+  assert.equal(pair.realSpending, row.real.spendingRequired);
+  assert.equal(pair.nominalSpending, row.nominal.spendingRequired);
+  close(pair.priceRise, row.inflationIndex - 1, 1e-12, 'the rise is the row’s own index');
+  assert.ok(pair.sentence.includes(money(pair.realSpending)));
+  assert.ok(pair.sentence.includes(money(pair.nominalSpending)));
+  assert.ok(pair.sentence.includes(percent(pair.priceRise, 1)));
+  assert.ok(!/you should|we recommend/i.test(pair.sentence));
+
+  // It opens on the first year the plan stops earning, derived from the phase the ledger recorded.
+  assert.equal(defaultComparisonAge(model.rows), example.personal.targetFireAge);
+  assert.notEqual(model.rows.find(candidate => candidate.age === defaultComparisonAge(model.rows))!.phase,
+    'accumulation');
+});
+
+test('the surface with a money-basis control is the surface that explains it', () => {
+  const dir = 'src/presentation/web';
+  const sources = readdirSync(dir)
+    .filter(name => name.endsWith('.tsx'))
+    .map(name => ({ file: `${dir}/${name}`, source: readFileSync(join(dir, name), 'utf8') }));
+
+  const withBasis = sources.filter(entry => entry.source.includes('MONEY_BASIS_OPTIONS'));
+  assert.deepEqual(withBasis.map(entry => entry.file), [`${dir}/screen-overview.tsx`]);
+  for (const entry of withBasis) {
+    assert.ok(entry.source.includes('moneyBasisExplanation'),
+      `${entry.file} offers the basis choice without explaining what the choice means`);
+    assert.ok(entry.source.includes('inflationComparison'),
+      `${entry.file} explains the basis without ever showing the same year both ways`);
+  }
+  // The wording is authored in the view model, never typed into the component.
+  const overview = readFileSync(`${dir}/screen-overview.tsx`, 'utf8');
+  assert.ok(!overview.includes('prices do rise'), 'the explanation belongs to overview-model.ts');
 });

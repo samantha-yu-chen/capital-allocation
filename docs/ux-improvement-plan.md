@@ -115,7 +115,7 @@ These apply to all tickets and are part of each ticket's AC even where not resta
    parentheses so advanced users can map back to the spec.
 
 Suggested order: UX-1 → UX-2 → UX-3 → UX-4 → UX-5/UX-6 (parallel-safe) → UX-7 → UX-8 → UX-9 →
-UX-10. UX-1..3 are the foundation the rest reuse. Sizes: S ≈ half a package, M ≈ one package,
+UX-10 → UX-11. UX-1..3 are the foundation the rest reuse. Sizes: S ≈ half a package, M ≈ one package,
 L ≈ a package and a half.
 
 ---
@@ -529,6 +529,66 @@ user had to write their own learning notes to use their own product).
    Chrome-verified.
 4. No engine or profile change of any kind.
 5. `npm run check` green; handoff written.
+
+### UX-11 (M) — The way out of a starting situation, and the flat spending column — **delivered**
+
+Delivered. Two reader-reported problems, both presentation, neither an engine change.
+
+`src/presentation/view/field-navigation.ts` resolves a registry id to its reader-facing name, its
+group, the destination whose form renders that group and its tier; `raiseModeFor` returns the
+smallest widening of the reader's chosen depth that puts the target on screen, or null when none is
+needed, and `tierRaiseNote` writes the sentence shown when it moves. An id the current profile has
+no input for resolves to null, so a fact about a property nobody owns stays plain text. `StarterFact`
+carries the ids it is read from with honest arity, and only the card in use turns them into links.
+Four labelled jumps sit beneath the grid. `household.adults` and `household.children` moved from
+`expert` to `common` — visibility only; no default, no validation and no figure moved — and the UX-1
+browser harness that pinned the old tier was deliberately inverted rather than deleted. The reader's
+chosen depth moved to the shell so it survives leaving Overview, which is also what makes the filter
+raise reachable at all.
+
+`moneyBasisExplanation` and `inflationComparison` in `overview-model.ts` say, beside the ledger's
+money-basis control, why a real-terms column does not grow and quote one chosen year in both bases
+from the row the ledger produced. The engine was not touched and the default basis did not move: the
+flat line is correct, and “every result is in today's money” is the contract the glossary, the learn
+panel and every other screen state. 343 tests pass (329 before; 14 new). Chrome confirmed every fact
+link and every jump landing focused and visible, the filter raise announced, 68.98% unchanged, and
+zero overflow at 390px; all fifteen existing harnesses are green. Details, the two harness retunes
+and the limitations are in `docs/handoffs/ux-11.md`.
+
+**Problem.** After choosing a starter situation (UX-9) there was no way to find the input behind any
+figure on the card, and the two inputs describing the household were hidden at the expert tier — so
+the entry-level surface advertised a figure the entry-level form would not show. Separately, the
+Overview ledger's real-terms spending column is flat, which a reader reasonably read as inflation
+not compounding.
+
+**Tasks.**
+- Extend `StarterFact` with the field id (or ids) it is derived from; a fact with no single input
+  behind it models that honestly rather than faking a link.
+- Build the navigation a fact link needs: open the right surface, raise the tier filter far enough
+  for the target to be visible, scroll it into view and focus it. Raising the filter is safe
+  (display-only, UX-1) but must be visible to the reader — never silent.
+- After choosing a situation, offer a short labelled set of jumps for the common departures
+  (household, salary, spending, target FIRE age), with the copy authored in the view module.
+- Re-tier `household.adults` and `household.children` from `expert` to `common`, updating any audit
+  that pins the old tier deliberately and saying so in the handoff.
+- Say near the ledger's spending columns why a real-terms figure does not grow and where the
+  cash-terms figure that does can be seen; surface the pair for a chosen year. Do not change the
+  default money basis, and do not change the engine.
+
+**AC.**
+1. Every fact id and every jump id resolves against every starter situation's own profile; a
+   dangling id fails the suite. An id the profile has no input for yields no link.
+2. A jump lands on the destination whose form renders that group, with the target focused and
+   visible — Chrome-verified for every fact link and every jump, at desktop and mobile widths.
+3. Raising the tier filter moves the control the reader can see and prints what moved and why; an
+   audit fails a second surface that moves the filter, or one that moves it without the note.
+4. Re-tiering changes visibility only: no default, no validation, no run key and no figure moves.
+   The 10,000-path FIRE run still measures 68.98% and the property comparison 35.18%.
+5. The picker still starts nothing (UX-9's audit), and a jump publishes nothing: a completed run
+   survives a jump and is still discarded by a real edit.
+6. The money-basis explanation is view data, shown wherever the basis control is; a test pins that
+   the ledger really does compound while the real column is flat.
+7. `npm run check` green; handoff written.
 
 ---
 

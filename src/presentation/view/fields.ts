@@ -171,10 +171,16 @@ export const NUMBER_FIELDS: readonly NumberFieldDef[] = [
     terms: ['state-pension'],
   }),
 
-  field(['household', 'adults'], 'Adults', 'household', 'integer', 1, 'expert', {
+  // UX-11 moved these two from `expert` to `common`. Every starter situation card states the
+  // household it describes, and "one adult" versus "two adults and two children" is something a
+  // reader knows about their own life without being a finance person — the `common` definition. A
+  // figure advertised on an entry-level card and then hidden behind the expert filter is a dead end,
+  // which is exactly what the reader reported. The tier decides visibility and nothing else: neither
+  // default nor validation moved.
+  field(['household', 'adults'], 'Adults', 'household', 'integer', 1, 'common', {
     plainHelp: 'How many adults the spending totals cover. It is used only to divide a breakdown back up; it never multiplies your totals.',
   }),
-  field(['household', 'children'], 'Children', 'household', 'integer', 1, 'expert', {
+  field(['household', 'children'], 'Children', 'household', 'integer', 1, 'common', {
     plainHelp: 'How many children the spending totals cover, used the same way as the adult count.',
   }),
 

@@ -99,6 +99,8 @@ function ResultStep(props: {
 export function WizardScreen(props: {
   store: ProfileStore; options: LedgerOptions; state: RunState;
   onRun: () => void; onCancel: () => void; onDismiss: () => void; onOpenFire: () => void;
+  /** UX-11: take the reader to one profile input, leaving the wizard for the form that holds it. */
+  onOpenField: (fieldId: string) => void;
 }): ReactNode {
   const [current, setCurrent] = useState(0);
   const [attempted, setAttempted] = useState(false);
@@ -150,7 +152,8 @@ export function WizardScreen(props: {
             </Banner>
           ) : null}
           {step.id === 'about' ? <>
-            <StarterPicker chosenId={props.store.starterId} onChoose={props.store.chooseStarter} />
+            <StarterPicker chosenId={props.store.starterId} onChoose={props.store.chooseStarter}
+              profile={props.store.base} onOpenField={props.onOpenField} />
             <p className="wizard-note">{props.store.starterNote}</p>
             <ProfileFields store={props.store} ids={step.fieldIds.filter(id => id !== 'personal.taxRegion')} />
             <ProfileChoiceFields store={props.store} ids={['personal.taxRegion']} />

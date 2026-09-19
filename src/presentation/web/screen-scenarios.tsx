@@ -43,7 +43,11 @@ const scenarioOptionsFrom = (options: LedgerOptions): ScenarioOptions => ({
   fundEmergencyReserve: options.fundEmergencyReserve, surplusAllocation: options.surplusAllocation,
 });
 
-export function ScenariosScreen({ store, ledgerOptions }: { store: ProfileStore; ledgerOptions: LedgerOptions }): ReactNode {
+export function ScenariosScreen({ store, ledgerOptions, onOpenField }: {
+  store: ProfileStore; ledgerOptions: LedgerOptions;
+  /** UX-11: take the reader to one profile input, on the screen whose form holds it. */
+  onOpenField: (fieldId: string) => void;
+}): ReactNode {
   const [settings, setSettings] = useState<ScenarioSettings>(defaultScenarioSettings);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [name, setName] = useState('Baseline');
@@ -91,7 +95,7 @@ export function ScenariosScreen({ store, ledgerOptions }: { store: ProfileStore;
       {!profile ? <Banner tone="error" title="Invalid profile; no comparison can run" /> : null}
 
       <LibraryCard store={store} library={library} options={options} name={name} onName={setName}
-        transfer={transfer} onTransfer={setTransfer} />
+        transfer={transfer} onTransfer={setTransfer} onOpenField={onOpenField} />
 
       <Card kicker="Comparison" title="Compare plans on the same market paths" elevation="md">
         <p className="footnote">
@@ -179,6 +183,8 @@ export function ScenariosScreen({ store, ledgerOptions }: { store: ProfileStore;
 function LibraryCard(props: {
   store: ProfileStore; library: ReturnType<typeof useScenarioLibrary>; options: ScenarioOptions;
   name: string; onName: (value: string) => void; transfer: string; onTransfer: (value: string) => void;
+  /** UX-11: passed straight to the picker, which turns a chosen card's facts into jumps. */
+  onOpenField: (fieldId: string) => void;
 }): ReactNode {
   const { store, library, options } = props;
   const [presetError, setPresetError] = useState<string | null>(null);
@@ -237,6 +243,8 @@ function LibraryCard(props: {
         effectNote={'Choosing a situation replaces every value on the form and saves it here as a named scenario '
           + 'you can compare against later. It runs nothing, and it becomes the “default” that every edited marker '
           + 'and every reset is measured against until you choose another.'}
+        profile={store.base}
+        onOpenField={props.onOpenField}
       />
       <h4 className="card-title" style={{ fontSize: 15 }}>Create from a preset</h4>
       <p className="footnote">Each preset is an explicit transform of the current profile, not a stored example result.</p>

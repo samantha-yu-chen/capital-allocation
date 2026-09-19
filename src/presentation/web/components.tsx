@@ -188,8 +188,14 @@ export function SelectField<T extends string>(props: {
   label: string; value: T; options: readonly { value: T; label: string }[];
   onChange: (value: T) => void; help?: string; plainHelp?: string | undefined;
   terms?: readonly string[] | undefined; mark?: FieldMark | undefined;
+  /**
+   * The registry id, when this control is one. A generated id is unaddressable, and UX-11's jumps
+   * have to be able to find the box for `personal.taxRegion` the way they find a numeric one.
+   */
+  controlId?: string | undefined;
 }): ReactNode {
-  const id = useId();
+  const generated = useId();
+  const id = props.controlId ?? generated;
   const described = [props.plainHelp ? `${id}-plain` : null, props.help ? `${id}-help` : null]
     .filter(Boolean).join(' ');
   return (
@@ -218,8 +224,11 @@ export function CheckboxField(props: {
   label: string; checked: boolean; onChange: (checked: boolean) => void; help?: string;
   plainHelp?: string | undefined; terms?: readonly string[] | undefined;
   mark?: FieldMark | undefined;
+  /** As on `SelectField`: the registry id, so a jump can address the control it describes. */
+  controlId?: string | undefined;
 }): ReactNode {
-  const id = useId();
+  const generated = useId();
+  const id = props.controlId ?? generated;
   const described = [props.plainHelp ? `${id}-plain` : null, props.help ? `${id}-help` : null]
     .filter(Boolean).join(' ');
   return (

@@ -15,6 +15,8 @@ import {
 } from '../../engine/index.js';
 import type { SolverModeId } from '../../engine/solver.js';
 import { TABS, tabById, type TabId } from '../view/tabs.js';
+import { fieldTarget, nextFocusRequest, type FieldFocusRequest } from '../view/field-navigation.js';
+import { DEFAULT_TIER_MODE, type TierMode } from '../view/fields.js';
 import { runKey, stableStringify } from '../view/run-key.js';
 import { curvePlan } from '../view/solver-model.js';
 import { money, percent } from '../view/format.js';
@@ -99,6 +101,14 @@ export function App(): ReactNode {
   // Navigation owns which question the Reverse Solver is asking, so the Overview card can pre-select
   // one. It selects and nothing more: a solve is many complete simulations and stays explicit.
   const [solverMode, setSolverMode] = useState<SolverModeId>('salary');
+  // UX-11: which input a reader has asked to be taken to. Navigation owns it for the same reason it
+  // owns the solver question — the request comes from one surface and is served by another — and it
+  // is a request, never an edit: nothing about the profile or any run moves with it.
+  const [fieldFocus, setFieldFocus] = useState<FieldFocusRequest | null>(null);
+  // The reader's chosen depth on the profile form. Shell state so it survives a visit to Start here
+  // or to another destination — a display preference that resets itself is not a preference. It
+  // reaches no engine: `runKey` is built from the profile and the ledger options only.
+  const [tierMode, setTierMode] = useState<TierMode>(DEFAULT_TIER_MODE);
 
   const ledgerOptions = useMemo<LedgerOptions>(() => ({
     ...defaultLedgerOptions(),
@@ -146,6 +156,20 @@ export function App(): ReactNode {
     setActive('solver');
   };
   const openLearn = () => { setWizardOpen(false); setLearnOpen(true); };
+  /**
+   * Take the reader to one registry input: the destination whose form holds its group, then the
+   * form widens its own filter far enough to show it, scrolls to it and focuses it.
+   *
+   * An id this profile has no input for is declined here rather than navigated to and then lost.
+   */
+  const openField = (fieldId: string) => {
+    const target = fieldTarget(store.base, fieldId);
+    if (!target) return;
+    setWizardOpen(false);
+    setLearnOpen(false);
+    setActive(target.screen);
+    setFieldFocus(previous => nextFocusRequest(previous, fieldId));
+  };
 
   return (
     <div className="shell">
@@ -209,17 +233,19 @@ export function App(): ReactNode {
           <LearnPanel tab={active} onClose={() => setLearnOpen(false)} />
         ) : wizardOpen ? (
           <WizardScreen store={store} options={ledgerOptions} state={runner.state} onRun={onRun}
-            onCancel={runner.cancel} onDismiss={dismissWizard} onOpenFire={openFire} />
+            onCancel={runner.cancel} onDismiss={dismissWizard} onOpenFire={openFire}
+            onOpenField={openField} />
         ) : <div role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} tabIndex={-1}>
           {active === 'attribution' ? <AttributionScreen store={store} ledgerOptions={ledgerOptions} /> : null}
           {active === 'marginal' ? <MarginalScreen store={store} ledgerOptions={ledgerOptions} /> : null}
-          {active === 'property' ? <PropertyScreen store={store} ledgerOptions={ledgerOptions} /> : null}
+          {active === 'property' ? <PropertyScreen store={store} ledgerOptions={ledgerOptions} focus={fieldFocus} /> : null}
           {active === 'overview' ? (
             <OverviewScreen store={store} ledgerOptions={ledgerOptions} currentRunKey={key}
               currentCurveKey={curveKey}
               monteCarloState={runner.state} curveState={curveRunner.state} onRun={onRun}
               onOpenFire={openFire} onOpenCurve={openCurve}
-              onOpenSolverQuestion={openSolverQuestion} />
+              onOpenSolverQuestion={openSolverQuestion} focus={fieldFocus}
+              tierMode={tierMode} onTierMode={setTierMode} />
           ) : null}
           {active === 'curve' ? (
             <CurveScreen store={store} ledgerOptions={ledgerOptions} drafts={curveDrafts}
@@ -229,7 +255,7 @@ export function App(): ReactNode {
           {active === 'solver' ? (
             <SolverScreen store={store} ledgerOptions={ledgerOptions} mode={solverMode} onMode={setSolverMode} />
           ) : null}
-          {active === 'scenarios' ? <ScenariosScreen store={store} ledgerOptions={ledgerOptions} /> : null}
+          {active === 'scenarios' ? <ScenariosScreen store={store} ledgerOptions={ledgerOptions} onOpenField={openField} /> : null}
           {active === 'fire' ? (
             <FireScreen
               store={store}

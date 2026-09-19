@@ -438,6 +438,13 @@ details.group[open] > summary::before { content: '▾ '; }
   border-left: 3px solid var(--color-accent-2-500);
 }
 
+/* UX-11: why a real-terms column does not grow, next to the column it is about. */
+.basis-explanation {
+  margin-top: var(--space-2); padding: var(--space-3);
+  background: color-mix(in srgb, var(--color-accent-2-100) 40%, transparent);
+  border-radius: var(--radius-md);
+}
+
 /* UX-10: the "How this works" panel. Prose, so the measure is capped rather than stretched across a
    wide screen, and the sidebar entry is quieter than "Start here" — it explains the destinations, it
    does not compete with them for the first click. */

@@ -9,7 +9,8 @@ import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import type { LedgerOptions } from '../../engine/index.js';
 import {
-  computeOverview, overviewHeadline, type LedgerRowModel, type MoneyBasis, type OverviewModel,
+  MONEY_BASIS_OPTIONS, computeOverview, defaultComparisonAge, inflationComparison,
+  moneyBasisExplanation, overviewHeadline, type LedgerRowModel, type MoneyBasis, type OverviewModel,
   type CompletedOverviewRun,
 } from '../view/overview-model.js';
 import { money, moneyExact, moneySigned, percent, ratio, years } from '../view/format.js';
@@ -17,6 +18,7 @@ import { twoNumbersStoryFor } from '../view/two-numbers.js';
 import { STARTER_ILLUSTRATION_CAVEAT } from '../view/starter-picker.js';
 import type { FieldFocusRequest } from '../view/field-navigation.js';
 import { Banner, Card, ExpandableRow, Line, SelectField } from './components.js';
+import { GlossaryTerms } from './glossary-ui.js';
 import { TwoNumbers } from './two-numbers.js';
 import { ProfileForm } from './profile-form.js';
 import type { ProfileStore } from './profile-state.js';
@@ -100,6 +102,45 @@ function LedgerDetail(props: { row: LedgerRowModel; basis: MoneyBasis }): ReactN
   );
 }
 
+/**
+ * Why the spending column does what it does, and the same year said both ways (UX-11).
+ *
+ * The wording is authored in `overview-model.ts`, beside the basis it describes, so the one place
+ * that knows what "real" means is the one place that explains it. This renders it next to the
+ * columns it is about, because a reader who reads "spending is flat" three cards away has already
+ * concluded the model forgot inflation.
+ */
+function BasisExplanation(props: { basis: MoneyBasis; rows: readonly LedgerRowModel[] }): ReactNode {
+  const explanation = moneyBasisExplanation(props.basis);
+  const [age, setAge] = useState<number>(() => defaultComparisonAge(props.rows));
+  const row = props.rows.find(candidate => candidate.age === age) ?? props.rows[props.rows.length - 1];
+  return (
+    <div className="basis-explanation stack-tight" data-testid="basis-explanation">
+      <p className="field-plain" style={{ margin: 0 }} data-testid="basis-spending-note">
+        {explanation.spendingNote}
+      </p>
+      <p className="field-help" style={{ margin: 0 }} data-testid="basis-switch-note">{explanation.switchNote}</p>
+      {row ? (
+        <>
+          <div className="row">
+            <SelectField
+              label="Check one year in both"
+              value={String(row.age)}
+              options={props.rows.map(candidate => ({ value: String(candidate.age), label: String(candidate.age) }))}
+              onChange={value => setAge(Number(value))}
+              help="Opens on the first year the plan stops earning."
+            />
+          </div>
+          <p className="footnote" style={{ margin: 0 }} data-testid="inflation-pair">
+            {inflationComparison(row).sentence}
+          </p>
+        </>
+      ) : null}
+      <GlossaryTerms ids={explanation.terms} />
+    </div>
+  );
+}
+
 function LedgerTable(props: { model: OverviewModel }): ReactNode {
   const [basis, setBasis] = useState<MoneyBasis>('real');
   const [from, setFrom] = useState<number>(props.model.rows[0]?.age ?? 0);
@@ -115,10 +156,7 @@ function LedgerTable(props: { model: OverviewModel }): ReactNode {
         <SelectField
           label="Money basis"
           value={basis}
-          options={[
-            { value: 'real' as const, label: 'Today’s money (real)' },
-            { value: 'nominal' as const, label: 'Nominal (as the ledger computes)' },
-          ]}
+          options={MONEY_BASIS_OPTIONS}
           onChange={setBasis}
           help="Flows are deflated by the opening index and closing balances by the closing index."
         />
@@ -130,6 +168,7 @@ function LedgerTable(props: { model: OverviewModel }): ReactNode {
           help="Twenty-five years are shown at a time."
         />
       </div>
+      <BasisExplanation basis={basis} rows={props.model.rows} />
       <div className="table-scroll">
         <table className="table">
           <caption>

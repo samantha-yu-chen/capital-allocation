@@ -334,6 +334,114 @@ export function ledgerRow(year: LedgerYearDetail): LedgerRowModel {
   };
 }
 
+/**
+ * UX-11: why the spending column does not grow, and where the growing figure is.
+ *
+ * The ledger's money basis defaults to today's money, and in today's money constant real spending is
+ * a flat line — correctly. A reader who has been told prices rise sees that flat line and concludes
+ * inflation is missing, which is the one thing it is not: `inflationIndices` compounds, and
+ * `spendingForYear` multiplies real spending by the index before the ledger records it. What was
+ * missing was the sentence saying so, next to the column it is about.
+ *
+ * The default is not changed. "Every result is in today's money" is the app's contract — the
+ * `todays-money` glossary entry, the learn panel and every other screen say it — and flipping this
+ * one table to cash terms would contradict all of them. The explanation is what changes.
+ */
+export interface MoneyBasisExplanation {
+  basis: MoneyBasis;
+  /** The label the control shows for this basis. */
+  label: string;
+  /** Why the spending figures behave the way they do on this basis. */
+  spendingNote: string;
+  /** What the other basis would show, and how to get there. */
+  switchNote: string;
+  /** Glossary ids this wording leans on. They already exist; nothing here restates a definition. */
+  terms: readonly string[];
+}
+
+const BASIS_EXPLANATIONS: Record<MoneyBasis, MoneyBasisExplanation> = {
+  real: {
+    basis: 'real',
+    label: 'Today’s money (real)',
+    spendingNote:
+      'Spending looks flat down this column because it is one unchanging standard of living priced at today’s '
+      + 'prices. That is not inflation missing from the model: prices do rise here, every year, and the '
+      + 'rise has already been taken back out of every figure on this basis so that ages decades apart can be '
+      + 'compared directly.',
+    switchNote:
+      'Switch the money basis to cash terms to see the same plan in the pounds of each future year, where the '
+      + 'same shopping costs more each time.',
+    terms: ['todays-money', 'inflation-index'],
+  },
+  nominal: {
+    basis: 'nominal',
+    label: 'Cash terms in that year (nominal)',
+    spendingNote:
+      'Spending grows down this column because these are the pounds of each future year with inflation left in — '
+      + 'the numbers that would appear on a statement. The life being bought is the same one; its price is not.',
+    switchNote:
+      'Switch the money basis back to today’s money for the basis every other screen uses, where a figure means '
+      + 'what it would buy now.',
+    terms: ['todays-money', 'inflation-index'],
+  },
+};
+
+export const moneyBasisExplanation = (basis: MoneyBasis): MoneyBasisExplanation => BASIS_EXPLANATIONS[basis];
+
+/** The two options a money-basis control offers, named once so no screen writes its own labels. */
+export const MONEY_BASIS_OPTIONS: readonly { value: MoneyBasis; label: string }[] =
+  (['real', 'nominal'] as const).map(basis => ({ value: basis, label: BASIS_EXPLANATIONS[basis].label }));
+
+/**
+ * One year's spending said both ways, so compounding is visible without leaving today's money.
+ *
+ * Both figures are read off the row that the ledger produced; nothing is recomputed. The rise is the
+ * row's own opening inflation index less one, which is exactly what the ledger multiplied by.
+ */
+export interface InflationComparison {
+  age: number;
+  realSpending: number;
+  nominalSpending: number;
+  inflationIndex: number;
+  /** How much higher prices are in this year than now, as a fraction. Zero in the current year. */
+  priceRise: number;
+  sentence: string;
+}
+
+export function inflationComparison(row: LedgerRowModel): InflationComparison {
+  const rise = row.inflationIndex - 1;
+  const base = {
+    age: row.age,
+    realSpending: row.real.spendingRequired,
+    nominalSpending: row.nominal.spendingRequired,
+    inflationIndex: row.inflationIndex,
+    priceRise: rise,
+  };
+  if (rise <= 0) return {
+    ...base,
+    sentence: `Age ${row.age} is the year you are in now, so the two bases agree: the inflation index is `
+      + `${row.inflationIndex.toFixed(2)} and ${money(base.realSpending)} of spending is ${money(base.nominalSpending)} `
+      + 'either way.',
+  };
+  return {
+    ...base,
+    sentence: `At age ${row.age}, the ${money(base.realSpending)} of spending shown in today’s money is `
+      + `${money(base.nominalSpending)} in the cash of that year, because prices are ${percent(rise, 1)} higher by `
+      + `then (inflation index ${row.inflationIndex.toFixed(2)}). Both are the same life, counted twice over.`,
+  };
+}
+
+/**
+ * The year the cash-terms check opens on: the first year the plan stops earning, else the last.
+ *
+ * Derived rather than chosen, so it follows the reader's own FIRE age instead of a hard-coded one,
+ * and it lands on the year they care most about seeing in both bases.
+ */
+export function defaultComparisonAge(rows: readonly LedgerRowModel[]): number {
+  const firstRetired = rows.find(row => row.phase !== 'accumulation');
+  return firstRetired?.age ?? rows[rows.length - 1]?.age ?? Number.NaN;
+}
+
 /** The sentence a spending override earns: what replaced the schedule, and where it was set. */
 export function spendingOverrideNote(monthlyHouseholdOverride: number | null | undefined): string | null {
   if (monthlyHouseholdOverride === null || monthlyHouseholdOverride === undefined) return null;

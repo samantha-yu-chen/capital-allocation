@@ -1,8 +1,16 @@
 # Capital allocation
 
+[![Live on Vercel](https://img.shields.io/badge/live-capital--allocation.vercel.app-000000?logo=vercel&logoColor=white)](https://capital-allocation.vercel.app)
+[![Deploy with Vercel](https://img.shields.io/badge/deploy-with%20Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsamantha-yu-chen%2Fcapital-allocation)
+
 A locally runnable lifetime capital-allocation and FIRE model for a UK resident, with Scotland and
 rest-of-UK 2026/27 tax rules. The [V0.3 specification](docs/lifetime-capital-allocation-fire-optimisation-spec-v0.3.md)
 is the product authority; [design/](design/) contains the Organic UI reference.
+
+**Hosted on Vercel:** <https://capital-allocation.vercel.app> — the same static build as `npm run
+dev`, with every engine still running in your own browser. Access is currently restricted by Vercel
+Authentication; [docs/deployment.md](docs/deployment.md) covers the project settings, how to deploy
+and how to open it to everyone.
 
 All ten work packages are delivered. Packages 1–9 provide a reconciled annual ledger, seeded Monte
 Carlo, integrated property, bounded reverse solvers, an age curve, marginal capital allocation,
@@ -52,6 +60,19 @@ report progress and support cancellation. Cancelled or failed analyses publish n
 invalidate results. The default is 10,000 paths; analyses never lower the count automatically.
 A marginal comparison runs up to seven full simulations, the required scenario matrix runs sixty,
 and a complete reverse solve with sensitivity cases can take several minutes.
+
+## Deploy
+
+[`vercel.json`](vercel.json) pins the hosted build: the Vite preset, `npm ci`, `npm run build` and
+`dist/`, so a type error fails the deployment instead of shipping. A push to `main` deploys to
+production through the Vercel Git integration; `npx vercel --prod` does it from a clean checkout.
+Run `npm run check` first — Vercel repeats the typecheck and the build, but not the tests.
+
+Hosting adds no server. Calculations, path counts and saved scenarios are exactly as they are
+locally, except that local storage is per origin: the scenario library saved on the hosted app is a
+different library from the one saved at `http://127.0.0.1:5177`. The manual Chrome harnesses and
+`/tests/browser-worker-smoke.html` are dev-server only and are not part of `dist`, so a deployment
+is never evidence that a screen works. See [docs/deployment.md](docs/deployment.md).
 
 ## Attribution, sensitivity and stress analysis
 

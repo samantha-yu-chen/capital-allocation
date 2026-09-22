@@ -47,6 +47,7 @@ are generated and git-ignored.
 | `src/presentation/web/` | React screens on the Organic design system from `design/` |
 | `src/presentation/cli/` | Node harnesses |
 | `tests/` | `node:test` suites. `*.test.ts` run under `npm test`; `browser-*.mjs` and `browser-worker-smoke.html` are manual Chrome/CDP checks and are deliberately **not** part of `npm test` |
+| `vercel.json` | The hosted build: Vite preset, `npm ci`, `npm run build`, `dist/`. Changing the build here must stay in step with `package.json`, and a Vercel dashboard override silently wins over this file. See [`docs/deployment.md`](docs/deployment.md) |
 
 ## Conventions that must not break
 

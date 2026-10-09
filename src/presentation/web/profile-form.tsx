@@ -1,3 +1,4 @@
+import { useLocale } from './locale.js';
 import { toggleProperty, togglePurchase, toggleSale, addRefinance } from '../view/property-model.js';
 /**
  * The editable profile, rendered from the field registry.
@@ -125,12 +126,13 @@ const textOf = (def: ChoiceFieldDef): {
 
 /** A composite editor's own heading, plain sentence and glossary terms. */
 function EditorHeading(props: { def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
+  const { text } = useLocale();
   return (
     <>
       <h4 className="field-label-row" style={{ fontSize: 15, margin: 0 }}>
-        {fieldName(props.def)}<ProvenanceMark mark={props.mark} />
+        {text(fieldName(props.def))}<ProvenanceMark mark={props.mark} />
       </h4>
-      {props.def.plainHelp ? <p className="field-plain" style={{ margin: 0 }}>{props.def.plainHelp}</p> : null}
+      {props.def.plainHelp ? <p className="field-plain" style={{ margin: 0 }}>{text(props.def.plainHelp)}</p> : null}
       <GlossaryTerms ids={props.def.terms} />
     </>
   );
@@ -253,6 +255,7 @@ function CapitalNeedsEditor(props: { store: ProfileStore; def: ChoiceFieldDef; m
 
 /** Symmetric by contract, so only the upper triangle is editable; the mirror cell is written too. */
 function CorrelationMatrix(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
+  const { text } = useLocale();
   const { store } = props;
   const matrix = store.base.market.correlation;
   return (
@@ -271,13 +274,13 @@ function CorrelationMatrix(props: { store: ProfileStore; def: ChoiceFieldDef; ma
           <thead>
             <tr>
               <th scope="col"><span className="text-muted">shock</span></th>
-              {MARKET_VARIABLES.map(name => <th scope="col" key={name}>{name}</th>)}
+              {MARKET_VARIABLES.map(name => <th scope="col" key={name}>{text(name)}</th>)}
             </tr>
           </thead>
           <tbody>
             {MARKET_VARIABLES.map((rowName, row) => (
               <tr key={rowName}>
-                <th scope="row">{rowName}</th>
+                <th scope="row">{text(rowName)}</th>
                 {MARKET_VARIABLES.map((columnName, column) => {
                   if (column <= row) {
                     return <td className="fixed" key={columnName}>{(matrix[row]?.[column] ?? 0).toFixed(2)}</td>;
@@ -294,7 +297,7 @@ function CorrelationMatrix(props: { store: ProfileStore; def: ChoiceFieldDef; ma
                         step={def.step}
                         min={-1}
                         max={1}
-                        aria-label={fieldName(def)}
+                        aria-label={text(fieldName(def))}
                         aria-invalid={errors.length > 0}
                         value={displayValue(store.base, def, store.drafts)}
                         onChange={event => store.setDraft(def.id, event.target.value)}
@@ -349,6 +352,7 @@ function WithdrawalOrder(props: { store: ProfileStore; def: ChoiceFieldDef; mark
 function GroupExtras(props: {
   store: ProfileStore; group: FieldGroupId; choices: readonly ChoiceFieldDef[]; show: Show;
 }): ReactNode {
+  const { text } = useLocale();
   const { store, group, choices, show } = props;
   const pick = (id: string, render: (def: ChoiceFieldDef, mark: FieldMark | undefined) => ReactNode): ReactNode =>
     <Choice choices={choices} show={show} id={id} store={store}>{render}</Choice>;
@@ -412,7 +416,7 @@ function GroupExtras(props: {
           ))}
           {pick('personal.taxYear', def => (
             <div className="field">
-              <label htmlFor="tax-year">{fieldName(def)}</label>
+              <label htmlFor="tax-year">{text(fieldName(def))}</label>
               <input id="tax-year" className="input" value={store.base.personal.taxYear} readOnly
                 aria-describedby="tax-year-help" />
               {def.plainHelp ? <p className="field-plain">{def.plainHelp}</p> : null}
@@ -491,7 +495,7 @@ function GroupExtras(props: {
         <div className="stack-tight">
           {pick('market.assumptionVersion', def => (
             <div className="field">
-              <label htmlFor="assumption-version">{fieldName(def)}</label>
+              <label htmlFor="assumption-version">{text(fieldName(def))}</label>
               <input
                 id="assumption-version"
                 className="input"
@@ -543,10 +547,11 @@ function TierFilter(props: {
   /** Which starter situation "default" currently means. UX-9 made that a choice, so it is named. */
   starterNote: string;
 }): ReactNode {
+  const { text } = useLocale();
   return (
     <div className="card elev-sm stack-tight">
       <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
-        <legend className="card-kicker" style={{ padding: 0 }}>How much detail to show</legend>
+        <legend className="card-kicker" style={{ padding: 0 }}>{text('How much detail to show')}</legend>
         <div className="row" style={{ flexWrap: 'wrap', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
           {TIER_MODES.map(option => (
             <label className="radio" key={option.mode} style={{ fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -558,7 +563,7 @@ function TierFilter(props: {
                 style={{ position: 'static', opacity: 1, width: 16, height: 16 }}
                 onChange={() => props.onChange(option.mode)}
               />
-              {option.label}
+              {text(option.label)}
             </label>
           ))}
         </div>
@@ -644,6 +649,7 @@ export function ProfileForm(props: {
   mode?: TierMode | undefined;
   onMode?: ((mode: TierMode) => void) | undefined;
 }): ReactNode {
+  const { text } = useLocale();
   const { store } = props;
   const [ownMode, setOwnMode] = useState<TierMode>(DEFAULT_TIER_MODE);
   const mode = props.mode ?? ownMode;
@@ -705,14 +711,14 @@ export function ProfileForm(props: {
         return (
           <details className="card elev-sm group" key={groupId} open={open.has(groupId) || hasError}>
             <summary>
-              {group.label}
+              {text(group.label)}
               {hasError ? <span className="tag tag-accent" style={{ marginLeft: 8 }}>needs attention</span> : null}
             </summary>
             <fieldset className="stack-tight" style={{ marginTop: 'var(--space-2)' }}>
               <legend className="visually-hidden" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-                {group.label}
+                {text(group.label)}
               </legend>
-              {group.note ? <p className="field-help" style={{ margin: 0 }}>{group.note}</p> : null}
+              {group.note ? <p className="field-help" style={{ margin: 0 }}>{text(group.note)}</p> : null}
               {groupId === 'property' ? <GroupExtras store={store} group={groupId} choices={choices} show={show} /> : null}
               <FieldGrid store={store} defs={defs} columns={groupId === 'portfolios' ? 3 : 2} show={show} />
               {groupId !== 'property' ? <GroupExtras store={store} group={groupId} choices={choices} show={show} /> : null}

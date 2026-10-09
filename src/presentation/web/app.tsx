@@ -1,3 +1,4 @@
+import { LanguagePicker, useLocale } from './locale.js';
 import { AttributionScreen } from './screen-attribution.js';
 import { MarginalScreen } from './screen-marginal.js';
 import { PropertyScreen } from './screen-property.js';
@@ -44,6 +45,7 @@ const defaultConcurrency = (): number =>
   Math.min(4, Math.max(1, typeof navigator === 'undefined' ? 1 : navigator.hardwareConcurrency || 1));
 
 function Navigation(props: { active: TabId; onSelect: (tab: TabId) => void }): ReactNode {
+  const { t } = useLocale();
   const refs = useRef(new Map<TabId, HTMLButtonElement>());
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const index = TABS.findIndex(tab => tab.id === props.active);
@@ -60,7 +62,7 @@ function Navigation(props: { active: TabId; onSelect: (tab: TabId) => void }): R
     refs.current.get(target.id)?.focus();
   };
   return (
-    <div className="nav-list" role="tablist" aria-label="Analysis screens" aria-orientation="vertical" onKeyDown={onKeyDown}>
+    <div className="nav-list" role="tablist" aria-label={t('screens')} aria-orientation="vertical" onKeyDown={onKeyDown}>
       {TABS.map(tab => (
         <button
           key={tab.id}
@@ -74,7 +76,7 @@ function Navigation(props: { active: TabId; onSelect: (tab: TabId) => void }): R
           ref={element => { if (element) refs.current.set(tab.id, element); else refs.current.delete(tab.id); }}
           onClick={() => props.onSelect(tab.id)}
         >
-          {tab.label}
+          {t(tab.id)}
           {tab.status === 'planned' ? <span className="nav-item-flag">pkg {tab.package}</span> : null}
         </button>
       ))}
@@ -83,6 +85,7 @@ function Navigation(props: { active: TabId; onSelect: (tab: TabId) => void }): R
 }
 
 export function App(): ReactNode {
+  const { t, text, locale } = useLocale();
   const [active, setActive] = useState<TabId>('overview');
   const [wizardOpen, setWizardOpen] = useState(initiallyShowWizard);
   // The explanation is a destination in the shell, not a screen: it holds no state of its own, and
@@ -173,56 +176,55 @@ export function App(): ReactNode {
 
   return (
     <div className="shell">
-      <a className="skip-link" href="#main">Skip to content</a>
+      <a className="skip-link" href="#main">{t('skip')}</a>
       <header className="sidebar">
+        <LanguagePicker />
         <div>
-          <h1 className="brand-title">Freedom Capital</h1>
-          <div className="text-muted brand-sub">Lifetime allocation &amp; FIRE model</div>
+          <h1 className="brand-title">{t('brand')}</h1>
+          <div className="text-muted brand-sub">{t('subtitle')}</div>
         </div>
         <button type="button" className="start-here-button" aria-current={wizardOpen ? 'page' : undefined}
           onClick={() => { setLearnOpen(false); setWizardOpen(true); }}>
-          <span>Start here</span><small>Build your first result</small>
+          <span>{t('start')}</span><small>{t('firstResult')}</small>
         </button>
         <Navigation active={active} onSelect={selectTab} />
         {/* Beneath the eight destinations, because it explains them rather than competing with them. */}
         <button type="button" className="learn-button" aria-current={learnOpen ? 'page' : undefined}
           data-testid="open-learn" onClick={openLearn}>
-          <span>How this works</span><small>The model in plain language</small>
+          <span>{t('learn')}</span><small>{t('plainModel')}</small>
         </button>
         <p className="sidebar-note">
-          Illustrative decision-support model, not regulated financial advice. It uses the configured UK/Scotland
+          {locale === 'zh-TW' ? <>這是協助比較決策的示例模型，並非受監管的財務建議。模型使用 {shown.personal.taxYear} 年度已設定的英國／蘇格蘭稅制，以及參數化 Monte Carlo 市場模型。抽樣結果並非未來預測。</> : <>Illustrative decision-support model, not regulated financial advice. It uses the configured UK/Scotland
           tax rules for {shown.personal.taxYear} and a parametric Monte Carlo market model. Sampled results are
-          not forecasts.
+          not forecasts.</>}
         </p>
         {/* Spec §36: V0.3 may hold the tax structure constant, but must disclose that it does. */}
         <p className="sidebar-note">
-          Those tax rules are held constant in real terms for the whole projection — bands, allowances and
-          thresholds move with inflation and never otherwise change. Real tax law will change over a lifetime,
-          and that risk is not modelled.
+          {locale === 'zh-TW' ? '整段推估期間，稅制維持相同的實質結構：級距、免稅額與門檻只隨通膨調整，不會有其他變動。實際稅法可能在一生中改變，此風險尚未納入模型。' : 'Those tax rules are held constant in real terms for the whole projection — bands, allowances and thresholds move with inflation and never otherwise change. Real tax law will change over a lifetime, and that risk is not modelled.'}
         </p>
       </header>
 
       <main className="main" id="main">
         <div className="page-header">
           <div>
-            <h2>{learnOpen ? 'How this works' : wizardOpen ? 'Start here' : tab.label}</h2>
+            <h2>{learnOpen ? t('learn') : wizardOpen ? t('start') : t(tab.id)}</h2>
             <p className="text-muted">{
-              learnOpen ? 'What the model does with your numbers, and what its results do and do not mean.'
-                : wizardOpen ? 'A guided path from the figures you know to your first personal result.'
-                  : tab.summary
+              learnOpen ? text('What the model does with your numbers, and what its results do and do not mean.')
+                : wizardOpen ? text('A guided path from the figures you know to your first personal result.')
+                  : text(tab.summary)
             }</p>
           </div>
           <div className="tag-row">
-            <span className="tag tag-neutral">Age {shown.personal.currentAge}</span>
-            <span className="tag tag-neutral">Salary {money(shown.income.salaryAnnual)}</span>
-            <span className="tag tag-accent-2">FIRE at {shown.personal.targetFireAge}</span>
-            <span className="tag tag-outline">Target {percent(shown.personal.targetSuccessProbability, 0)} success</span>
+            <span className="tag tag-neutral">{t('age')} {shown.personal.currentAge}</span>
+            <span className="tag tag-neutral">{t('salary')} {money(shown.income.salaryAnnual)}</span>
+            <span className="tag tag-accent-2">{t('fireAt')} {shown.personal.targetFireAge}</span>
+            <span className="tag tag-outline">{t('target')} {percent(shown.personal.targetSuccessProbability, 0)} {t('success')}</span>
             {probability !== null ? (
               <span className={probability >= shown.personal.targetSuccessProbability ? 'tag tag-accent-2' : 'tag tag-accent'}>
-                Current {percent(probability, 2)}
+                {t('current')} {percent(probability, 2)}
               </span>
             ) : null}
-            {!store.profile ? <span className="tag tag-accent">Inputs invalid</span> : null}
+            {!store.profile ? <span className="tag tag-accent">{t('invalid')}</span> : null}
           </div>
         </div>
 

@@ -490,3 +490,7 @@ details.group[open] > summary::before { content: '▾ '; }
   .learn-button { flex-direction: row; align-items: baseline; gap: var(--space-2); padding: 8px 12px; }
   .learn-paragraph { font-size: 13px; }
 }
+
+.language-picker { display: flex; align-items: center; justify-content: space-between; gap: .75rem; font-size: .875rem; }
+.language-picker select { max-width: 10rem; padding: .4rem; font: inherit; }
+html[lang="zh-TW"] { font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }

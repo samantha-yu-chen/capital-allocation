@@ -132,3 +132,52 @@ Remaining: Curve, Solver, Marginal, Scenarios, Property and Attribution bodies, 
 copy, full coverage audit, browser evidence for those analyses, final delivery docs, merge and push.
 Overview/Learn evidence above is incremental and does not certify every failure variant or all
 screens. Do not mark the localization goal complete. No merge/push yet.
+
+## Stage 4 — FIRE age curve and Reverse Solver (incremental, not delivery)
+
+Added independent `curve-zh-TW.ts` / `solver-zh-TW.ts`. Both screens subscribe to locale without
+adding it to a run key. Controls, six question options and precise mode definitions, progress,
+work announcements, chart accessibility, result labels, evaluation traces, sensitivity descriptions,
+constraints/unsupported reasons and dynamic answer/honesty clauses translate at render time.
+Numeric data, raw technical metadata JSON and stable React keys remain unchanged. Error display now
+handles a named `PensionLimitError` around an age-qualified allowance reason.
+
+Tests now cover all six definitions, controls and source-authored static screen strings, actual
+engine results for achieved / already-met / infeasible / budget-exhausted / unsupported, real curve
+results with reached/unreached targets, and numeric tokens in dynamic announcements and chart aria
+copy. Result objects are compared before/after translation. A visual audit found an overbroad
+short `Reaches…` template intercepting the full headline, plus a nested named error retaining
+English; both were fixed and regression assertions now reject those residual fragments. A singular
+`search` announcement was also caught and fixed by the new tests.
+
+Latest gate: `npm run check`, **359/359**, typecheck and production build green,
+`/tmp/zh-tw-check-16.log`. Main bundle 783.19 kB / 253.33 kB gzip;
+existing Vite size advisory remains. `git diff --check` green.
+
+New manual harness `tests/browser-locale-solver-ui.mjs`, latest
+`/tmp/zh-tw-browser-solver-4.log` exit 0, JSON `/tmp/zh-tw-solver-ui-results.json`:
+
+- Actual **10,000-path** curve at ages **45/46/47**: **68.98% / 74.91% / 80.02%**.
+  Table numeric cells identical in English and Chinese; chart aria localized. 796 animation frames,
+  maximum gap **16.8 ms**. Three candidate ages were explicitly chosen; path count was not reduced.
+- Actual salary search, sensitivity explicitly disabled: **£87,600**, confirmed **90.02% ± 0.59%**,
+  lower tested **£87,500** fails. Full run **94.36 s**, 24 searched candidates, 10,000 paths each.
+  5,667 animation frames, maximum gap **16.8 ms**. Switching during execution and after completion
+  preserves the answer and all sentence numeric tokens.
+- Both analyses discard finished results after relevant input edits; cancellation publishes none.
+- Both at **390 × 844**: **0 px** page overflow; **0** uncaught runtime exceptions.
+  `/tmp/zh-tw-curve-mobile.png` and `/tmp/zh-tw-solver-mobile.png` show actual result regions and were
+  visually inspected. PensionLimitError remains the exact technical class name, its prose is Chinese.
+- Invalid solver bound blocks execution and has a translated error.
+
+The first browser attempt stopped because the harness expected a grouped `10,000` input where the
+existing integer field holds `10000`; the assertion now compares the numeric value. This did not
+change the input component. Browser-2/3 passed the behavior checks; browser-4 additionally rejects
+the residual headline/error fragments discovered in visual review.
+
+Remaining full-goal work: Marginal Allocation, Scenario Comparison, Property & Leverage and
+Attribution screen bodies and their dynamic data/error copy; full source/catalog coverage audit;
+corresponding real browser evidence plus final English regressions and both worker smokes; final
+delivery docs, merge and push. Existing earlier stage evidence remains incremental. No merge or
+push yet; goal remains active. Revalidate ports 5183 / 9234 before reusing them. Harness session
+39434 and gate session 94287 completed successfully.

@@ -25,6 +25,7 @@ export const errorsZhTW: Readonly<Record<string, string>> = {
 
 export function translateErrorTemplate(value: string, text: (value: string) => string): string | undefined {
   let m: RegExpExecArray | null;
+  if ((m = /^(PensionLimitError|RangeError|MarginalInfeasibleError): (.+)$/.exec(value))) return `${m[1]}：${text(m[2]!)}`;
   if ((m = /^Age (\d+): (.+)$/.exec(value))) return `${m[1]} 歲：${text(m[2]!)}`;
   if ((m = /^Pension input exceeds available allowance by (£[\d,.]+); excess-charge modelling is not supported$/.exec(value))) return `退休金提撥超過可用額度 ${m[1]}；模型不支援超額提撥的額外稅負`;
 

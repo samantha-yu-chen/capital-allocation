@@ -1,3 +1,5 @@
+import { solverZhTW, translateSolverTemplate } from './solver-zh-TW.js';
+import { curveZhTW, translateCurveTemplate } from './curve-zh-TW.js';
 import { overviewZhTW, overviewExtraZhTW, translateOverviewTemplate } from './overview-zh-TW.js';
 import { commonZhTW, translateCommonTemplate } from './common-zh-TW.js';
 import { profileZhTW, translateProfileTemplate } from './profile-zh-TW.js';
@@ -31,7 +33,9 @@ export function readLocale(storage: Pick<Storage, 'getItem'> | undefined): Local
 export function translateText(locale: Locale, value: string): string {
   if (locale === 'en') return value;
   const key = value.trim();
-  const translated = textZhTW[key] ?? fieldHelpZhTW[key] ?? starterZhTW[key] ?? onboardingZhTW[key] ?? fireZhTW[key] ?? errorsZhTW[key] ?? profileZhTW[key] ?? commonZhTW[key] ?? overviewZhTW[key] ?? overviewExtraZhTW[key]
+  const translated = textZhTW[key] ?? fieldHelpZhTW[key] ?? starterZhTW[key] ?? onboardingZhTW[key] ?? fireZhTW[key] ?? errorsZhTW[key] ?? profileZhTW[key] ?? commonZhTW[key] ?? overviewZhTW[key] ?? overviewExtraZhTW[key] ?? curveZhTW[key] ?? solverZhTW[key]
+    ?? translateSolverTemplate(key, item => translateText(locale, item))
+    ?? translateCurveTemplate(key, item => translateText(locale, item))
     ?? translateOverviewTemplate(key, item => translateText(locale, item))
     ?? translateCommonTemplate(key, item => translateText(locale, item))
     ?? translateProfileTemplate(key, item => translateText(locale, item))

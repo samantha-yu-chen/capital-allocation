@@ -169,6 +169,103 @@ test('Overview catalog translates authored copy and keeps numeric facts in ledge
   ];
   for (const copy of samples) {
     assertTranslated(copy);
+    assert.doesNotMatch(translateText('zh-TW', copy), /against a|Pension input exceeds/);
     assert.deepEqual(translateText('zh-TW', copy).match(/\d+(?:[,.]\d+)*/g), copy.match(/\d+(?:[,.]\d+)*/g), copy);
+  }
+});
+
+
+import { curveZhTW } from '../src/presentation/i18n/curve-zh-TW.js';
+import { solverZhTW } from '../src/presentation/i18n/solver-zh-TW.js';
+import { solveTarget, SOLVER_MODES, sensitivityCases } from '../src/engine/solver.js';
+import { defaultLedgerOptions } from '../src/engine/ledger.js';
+import { fireAgeCurve } from '../src/engine/fire-curve.js';
+import { profileWith } from './ledger-helpers.js';
+import { solverAnswer, solverHeadline, solverDetailRows, solverNotes, evaluationRows, curveHeadline, curveRows,
+  curvePlan, solverPlan, SOLVER_QUESTIONS, solverBoundField, CURVE_FROM_FIELD, CURVE_TO_FIELD,
+  SOLVER_TARGET_FIELD, SOLVER_BUDGET_FIELD } from '../src/presentation/view/solver-model.js';
+
+test('curve and solver controls, definitions and static display catalogs are translated', () => {
+  for (const copy of [...Object.keys(curveZhTW), ...Object.keys(solverZhTW)]) assertTranslated(copy);
+  for (const mode of SOLVER_MODES) {
+    assertTranslated(mode.label); assertTranslated(mode.definition);
+    const field = solverBoundField(mode);assertTranslated(field.label);assertTranslated(field.help!);
+  }
+  for (const field of [CURVE_FROM_FIELD, CURVE_TO_FIELD, SOLVER_TARGET_FIELD, SOLVER_BUDGET_FIELD]) {
+    assertTranslated(field.label);assertTranslated(field.help!);
+  }
+  for (const question of SOLVER_QUESTIONS) { assertTranslated(question.subject);assertTranslated(question.plain); }
+  const profile = createExampleProfile();
+  for (const item of sensitivityCases(profile)) { assertTranslated(item.label);assertTranslated(item.description); }
+  const options = defaultLedgerOptions();
+  for (const issues of [curvePlan(profile, options, { 'curve.fromAge': '0', 'curve.toAge': '999' }).issues,
+    curvePlan(profile, options, { 'curve.fromAge': '30', 'curve.toAge': '94' }).issues,
+    solverPlan(profile, options, { mode: 'salary', destination: 'gia', includeSensitivity: false,
+      drafts: { 'solver.target': '0', 'solver.maxEvaluations': '2', 'solver.bound': '0' } }).issues]) {
+    for (const issue of issues) assertTranslated(issue.message);
+  }
+});
+
+test('real solver statuses and curve results translate without mutating result data or losing numeric facts', async () => {
+  const profile = profileWith(p => { p.personal.endAge = 75; p.simulation.count = 24; });
+  const results = await Promise.all([
+    solveTarget(profile, { mode: 'salary', maxEvaluations: 16 }),
+    solveTarget(profile, { mode: 'salary', targetProbability: .5 }),
+    solveTarget(profile, { mode: 'salary', targetProbability: 1, bound: 58000 }),
+    solveTarget(profile, { mode: 'salary', maxEvaluations: 3 }),
+    solveTarget(profile, { mode: 'savings', ledgerOptions: { ...defaultLedgerOptions(), monthlyHouseholdOverride: 1500 } }),
+  ]);
+  assert.deepEqual(results.map(result => solverAnswer(result).status), ['achieved', 'already_met', 'infeasible', 'budget_exhausted', 'unsupported']);
+  for (const result of results) {
+    const before = structuredClone(result);
+    const headline = solverHeadline(result), answer = solverAnswer(result);
+    const copies = [headline.kicker, headline.note, answer.sentence, answer.honesty, ...solverNotes(result),
+      ...solverDetailRows(result).flatMap(row => [row.label, row.note]), ...evaluationRows(result).map(row => row.verdict)];
+    for (const copy of copies) if (copy) {
+      assertTranslated(copy);
+      const translated = translateText('zh-TW', copy);
+      assert.deepEqual(translated.match(/\d+(?:[,.]\d+)*/g), copy.match(/\d+(?:[,.]\d+)*/g), copy);
+      assert.doesNotMatch(translated, /we confirmed|the search|cleared your|does not have|was the far end|against a|re-checked against|Pension input exceeds/);
+    }
+    assert.deepEqual(result, before);
+  }
+  for (const targetProbability of [.5, 1]) {
+    const curve = await fireAgeCurve(profile, { fromAge: 48, toAge: 50, targetProbability });
+    const headline = curveHeadline(curve);assertTranslated(headline.kicker);assertTranslated(headline.note);
+    for (const row of curveRows(curve)) assertTranslated(row.verdict);
+  }
+});
+
+
+import { readFileSync } from 'node:fs';
+test('curve and solver screens have translations for every direct authored text and shared display prop', () => {
+  for (const file of ['screen-curve.tsx', 'screen-solver.tsx']) {
+    const source = readFileSync(`src/presentation/web/${file}`, 'utf8');
+    for (const match of source.matchAll(/(?:text\(|(?:title|kicker|label|help)=)"([^"\n]+)"/g)) {
+      const copy = match[1]!;
+      if (!/[A-Za-z]/.test(copy)) continue;
+      assertTranslated(copy);
+    }
+  }
+});
+
+
+test('curve and solver dynamic announcements and accessible chart descriptions retain their numeric tokens', () => {
+  for (const copy of [
+    'Age 45: 2 of 3 ages complete', 'Compute 21 ages', 'Simulation progress for age 45',
+    'Success probability by FIRE age, from age 45 to 47. No age reaches the target.',
+    'Success probability by FIRE age, from age 45 to 51. Age 50 is the earliest reaching the 90% target.',
+    'This run is 21 complete simulations — 210,000 lifetime projections at the configured path count. The count is never reduced to make the curve finish sooner; lower the path count above if you want a faster, less precise curve.',
+    'Required gross salary: testing £88,400 — 17 of about 18 complete simulations',
+    'Required gross salary: checking whether £255,000 is supported',
+    'Confirming £87,600 against the full model',
+    'Up to 19 complete simulations (190,000 lifetime projections) across 1 search. Every candidate runs the configured path count; nothing is sampled down to make the search finish sooner.',
+    'Reaches 90.02% ± 0.59% against a 90% target, re-checked against the complete model. Today’s money; searched to the nearest £100.',
+    'PensionLimitError: Age 36: Pension input exceeds available allowance by £98.14; excess-charge modelling is not supported',
+    'FIRE age +2 (47)', 'Retirement spending −£150/month', '£1,200/month',
+  ]) {
+    assertTranslated(copy);
+    assert.doesNotMatch(translateText('zh-TW', copy), /against a|Pension input exceeds/);
+    assert.deepEqual(translateText('zh-TW', copy).match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g),copy);
   }
 });

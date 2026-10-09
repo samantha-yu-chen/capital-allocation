@@ -61,6 +61,18 @@ assert.match(await ev(`document.querySelector('.glossary-panel-body').textConten
 await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
 await set('income.salaryAnnual','55000');assert.equal(await salary(),originalSalary);
 results.inputsPreserved=true;
+assert.match(await ev(`document.querySelector('#panel-overview').innerText`),/目前資產狀況/);
+assert.match(await ev(`document.querySelector('#panel-overview').innerText`),/期初餘額/);
+await ev(`document.querySelector('[data-testid="open-learn"]').click()`);await settle();
+assert.equal(await ev(`document.querySelectorAll('.learn-section').length`),5);
+assert.equal(await ev(`document.querySelectorAll('.learn-screen').length`),8);
+assert.match(await ev(`document.querySelector('[data-testid="learn-panel"]').innerText`),/模型如何計算一年/);
+await locale('en');
+assert.match(await ev(`document.querySelector('[data-testid="learn-panel"]').innerText`),/What one year of the model does/);
+await locale('zh-TW');
+await ev(`document.querySelector('[data-testid="learn-close"]').click()`);await settle();
+results.overviewAndLearnTranslated=true;
+
 for (const id of ['overview','fire','curve','marginal','solver','scenarios','property','attribution']) {
   await ev(`document.getElementById('tab-${id}').click()`);await settle();
   assert.equal(await ev(`document.querySelector('[role=tabpanel]').id`),'panel-'+id);

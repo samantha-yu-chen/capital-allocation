@@ -129,3 +129,46 @@ test('provenance and field navigation retain default numbers and translate the d
   const note = translateText('zh-TW', tierRaiseNote(target, 'common'));
   assert.match(note, /必要與常用項目/);assert.match(note, /計畫內容未改變/);
 });
+
+
+import { MODEL_SECTIONS, tabSections } from '../src/presentation/view/learn.js';
+import { learnZhTW, localizeLearnSection, localizeLearnTabSection } from '../src/presentation/i18n/learn-zh-TW.js';
+import { overviewZhTW, overviewExtraZhTW } from '../src/presentation/i18n/overview-zh-TW.js';
+
+test('Learn translates every model and screen section while preserving IDs, sources and term relationships', () => {
+  const sections = [...MODEL_SECTIONS, ...tabSections()];
+  assert.deepEqual(Object.keys(learnZhTW).sort(), sections.map(section => section.id).sort());
+  for (const section of sections) {
+    const before = structuredClone(section);
+    assert.equal(localizeLearnSection('en', section), section);
+    const translated = localizeLearnSection('zh-TW', section);
+    assert.notEqual(translated.title, section.title);
+    assert.equal(translated.paragraphs.length, section.paragraphs.length, section.id);
+    for (const paragraph of translated.paragraphs) assert.match(paragraph, /[\u3400-\u9fff]/);
+    assert.equal(translated.id, section.id);
+    assert.deepEqual(translated.sources, section.sources);
+    assert.deepEqual(translated.terms, section.terms);
+    assert.deepEqual(section, before);
+  }
+  for (const section of tabSections()) {
+    const translated = localizeLearnTabSection('zh-TW', section);
+    assert.notEqual(translated.question, section.question);
+    assert.equal(translated.tab, section.tab);
+  }
+});
+
+test('Overview catalog translates authored copy and keeps numeric facts in ledger templates', () => {
+  for (const copy of [...Object.keys(overviewZhTW), ...Object.keys(overviewExtraZhTW)]) assertTranslated(copy);
+  const samples = [
+    'Showing ages 35–55 of 35–95. Amounts in today’s money.',
+    'Age 51 detail (nominal)',
+    '10,000 paths, seed 2026, v0.3',
+    '21 ages × 10,000 paths, seed 2026, v0.3',
+    'The earliest age that meets your 95% target is 52.',
+    'At your target of 50, this plan succeeds in 68.98% of simulated futures (“target”).',
+  ];
+  for (const copy of samples) {
+    assertTranslated(copy);
+    assert.deepEqual(translateText('zh-TW', copy).match(/\d+(?:[,.]\d+)*/g), copy.match(/\d+(?:[,.]\d+)*/g), copy);
+  }
+});

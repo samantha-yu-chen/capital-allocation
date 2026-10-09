@@ -105,3 +105,30 @@ Update delivery docs, commit/merge/push, and perform the complete goal audit onl
 
 The earlier statement that no commit had been made refers to the initial checkpoint only: stage 1
 is committed as **176d950**. No merge or push has occurred. The objective remains active.
+
+## Stage 3 — Overview and Learn (incremental, not delivery)
+
+Added independent `overview-zh-TW.ts` and `learn-zh-TW.ts` catalogs. Overview now translates its
+ledger rows, real/nominal explanations, assumptions, cash-flow details and completed-run headline
+at render time. Learn translates all five model sections and eight screen sections by stable ID,
+retaining source paths, glossary relationships and navigation IDs. English still returns the
+original model objects. No engine or profile contract changed.
+
+`tests/locale.test.ts` now checks all Learn section IDs, paragraph counts, source/term relationships,
+English identity and Overview template numeric tokens. The starter caveat source audit now accepts
+`text(STARTER_ILLUSTRATION_CAVEAT)` as well as direct rendering; it continues to require the shared
+constant and a standalone reader surface.
+
+Evidence: `npm run check` green, **355/355**, `/tmp/zh-tw-check-9.log`; production main bundle
+749.45 kB (242.82 kB gzip), existing Vite size advisory. Chrome `/tmp/zh-tw-browser-5.log` exits 0:
+worker smoke **10,000 paths**, baseline **68.98%, 4.184 s**, property **35.18%, 4.633 s**, exact
+browser/local equality and cancellation; Overview text and all **5 + 8** Learn sections present,
+English round trip, full FIRE result **68.98%** preserved across switches during and after execution,
+stale result discarded after seed edit, cancellation publishes nothing, **0 px** mobile overflow,
+**0** runtime exceptions. The earlier browser-4 failure was a harness assertion using an invented
+English heading; browser-5 checks the source's actual heading.
+
+Remaining: Curve, Solver, Marginal, Scenarios, Property and Attribution bodies, dynamic result/error
+copy, full coverage audit, browser evidence for those analyses, final delivery docs, merge and push.
+Overview/Learn evidence above is incremental and does not certify every failure variant or all
+screens. Do not mark the localization goal complete. No merge/push yet.

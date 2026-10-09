@@ -134,7 +134,7 @@ export function NumberField(props: {
   def: ControlFieldDef; value: string; errors: readonly string[];
   onChange: (text: string) => void; compact?: boolean; mark?: FieldMark | undefined;
 }): ReactNode {
-  const { text, locale } = useLocale();
+  const { text } = useLocale();
   const { def } = props;
   const [focused, setFocused] = useState(false);
   const plainId = `${def.id}-plain`;
@@ -182,12 +182,12 @@ export function NumberField(props: {
           }}
         />
       </FieldFrame>
-      {annual ? <p className="field-help field-annual" id={annualId} data-annual>{annual}</p> : null}
+      {annual ? <p className="field-help field-annual" id={annualId} data-annual>{text(annual)}</p> : null}
       {plain ? <p className="field-plain" id={plainId}>{text(plain)}</p> : null}
       {def.help && !props.compact ? <p className="field-help" id={helpId}>{text(def.help)}</p> : null}
-      {origin ? <p className="field-help" id={originId}>{locale === 'zh-TW' ? '預設值依據：' : 'The default is '}{text(origin)}{locale === 'zh-TW' ? '。' : '.'}</p> : null}
+      {origin ? <p className="field-help" id={originId}>{text(`The default is ${origin}.`)}</p> : null}
       {props.compact ? null : <GlossaryTerms ids={def.terms} />}
-      {props.errors.length ? <p className="field-error" id={errorId}>{props.errors.join(' ')}</p> : null}
+      {props.errors.length ? <p className="field-error" id={errorId}>{props.errors.map(error => text(error)).join(' ')}</p> : null}
     </div>
   );
 }
@@ -270,7 +270,7 @@ export function ProportionBar(props: { segments: readonly Segment[]; caption: st
   const total = props.segments.reduce((sum, segment) => sum + segment.value, 0) || 1;
   return (
     <div className="stack-tight">
-      <div className="proportion" role="img" aria-label={`${props.caption}: ${props.segments.map(s => `${s.label} ${(s.value * 100).toFixed(2)}%`).join(', ')}`}>
+      <div className="proportion" role="img" aria-label={`${text(props.caption)}: ${props.segments.map(s => `${text(s.label)} ${(s.value * 100).toFixed(2)}%`).join(', ')}`}>
         {props.segments.filter(segment => segment.value > 0).map(segment => (
           <div
             key={segment.label}
@@ -311,7 +311,7 @@ export function BarList(props: { rows: readonly { label: string; value: number; 
 }
 
 export function Progress(props: { completed: number; total: number; label: string }): ReactNode {
-  const { text, locale } = useLocale();
+  const { text } = useLocale();
   const fraction = props.total > 0 ? Math.min(1, props.completed / props.total) : 0;
   return (
     <div className="stack-tight">
@@ -326,7 +326,7 @@ export function Progress(props: { completed: number; total: number; label: strin
         <div className="progress-fill" style={{ width: `${fraction * 100}%` }} />
       </div>
       <p className="stat-small text-muted" aria-live="polite">
-        {locale === 'zh-TW' ? `已完成 ${props.completed.toLocaleString('en-GB')}／${props.total.toLocaleString('en-GB')} 條路徑` : `${props.completed.toLocaleString('en-GB')} of ${props.total.toLocaleString('en-GB')} paths complete`}
+        {text(`${props.completed.toLocaleString('en-GB')} of ${props.total.toLocaleString('en-GB')} paths complete`)}
       </p>
     </div>
   );
@@ -365,7 +365,7 @@ export function FanChart(props: {
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label={`${text(props.title)}. Median at age ${last.age} is ${moneyCompact(last.median)}, with a P10 to P90 range of ${moneyCompact(last.p10)} to ${moneyCompact(last.p90)}.`}
+      aria-label={text(`${props.title}. Median at age ${last.age} is ${moneyCompact(last.median)}, with a P10 to P90 range of ${moneyCompact(last.p10)} to ${moneyCompact(last.p90)}.`)}
     >
       {ticks.map(tick => (
         <g key={tick}>

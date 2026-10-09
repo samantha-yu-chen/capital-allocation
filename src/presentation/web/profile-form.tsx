@@ -53,6 +53,7 @@ function markFor(store: ProfileStore, fieldId: string): FieldMark | undefined {
 }
 
 function FieldGrid(props: { store: ProfileStore; defs: readonly NumberFieldDef[]; columns?: 2 | 3; show?: Show }): ReactNode {
+
   const show = props.show ?? SHOW_ALL;
   const defs = props.defs.filter(def => show(def.id));
   if (defs.length === 0) return null;
@@ -73,11 +74,12 @@ function FieldGrid(props: { store: ProfileStore; defs: readonly NumberFieldDef[]
 }
 
 function GroupIssues(props: { store: ProfileStore; group: FieldGroupId }): ReactNode {
+  const { text } = useLocale();
   const issues = props.store.issuesForGroup(props.group);
   if (issues.length === 0) return null;
   return (
     <ul className="field-error" style={{ paddingLeft: '1.1rem' }}>
-      {issues.map(issue => <li key={`${issue.path}:${issue.message}`}>{issue.message}</li>)}
+      {issues.map(issue => <li key={`${issue.path}:${issue.message}`}>{text(issue.message)}</li>)}
     </ul>
   );
 }
@@ -95,12 +97,13 @@ function Choice(props: {
   choices: readonly ChoiceFieldDef[]; show: Show; id: string; store: ProfileStore;
   children: (def: ChoiceFieldDef, mark: FieldMark | undefined) => ReactNode;
 }): ReactNode {
+  const { text } = useLocale();
   const def = props.choices.find(item => item.id === props.id);
   if (!def || !props.show(def.id)) return null;
   return (
     <>
       {props.children(def, markFor(props.store, def.id))}
-      {def.derivedFrom ? <p className="field-help" style={{ marginTop: 0 }}>The default is {def.derivedFrom}.</p> : null}
+      {def.derivedFrom ? <p className="field-help" style={{ marginTop: 0 }}>{text(`The default is ${def.derivedFrom}.`)}</p> : null}
     </>
   );
 }
@@ -139,15 +142,14 @@ function EditorHeading(props: { def: ChoiceFieldDef; mark: FieldMark | undefined
 }
 
 function PhaseEditor(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
+  const { text } = useLocale();
   const { store } = props;
   const phases = store.base.spending.phases;
   return (
     <div className="stack-tight">
       <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
-        Optional overrides for a half-open age range. A phase wins over the current/retirement schedule.
-        Phases must not overlap.
-      </p>
+        {text("Optional overrides for a half-open age range. A phase wins over the current/retirement schedule. Phases must not overlap. ")}</p>
       {phases.map((_, index) => (
         <div className="row" key={index}>
           <FieldGrid
@@ -162,7 +164,7 @@ function PhaseEditor(props: { store: ProfileStore; def: ChoiceFieldDef; mark: Fi
               spending: { ...profile.spending, phases: profile.spending.phases.filter((_item, i) => i !== index) },
             }))}
           >
-            Remove phase {index + 1}
+            {text(`Remove phase ${index + 1}`)}
           </button>
         </div>
       ))}
@@ -183,20 +185,19 @@ function PhaseEditor(props: { store: ProfileStore; def: ChoiceFieldDef; mark: Fi
           },
         }))}
       >
-        Add spending phase
-      </button>
+        {text("Add spending phase ")}</button>
     </div>
   );
 }
 
 function CapitalNeedsEditor(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
+  const { text } = useLocale();
   const { store } = props;
   return (
     <div className="stack-tight">
       <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
-        One-off amounts in today’s money, funded in the year they fall. Living costs take priority if both cannot be met.
-      </p>
+        {text("One-off amounts in today’s money, funded in the year they fall. Living costs take priority if both cannot be met. ")}</p>
       {store.base.liquidity.capitalNeeds.map((need, index) => (
         <div className="row" key={index}>
           <FieldGrid
@@ -204,7 +205,7 @@ function CapitalNeedsEditor(props: { store: ProfileStore; def: ChoiceFieldDef; m
             defs={store.defs.filter(def => def.path[0] === 'liquidity' && def.path[1] === 'capitalNeeds' && def.path[2] === index)}
           />
           <div className="field">
-            <label htmlFor={`capital-need-label-${index}`}>Label</label>
+            <label htmlFor={`capital-need-label-${index}`}>{text("Label")}</label>
             <input
               id={`capital-need-label-${index}`}
               className="input"
@@ -230,8 +231,7 @@ function CapitalNeedsEditor(props: { store: ProfileStore; def: ChoiceFieldDef; m
               },
             }))}
           >
-            Remove
-          </button>
+            {text("Remove ")}</button>
         </div>
       ))}
       <button
@@ -247,8 +247,7 @@ function CapitalNeedsEditor(props: { store: ProfileStore; def: ChoiceFieldDef; m
           },
         }))}
       >
-        Add capital need
-      </button>
+        {text("Add capital need ")}</button>
     </div>
   );
 }
@@ -262,18 +261,13 @@ function CorrelationMatrix(props: { store: ProfileStore; def: ChoiceFieldDef; ma
     <div className="stack-tight">
       <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
-        These are the correlations of the underlying Gaussian log-growth shocks, <b>not</b> the Pearson
-        correlation of arithmetic returns. For non-zero log volatilities the implied arithmetic
-        correlation is <code>expm1(ρ·σᵢ·σⱼ) / √(expm1(σᵢ²)·expm1(σⱼ²))</code>. The matrix must be symmetric,
-        have a unit diagonal and be positive semidefinite; a correlation involving a zero-volatility
-        series has no observable effect on that series.
-      </p>
+        {text("These are the correlations of the underlying Gaussian log-growth shocks, ")}<b>{text("not")}</b> {text(" the Pearson correlation of arithmetic returns. For non-zero log volatilities the implied arithmetic correlation is ")}<code>{text("expm1(ρ·σᵢ·σⱼ) / √(expm1(σᵢ²)·expm1(σⱼ²))")}</code>{text(". The matrix must be symmetric, have a unit diagonal and be positive semidefinite; a correlation involving a zero-volatility series has no observable effect on that series. ")}</p>
       <div className="table-scroll">
         <table className="matrix">
-          <caption className="field-help">Upper triangle is editable; the mirror cell is written with it.</caption>
+          <caption className="field-help">{text("Upper triangle is editable; the mirror cell is written with it.")}</caption>
           <thead>
             <tr>
-              <th scope="col"><span className="text-muted">shock</span></th>
+              <th scope="col"><span className="text-muted">{text("shock")}</span></th>
               {MARKET_VARIABLES.map(name => <th scope="col" key={name}>{text(name)}</th>)}
             </tr>
           </thead>
@@ -316,6 +310,7 @@ function CorrelationMatrix(props: { store: ProfileStore; def: ChoiceFieldDef; ma
 }
 
 function WithdrawalOrder(props: { store: ProfileStore; def: ChoiceFieldDef; mark: FieldMark | undefined }): ReactNode {
+  const { text } = useLocale();
   const { store } = props;
   const order = store.base.simulation.withdrawalOrder;
   const move = (index: number, delta: number) => store.edit(profile => {
@@ -329,18 +324,16 @@ function WithdrawalOrder(props: { store: ProfileStore; def: ChoiceFieldDef; mark
     <div className="stack-tight">
       <EditorHeading def={props.def} mark={props.mark} />
       <p className="field-help" style={{ margin: 0 }}>
-        A fixed order, applied every year. Cash is the settlement account, so its position controls how
-        much of the opening cash balance is released before the other accounts are liquidated.
-      </p>
+        {text("A fixed order, applied every year. Cash is the settlement account, so its position controls how much of the opening cash balance is released before the other accounts are liquidated. ")}</p>
       <ol className="stack-tight" style={{ paddingLeft: '1.2rem', margin: 0 }}>
         {order.map((account, index) => (
           <li key={account}>
             <span className="row" style={{ alignItems: 'center', gap: 'var(--space-2)' }}>
-              <b>{account.toUpperCase()}</b>
+              <b>{text(account === 'cash' ? 'Cash' : account === 'pension' ? 'Workplace pension' : account.toUpperCase())}</b>
               <button type="button" className="btn btn-secondary" disabled={index === 0}
-                aria-label={`Move ${account} earlier`} onClick={() => move(index, -1)}>↑</button>
+                aria-label={text(`Move ${account} earlier`)} onClick={() => move(index, -1)}>{text("↑")}</button>
               <button type="button" className="btn btn-secondary" disabled={index === order.length - 1}
-                aria-label={`Move ${account} later`} onClick={() => move(index, 1)}>↓</button>
+                aria-label={text(`Move ${account} later`)} onClick={() => move(index, 1)}>{text("↓")}</button>
             </span>
           </li>
         ))}
@@ -391,14 +384,14 @@ function GroupExtras(props: {
             <CheckboxField {...textOf(def)} checked={store.base.property!.sale !== null} mark={mark}
               onChange={enabled => store.edit(p => toggleSale(p, enabled))} />
           ))}
-          <p className="field-help">A purchase uses its price and deposit; existing value and debt apply only to an already owned property. First-time relief and additional-dwelling eligibility are your explicit assumptions. Owner-occupied sales assume full private residence relief. No automatic equity release.</p>
+          <p className="field-help">{text("A purchase uses its price and deposit; existing value and debt apply only to an already owned property. First-time relief and additional-dwelling eligibility are your explicit assumptions. Owner-occupied sales assume full private residence relief. No automatic equity release.")}</p>
           {pick('property.rateChanges', (_def, mark) => <>
             <ProvenanceMark mark={mark} />
             {store.base.property!.rateChanges.map((_, i) => <div key={i}>
               <FieldGrid store={store} defs={store.defs.filter(d => d.path[1] === 'rateChanges' && d.path[2] === i)} />
-              <button type="button" className="btn btn-secondary" onClick={() => store.edit(p => ({ ...p, property: { ...p.property!, rateChanges: p.property!.rateChanges.filter((_item, j) => j !== i) } }))}>Remove refinance {i + 1}</button>
+              <button type="button" className="btn btn-secondary" onClick={() => store.edit(p => ({ ...p, property: { ...p.property!, rateChanges: p.property!.rateChanges.filter((_item, j) => j !== i) } }))}>{text(`Remove refinance ${i + 1}`)}</button>
             </div>)}
-            <button type="button" className="btn btn-secondary" onClick={() => store.edit(addRefinance)}>Add refinance rate</button>
+            <button type="button" className="btn btn-secondary" onClick={() => store.edit(addRefinance)}>{text("Add refinance rate")}</button>
           </>)}
         </> : null}
       </div>;
@@ -524,6 +517,7 @@ function GroupExtras(props: {
  * Named fields are never tier-filtered: the screen asked for these specific inputs.
  */
 export function ProfileFields(props: { store: ProfileStore; ids: readonly string[]; columns?: 2 | 3 }): ReactNode {
+
   const defs = props.ids
     .map(id => props.store.defs.find(def => def.id === id))
     .filter((def): def is NumberFieldDef => def !== undefined);
@@ -532,6 +526,7 @@ export function ProfileFields(props: { store: ProfileStore; ids: readonly string
 
 /** Named non-numeric controls, rendered through the same registry wrapper as the full profile form. */
 export function ProfileChoiceFields(props: { store: ProfileStore; ids: readonly string[] }): ReactNode {
+
   const choices = useMemo(() => choiceFieldsFor(props.store.base), [props.store.base]);
   const wanted = new Set(props.ids);
   const groups = [...new Set(choices.filter(def => wanted.has(def.id)).map(def => def.group))];
@@ -569,13 +564,9 @@ function TierFilter(props: {
         </div>
       </fieldset>
       <p className="field-help" style={{ margin: 0 }}>
-        Hiding an input changes nothing: every value stays exactly as it is and the model uses all of
-        them. Anything that needs attention is shown whichever setting you pick.
-        Showing {props.visibility.inputCount} input{props.visibility.inputCount === 1 ? '' : 's'}.
-      </p>
+        {text(`Hiding an input changes nothing: every value stays exactly as it is and the model uses all of them. Anything that needs attention is shown whichever setting you pick. Showing ${props.visibility.inputCount} input${props.visibility.inputCount === 1 ? '' : 's'}.`)}</p>
       <p className="field-help" style={{ margin: 0 }}>
-        {props.summary} A value you changed is marked <span className="tag tag-outline">edited</span> and can
-        be put back on its own, or a whole section at a time. {props.starterNote}
+        {text(props.summary)} {text(" A value you changed is marked ")}<span className="tag tag-outline">{text("edited")}</span> {text(" and can be put back on its own, or a whole section at a time. ")}{text(props.starterNote)}
       </p>
     </div>
   );
@@ -583,6 +574,7 @@ function TierFilter(props: {
 
 /** Puts one section back to the starter profile, and says how much that would undo. */
 function GroupReset(props: { store: ProfileStore; group: FieldGroupId; label: string }): ReactNode {
+  const { text } = useLocale();
   const ids = resettableInGroup(props.store.provenance, props.group);
   if (ids.length === 0) return null;
   return (
@@ -592,8 +584,7 @@ function GroupReset(props: { store: ProfileStore; group: FieldGroupId; label: st
       style={{ alignSelf: 'flex-start' }}
       onClick={() => props.store.resetGroup(props.group)}
     >
-      Reset {props.label.toLowerCase()} ({ids.length} value{ids.length === 1 ? '' : 's'}) to the default
-    </button>
+      {text(`Reset ${props.label.toLowerCase()} (${ids.length} value${ids.length === 1 ? '' : 's'}) to the default`)}</button>
   );
 }
 
@@ -605,17 +596,17 @@ function GroupReset(props: { store: ProfileStore; group: FieldGroupId; label: st
  * dismissible and it carries no figure.
  */
 function ArrivalNote(props: { arrival: Arrival; onDismiss: () => void }): ReactNode {
+  const { text } = useLocale();
   return (
     <div className="card elev-sm stack-tight field-arrival" role="status" data-testid="field-arrival">
-      <p className="field-plain" style={{ margin: 0 }}>{fieldArrivalNote(props.arrival.target)}</p>
+      <p className="field-plain" style={{ margin: 0 }}>{text(fieldArrivalNote(props.arrival.target))}</p>
       {props.arrival.raisedTo
         ? <p className="field-help" style={{ margin: 0 }} data-testid="tier-raised">
-            {tierRaiseNote(props.arrival.target, props.arrival.raisedTo)}
+            {text(tierRaiseNote(props.arrival.target, props.arrival.raisedTo))}
           </p>
         : null}
       <button type="button" className="link-button" style={{ alignSelf: 'flex-start' }} onClick={props.onDismiss}>
-        Dismiss
-      </button>
+        {text("Dismiss ")}</button>
     </div>
   );
 }
@@ -712,7 +703,7 @@ export function ProfileForm(props: {
           <details className="card elev-sm group" key={groupId} open={open.has(groupId) || hasError}>
             <summary>
               {text(group.label)}
-              {hasError ? <span className="tag tag-accent" style={{ marginLeft: 8 }}>needs attention</span> : null}
+              {hasError ? <span className="tag tag-accent" style={{ marginLeft: 8 }}>{text("needs attention")}</span> : null}
             </summary>
             <fieldset className="stack-tight" style={{ marginTop: 'var(--space-2)' }}>
               <legend className="visually-hidden" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>

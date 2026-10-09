@@ -1,3 +1,10 @@
+import { commonZhTW, translateCommonTemplate } from './common-zh-TW.js';
+import { profileZhTW, translateProfileTemplate } from './profile-zh-TW.js';
+import { errorsZhTW, translateErrorTemplate } from './errors-zh-TW.js';
+import { translateFireTemplate } from './fire-templates.js';
+import { fireZhTW } from './fire-zh-TW.js';
+import { starterZhTW } from './starter-zh-TW.js';
+import { onboardingZhTW, translateOnboardingTemplate } from './onboarding-zh-TW.js';
 import { translateFieldTemplate } from './field-templates.js';
 import { fieldHelpZhTW } from './field-help-zh-TW.js';
 import { textZhTW } from './text-zh-TW.js';
@@ -20,5 +27,14 @@ export function readLocale(storage: Pick<Storage, 'getItem'> | undefined): Local
 }
 
 /** Translate only authored display copy; unknown text is preserved verbatim. */
-export const translateText = (locale: Locale, value: string): string =>
-  locale === 'en' ? value : textZhTW[value] ?? fieldHelpZhTW[value] ?? translateFieldTemplate(value) ?? value;
+export function translateText(locale: Locale, value: string): string {
+  if (locale === 'en') return value;
+  const key = value.trim();
+  const translated = textZhTW[key] ?? fieldHelpZhTW[key] ?? starterZhTW[key] ?? onboardingZhTW[key] ?? fireZhTW[key] ?? errorsZhTW[key] ?? profileZhTW[key] ?? commonZhTW[key]
+    ?? translateCommonTemplate(key, item => translateText(locale, item))
+    ?? translateProfileTemplate(key, item => translateText(locale, item))
+    ?? translateErrorTemplate(key, item => translateText(locale, item))
+    ?? translateFireTemplate(key, item => translateText(locale, item)) ?? translateFieldTemplate(key) ?? translateOnboardingTemplate(key, item => translateText(locale, item));
+  if (translated === undefined) return value;
+  return `${value.slice(0, value.length - value.trimStart().length)}${translated}${value.slice(value.trimEnd().length)}`;
+}

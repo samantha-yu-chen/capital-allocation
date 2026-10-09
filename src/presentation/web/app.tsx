@@ -85,7 +85,7 @@ function Navigation(props: { active: TabId; onSelect: (tab: TabId) => void }): R
 }
 
 export function App(): ReactNode {
-  const { t, text, locale } = useLocale();
+  const { t, text } = useLocale();
   const [active, setActive] = useState<TabId>('overview');
   const [wizardOpen, setWizardOpen] = useState(initiallyShowWizard);
   // The explanation is a destination in the shell, not a screen: it holds no state of its own, and
@@ -194,13 +194,11 @@ export function App(): ReactNode {
           <span>{t('learn')}</span><small>{t('plainModel')}</small>
         </button>
         <p className="sidebar-note">
-          {locale === 'zh-TW' ? <>這是協助比較決策的示例模型，並非受監管的財務建議。模型使用 {shown.personal.taxYear} 年度已設定的英國／蘇格蘭稅制，以及參數化 Monte Carlo 市場模型。抽樣結果並非未來預測。</> : <>Illustrative decision-support model, not regulated financial advice. It uses the configured UK/Scotland
-          tax rules for {shown.personal.taxYear} and a parametric Monte Carlo market model. Sampled results are
-          not forecasts.</>}
+          {text(`Illustrative decision-support model, not regulated financial advice. It uses the configured UK/Scotland tax rules for ${shown.personal.taxYear} and a parametric Monte Carlo market model. Sampled results are not forecasts.`)}
         </p>
         {/* Spec §36: V0.3 may hold the tax structure constant, but must disclose that it does. */}
         <p className="sidebar-note">
-          {locale === 'zh-TW' ? '整段推估期間，稅制維持相同的實質結構：級距、免稅額與門檻只隨通膨調整，不會有其他變動。實際稅法可能在一生中改變，此風險尚未納入模型。' : 'Those tax rules are held constant in real terms for the whole projection — bands, allowances and thresholds move with inflation and never otherwise change. Real tax law will change over a lifetime, and that risk is not modelled.'}
+          {text('Those tax rules are held constant in real terms for the whole projection — bands, allowances and thresholds move with inflation and never otherwise change. Real tax law will change over a lifetime, and that risk is not modelled.')}
         </p>
       </header>
 

@@ -45,3 +45,63 @@ full check emitted the existing Vite bundle-size advisory; locale catalog splitt
 when the full translation coverage is in place. Primary checkout has an untracked `.claude/` tree;
 do not modify it. The task worktree is inside primary `.worktrees/`, which is not currently ignored;
 avoid accidentally adding it from the primary checkout.
+
+## Second localization stage — onboarding, profile prose and FIRE
+
+This stage adds `starter-zh-TW.ts`, `onboarding-zh-TW.ts`, `profile-zh-TW.ts`,
+`fire-zh-TW.ts`, `fire-templates.ts`, `errors-zh-TW.ts`, and `common-zh-TW.ts`.
+Translation remains render-time and React-free in `i18n/`; mounted components subscribe to the
+locale context. No domain, tax configuration, engine input or result format has changed.
+
+- All six starter cards, descriptions and reasoning; fact values, selection actions, jump labels
+  and provenance notes; all five wizard steps and result explanations are translated.
+- The shared two-number explanation translates the reader's actual path count and withdrawal rate,
+  retaining the success probability as the authority.
+- FIRE controls, cards, result labels, diagnostic explanations, sequence notes, metadata labels,
+  progress, chart descriptions and age/count-dependent paragraphs are translated.
+- Profile editors, tier filter explanation, reset/provenance text and field arrival notices are
+  translated. Validation rewrite strings and numeric-bound messages are localized for display;
+  `profileSchema` and the issue data are unchanged. Unsupported pension-limit messages retain ages
+  and excess amounts.
+- Shell/shared/glossary inline Chinese copy has moved into independent catalogs. The language
+  selector intentionally keeps bilingual names. Technical metadata IDs remain exact identifiers.
+
+Latest automated evidence: `/tmp/zh-tw-check-7.log`, `npm run check` passes **353 tests, 0 failures**,
+strict typecheck and production build. The existing bundle-size advisory remains (722.36 kB main
+bundle, 231.46 kB gzipped). `git diff --check` passes.
+
+`tests/browser-locale-ui.mjs` is an incremental CDP harness, explicitly not a certification that all
+screen bodies are localized. Latest run `/tmp/zh-tw-browser-3.log` exits 0; output also saved at
+`/tmp/zh-tw-ui-results.json`, mobile image `/tmp/zh-tw-fire-mobile.png` visually inspected:
+
+- Baseline worker smoke: browser/local equality, cancellation, **10,000 paths, 68.98%, 4.283 s**.
+- Property worker smoke: equality, cancellation, **10,000 paths, 35.18%, 4.735 s**.
+- English fresh default; Traditional Chinese persistence after reload.
+- Six starter cards and wizard heading localized.
+- Salary edit survives switching in both directions; translated glossary definition opens.
+- All eight navigation destinations reachable.
+- Real FIRE run remains **68.98%** when switched while running and again after completion.
+- Input edit discards stale results; cancellation publishes no partial result.
+- **0 px** mobile overflow at 390 × 844; **0** uncaught page exceptions.
+
+Two failed assertions were in the new tests/harness, not production failures: numeric-token
+comparison initially counted English punctuation as numbers; glossary probe initially selected the
+first term (FIRE) while asserting the today's-money definition. Both now target what they claim.
+A provenance test initially expected grouped digits where the existing provenance model uses
+ungrouped digits; it now asserts the source and translated numeric tokens are identical.
+
+The dev server (exec session **6489**, port **5183**) and isolated Chrome (exec session **25654**,
+CDP **9234**, profile `/tmp/capital-zh-tw-chrome`) were left available. Revalidate live handles before
+reuse. Latest harness session **84829** and check session **64255** are completed successfully.
+
+### Next work still required
+
+The seven other screen bodies and Learn panel do not yet subscribe to locale. Shared cards/fields
+translate some text there, but that does **not** establish full coverage. Continue with Overview,
+Curve, Solver, Marginal, Scenarios, Property, Attribution and Learn, including all dynamic view-model
+text and error/unsupported states. Preserve user-authored scenario names and labels verbatim.
+Add source/catalog coverage and browser evidence for those surfaces, plus final English regressions.
+Update delivery docs, commit/merge/push, and perform the complete goal audit only after full coverage.
+
+The earlier statement that no commit had been made refers to the initial checkpoint only: stage 1
+is committed as **176d950**. No merge or push has occurred. The objective remains active.

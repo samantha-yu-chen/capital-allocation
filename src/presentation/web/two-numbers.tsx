@@ -1,3 +1,4 @@
+import { useLocale } from './locale.js';
 /**
  * UX-7: the one component every surface showing the reference FIRE number renders.
  *
@@ -13,18 +14,19 @@ import type { TwoNumbersStory } from '../view/two-numbers.js';
 import { GlossaryTerms } from './glossary-ui.js';
 
 export function TwoNumbers(props: { story: TwoNumbersStory; variant?: 'full' | 'note' }): ReactNode {
+  const { text } = useLocale();
   const { story } = props;
   if ((props.variant ?? 'full') === 'note') {
-    return <p className="footnote" data-two-numbers="note">{story.caveat}</p>;
+    return <p className="footnote" data-two-numbers="note">{text(story.caveat)}</p>;
   }
   return (
     <div className="two-numbers" data-two-numbers="full">
-      <p className="two-numbers-question">{story.question}</p>
+      <p className="two-numbers-question">{text(story.question)}</p>
       <dl className="two-numbers-parts">
-        <dt>{story.landmark.title}</dt>
-        <dd>{story.landmark.sentence}</dd>
-        <dt>{story.verdict.title}</dt>
-        <dd>{story.verdict.sentence}</dd>
+        <dt>{text(story.landmark.title)}</dt>
+        <dd>{text(story.landmark.sentence)}</dd>
+        <dt>{text(story.verdict.title)}</dt>
+        <dd>{text(story.verdict.sentence)}</dd>
       </dl>
       <GlossaryTerms ids={story.glossary} />
     </div>

@@ -1,3 +1,4 @@
+import { useLocale } from './locale.js';
 /**
  * The starter situation picker (UX-9), with the way out of it (UX-11).
  *
@@ -36,24 +37,25 @@ import { Card } from './components.js';
 function Fact(props: {
   fact: StarterFact; profile: Profile; linkable: boolean; onOpenField?: ((fieldId: string) => void) | undefined;
 }): ReactNode {
+  const { text } = useLocale();
   const target = props.linkable && props.onOpenField
     ? firstFieldTarget(props.profile, props.fact.fieldIds)
     : null;
   return (
     <div>
-      <dt>{props.fact.label}</dt>
+      <dt>{text(props.fact.label)}</dt>
       <dd>
         {target ? (
           <button
             type="button"
             className="link-button starter-fact-link"
             data-testid={`starter-fact-${target.id}`}
-            aria-label={`${props.fact.label}: ${props.fact.value}. Change it under ${target.groupLabel}`}
+            aria-label={text(`${props.fact.label}: ${props.fact.value}. Change it under ${target.groupLabel}`)}
             onClick={() => props.onOpenField?.(target.id)}
           >
-            {props.fact.value}
+            {text(props.fact.value)}
           </button>
-        ) : props.fact.value}
+        ) : text(props.fact.value)}
       </dd>
     </div>
   );
@@ -73,19 +75,20 @@ export function StarterPicker(props: {
   /** Open the profile form at one registry input. Absent on a surface that cannot navigate. */
   onOpenField?: ((fieldId: string) => void) | undefined;
 }): ReactNode {
+  const { text } = useLocale();
   const cards = starterCards();
   return (
     <Card kicker="People like me" title="Start from a situation that looks like yours" elevation="sm">
-      <p className="card-body">{props.effectNote ?? STARTER_CHOICE_EFFECT}</p>
-      {props.onOpenField ? <p className="card-body">{STARTER_FACT_LINK_NOTE}</p> : null}
+      <p className="card-body">{text(props.effectNote ?? STARTER_CHOICE_EFFECT)}</p>
+      {props.onOpenField ? <p className="card-body">{text(STARTER_FACT_LINK_NOTE)}</p> : null}
       <ul className="starter-grid" data-testid="starter-picker">
         {cards.map(card => {
           const chosen = card.id === props.chosenId;
           return (
             <li key={card.id} className={`starter-card${chosen ? ' is-chosen' : ''}`} data-starter={card.id}>
-              <h4>{card.name}</h4>
-              <p className="starter-who">{card.who}</p>
-              <p className="starter-caveat" data-testid="starter-caveat">{card.caveat}</p>
+              <h4>{text(card.name)}</h4>
+              <p className="starter-who">{text(card.who)}</p>
+              <p className="starter-caveat" data-testid="starter-caveat">{text(card.caveat)}</p>
               <dl className="starter-facts">
                 {card.facts.map(fact => (
                   <Fact key={fact.label} fact={fact} profile={props.profile} linkable={chosen}
@@ -93,9 +96,9 @@ export function StarterPicker(props: {
                 ))}
               </dl>
               <details>
-                <summary>Why these figures</summary>
+                <summary>{text("Why these figures")}</summary>
                 <ul className="starter-reasoning">
-                  {card.reasoning.map(line => <li key={line}>{line}</li>)}
+                  {card.reasoning.map(line => <li key={line}>{text(line)}</li>)}
                 </ul>
               </details>
               <button
@@ -105,7 +108,7 @@ export function StarterPicker(props: {
                 data-testid={`starter-choose-${card.id}`}
                 onClick={() => props.onChoose(card.id)}
               >
-                {chosen ? 'Chosen — start again from it' : `Use ${card.name}`}
+                {text(chosen ? 'Chosen — start again from it' : `Use ${card.name}`)}
               </button>
             </li>
           );
@@ -113,7 +116,7 @@ export function StarterPicker(props: {
       </ul>
       {props.onOpenField ? (
         <div className="starter-next" data-testid="starter-next">
-          <p className="card-body">{STARTER_NEXT_PROMPT}</p>
+          <p className="card-body">{text(STARTER_NEXT_PROMPT)}</p>
           <div className="row" style={{ flexWrap: 'wrap' }}>
             {STARTER_NEXT_JUMPS.map(jump => {
               const target = firstFieldTarget(props.profile, jump.fieldIds);
@@ -124,10 +127,10 @@ export function StarterPicker(props: {
                   type="button"
                   className="btn btn-secondary"
                   data-testid={`starter-next-${jump.id}`}
-                  aria-label={jumpDescription(jump.label, jump.fieldIds.length)}
+                  aria-label={text(jumpDescription(jump.label, jump.fieldIds.length))}
                   onClick={() => props.onOpenField?.(target.id)}
                 >
-                  Change {jump.label}
+                  {text(`Change ${jump.label}`)}
                 </button>
               );
             })}

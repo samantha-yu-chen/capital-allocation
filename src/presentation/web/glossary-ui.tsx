@@ -16,7 +16,7 @@ import type { TabId } from '../view/tabs.js';
 
 /** One term and its definition, shown on demand. Unknown ids render nothing rather than a gap. */
 export function GlossaryTerm(props: { id: string }): ReactNode {
-  const { locale } = useLocale();
+  const { locale, text } = useLocale();
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(props.id);
   const wrapper = useRef<HTMLSpanElement>(null);
@@ -58,7 +58,7 @@ export function GlossaryTerm(props: { id: string }): ReactNode {
           <span className="glossary-panel-body">{entry.definition}</span>
           {entry.seeAlso && entry.seeAlso.length > 0 ? (
             <span className="glossary-see-also">
-              {locale === 'zh-TW' ? '另見：' : 'See also:'}{' '}
+              {text('See also:')}{' '}
               {glossaryEntries(entry.seeAlso).map((other, index) => (
                 <span key={other.id}>
                   {index > 0 ? ', ' : null}
@@ -75,12 +75,12 @@ export function GlossaryTerm(props: { id: string }): ReactNode {
 
 /** A row of terms. Renders nothing at all when there is nothing to explain. */
 export function GlossaryTerms(props: { ids: readonly string[] | undefined; lead?: string }): ReactNode {
-  const { locale } = useLocale();
+  const { text } = useLocale();
   const entries = glossaryEntries(props.ids ?? []);
   if (entries.length === 0) return null;
   return (
     <p className="glossary-row">
-      <span className="glossary-lead">{locale === 'zh-TW' ? (props.lead === 'Words used on this screen:' ? '本頁用語：' : props.lead ?? '名詞說明：') : props.lead ?? 'What is'}</span>
+      <span className="glossary-lead">{text(props.lead ?? 'What is')}</span>
       {entries.map(entry => <GlossaryTerm key={entry.id} id={entry.id} />)}
     </p>
   );
@@ -93,12 +93,12 @@ export function GlossaryTerms(props: { ids: readonly string[] | undefined; lead?
  * piece of wiring and none of them can quietly go without.
  */
 export function GlossaryBar(props: { tab: TabId }): ReactNode {
-  const { locale } = useLocale();
+  const { locale, text } = useLocale();
   return (
     <div className="glossary-bar">
       <GlossaryTerms ids={SCREEN_TERMS[props.tab]} lead="Words used on this screen:" />
       <details className="glossary-all">
-        <summary>{locale === 'zh-TW' ? `全部 ${GLOSSARY.length} 個名詞` : `All ${GLOSSARY.length} terms`}</summary>
+        <summary>{text(`All ${GLOSSARY.length} terms`)}</summary>
         <dl className="glossary-list">
           {GLOSSARY.map(entry => (
             <div key={entry.id} id={`glossary-${entry.id}`}>

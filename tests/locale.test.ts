@@ -239,7 +239,7 @@ test('real solver statuses and curve results translate without mutating result d
 
 import { readFileSync } from 'node:fs';
 test('curve and solver screens have translations for every direct authored text and shared display prop', () => {
-  for (const file of ['screen-curve.tsx', 'screen-solver.tsx', 'screen-marginal.tsx', 'screen-property.tsx']) {
+  for (const file of ['screen-curve.tsx', 'screen-solver.tsx', 'screen-marginal.tsx', 'screen-property.tsx', 'screen-attribution.tsx']) {
     const source = readFileSync(`src/presentation/web/${file}`, 'utf8');
     for (const match of source.matchAll(/(?:text\(|(?:title|kicker|label|help)=)"([^"\n]+)"/g)) {
       const copy = match[1]!;
@@ -327,4 +327,47 @@ test('actual allocation and property outputs translate display copy and preserve
   const before = structuredClone(comparison);
   for (const row of comparisonRows(comparison)) assertTranslated(row.label);
   assert.deepEqual(comparison,before);
+});
+
+
+import { attributionZhTW, attributionCaveatsZhTW } from '../src/presentation/i18n/attribution-zh-TW.js';
+import { buildAnalysisCases, runAttribution } from '../src/engine/attribution.js';
+import { STRESSES, STRESS_ASSUMPTIONS } from '../src/engine/stress.js';
+import { attributionPlan, attributionRows, attributionConclusion, attributionCaveats, attributionDiagnostics, stressRows } from '../src/presentation/view/attribution-model.js';
+
+test('attribution catalogs cover every case and stress, retaining assumptions and numeric shocks', () => {
+  for (const copy of [...Object.keys(attributionZhTW), ...Object.keys(attributionCaveatsZhTW),...attributionCaveats]) assertTranslated(copy);
+  const profile = createExampleProfile();profile.property = defaultProperty(profile);
+  for (const item of buildAnalysisCases(profile)) assertTranslated(item.label);
+  for (const id of STRESSES) {
+    assertTranslated(id.replaceAll('_',' '));assertTranslated(STRESS_ASSUMPTIONS[id]);
+    assert.deepEqual(translateText('zh-TW',STRESS_ASSUMPTIONS[id]).match(/\d+(?:[,.]\d+)*/g),STRESS_ASSUMPTIONS[id].match(/\d+(?:[,.]\d+)*/g));
+  }
+  const plan = attributionPlan(profile,defaultLedgerOptions(),'0');assertTranslated(plan.issue!);assertTranslated(plan.announcement);
+  for (const copy of [
+    '2/28 cases · Equity nominal mean +2pp · 5,000/10,000 paths',
+    'More income has the largest tested improvement among income, expenses and allocation: Gross salary +£10,000/year (12.3 pp). This ranks these specific changes, not all possible plans.',
+    'Age 65: mortgage_shortfall; £1,200 real shortfall',
+  ]) { assertTranslated(copy);assert.deepEqual(translateText('zh-TW',copy).match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g),copy); }
+});
+
+test('real attribution and stress display output translates without altering results, flags or path data', async () => {
+  const profile = createExampleProfile();profile.simulation.count = 8;
+  for (const property of [null,defaultProperty(profile)]) {
+    profile.property = property;
+    const result = await runAttribution(profile,{stressAge:profile.personal.targetFireAge});
+    const before = structuredClone(result), diagnostics = attributionDiagnostics(result);
+    const copies = [attributionConclusion(result),diagnostics.sequence,diagnostics.interpretation,
+      ...diagnostics.failures.map(item=>item.label), ...diagnostics.diagnostics.flatMap(item=>[item.label,item.text]),
+      ...[...attributionRows(result),...attributionRows(result,true)].flatMap(row=>[row.label,row.evidence,...(row.reason?[row.reason]:[])]),
+      ...stressRows(result).flatMap(row=>[row.title,row.outcome,row.assumptions,row.diagnostic,...row.failures,...(row.reason?[row.reason]:[])])];
+    for (const copy of copies) if (copy) {
+      assertTranslated(copy);
+      const translated = translateText('zh-TW',copy);
+      assert.deepEqual(translated.match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g),copy);
+      assert.doesNotMatch(translated,/First five FIRE|when present|when absent|real shortfall|nominal means|Configure a property|recovered paths|observed recovery/);
+    }
+    assert.match(translateText('zh-TW',diagnostics.interpretation),/FIRE 後最初五年/);
+    assert.deepEqual(result,before);
+  }
 });

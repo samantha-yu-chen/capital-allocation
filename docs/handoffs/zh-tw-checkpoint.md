@@ -225,3 +225,33 @@ left running; revalidate live state before reuse.
 Remaining: Scenario Comparison and Attribution bodies/dynamic errors; full localization coverage
 and final English/browser regressions; final delivery docs, merge and push. No merge/push yet,
 no full-delivery claim, and the active goal must remain active.
+
+## Stage 6 — Attribution (incremental, not delivery)
+
+Independent `attribution-zh-TW.ts` covers attribution controls, all seven stress assumptions,
+lever/sensitivity labels, explanatory caveats, failure diagnostics, uncertainty, conclusions,
+progress and known unsupported reasons. The screen translates display text at render time;
+engine results, run keys, profile data and raw metadata remain unchanged. Corrected the diagnostic
+translation of “first five FIRE years” to “FIRE 後最初五年內”. Tests cover actual attribution
+outputs with and without property, numeric token preservation and result immutability.
+
+Gate `/tmp/zh-tw-check-20.log`: **363/363**, strict typecheck and production build green.
+Bundle **819.65 kB / 267.14 kB gzip**, existing Vite size advisory.
+`tests/browser-locale-attribution-ui.mjs` passed, log
+`/tmp/zh-tw-browser-attribution-1.log`, JSON `/tmp/zh-tw-attribution-ui-results.json`:
+
+- Both worker smokes: **10,000 paths**, exact equality and cancellation true; baseline
+  **68.98%, 4.257 s**, property **35.18%, 4.639 s**.
+- Each full analysis contains **28** lever/sensitivity cases and **7** stress cases. English and
+  Chinese result numeric tokens match across switching during and after execution.
+- Desktop baseline: **91.672 s**, **5,485 frames**, maximum gap **16.8 ms**, **0 px** overflow.
+- Property mobile **390 × 844**: **121.087 s**, **7,250 frames**, maximum gap **16.8 ms**,
+  **0 px** overflow. Baseline mobile also checks zero overflow.
+- Invalid stress age blocks execution with a translated error; editing an input clears stale
+  results; cancellation publishes nothing. **0** uncaught runtime exceptions.
+- Actual baseline and property mobile result screenshots visually inspected:
+  `/tmp/zh-tw-attribution-mobile.png`, `/tmp/zh-tw-attribution-property-mobile.png`.
+
+Harness session 55607 completed successfully before any further repository edits.
+Remaining: Scenario Comparison, full localization audit and final regressions, delivery docs,
+merge and push. No full-delivery claim; goal remains active.

@@ -72,5 +72,5 @@ export const fireZhTW: Readonly<Record<string, string>> = {
   'Run': '執行', 'above.': '按鈕。',
   'in today’s money.': '以今日幣值表示。',
   'today (today’s money; outputs are not deflated again)': 'today（今日幣值；結果不再重複扣除通膨）',
-  'Associations only; overlapping factors are not proven causes. Crash: any equity return below -20% in first five FIRE years. High inflation: geometric annual inflation above 5% over that window.': '僅表示關聯；可能重疊的因素並非已證實的原因。崩盤：FIRE 前五年內，任何一年股票報酬低於 -20%。高通膨：該期間幾何平均年通膨超過 5%。',
+  'Associations only; overlapping factors are not proven causes. Crash: any equity return below -20% in first five FIRE years. High inflation: geometric annual inflation above 5% over that window.': '僅表示關聯；可能重疊的因素並非已證實的原因。崩盤：FIRE 後最初五年內，任何一年股票報酬低於 -20%。高通膨：該期間幾何平均年通膨超過 5%。',
 };

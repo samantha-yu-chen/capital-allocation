@@ -181,3 +181,47 @@ corresponding real browser evidence plus final English regressions and both work
 delivery docs, merge and push. Existing earlier stage evidence remains incremental. No merge or
 push yet; goal remains active. Revalidate ports 5183 / 9234 before reusing them. Harness session
 39434 and gate session 94287 completed successfully.
+
+## Stage 5 — Marginal Allocation and Property (incremental, not delivery)
+
+Independent `marginal-zh-TW.ts` / `property-zh-TW.ts` now cover screen controls, funding bases,
+allocation classification/rank, all seven comparison-basis paragraphs, funding audits, constraints,
+known infeasibility reasons, configured tax-band/basis names, property cash flow/leverage/rate
+labels, purchase versus rent explanations, comparison results, progress and cancellation. Both
+screens subscribe to locale at render time. A `property-comparison-result` test ID identifies the
+real comparison table. Raw reproducibility JSON, profile data, numeric formats and engine code
+remain unchanged. Raw numeric Zod control issues now have translated display messages, preserving
+bound values and strict/non-strict comparisons.
+
+Added tests for both allocation funding bases using actual engine output, result immutability,
+property comparison labels from a real paired run, every tax-boundary label/basis in both tax
+regions, control issues, authored static copy and numeric tokens in dynamic funding/progress text.
+Latest gate `/tmp/zh-tw-check-18.log`: **361/361**, typecheck and production build green. Main bundle
+**804.63 kB / 261.72 kB gzip**, existing Vite size advisory. `git diff --check` green.
+
+New `tests/browser-locale-property-ui.mjs` ran successfully, latest
+`/tmp/zh-tw-browser-property-2.log`, JSON `/tmp/zh-tw-property-ui-results.json`:
+
+- Both worker smokes at **10,000 paths**, equality and cancellation true: baseline **68.98%,
+  4.649 s**; property **35.18%, 5.432 s**.
+- Allocation: all six cards present, all numeric tokens identical across English/Chinese switches
+  during/after execution. Pension **69.11%**, ISA/GIA **69.05%**, cash **69.04%**; mortgage/deposit
+  explicitly infeasible for the no-property profile and display translated reasons. 1,467 frames,
+  maximum gap **16.8 ms**. The path count remained **10,000**.
+- Property: full **10,000** paired paths; all ten comparison rows preserve both numeric columns
+  across switches. Buy **35.18%**, rent/invest **69.01%**; mortgage-shortfall **33.23% / 0.00%**.
+  2,213 frames, maximum gap **33.3 ms**.
+- Relevant input edits discard both finished results; both cancellation paths publish nothing.
+  Invalid allocation amount blocks execution with a translated error.
+- Both at **390 × 844**, **0 px** page overflow, **0** uncaught runtime exceptions.
+  `/tmp/zh-tw-marginal-mobile.png` and `/tmp/zh-tw-property-mobile.png` visually inspected; wide
+  property tables retain the existing internal horizontal scroll.
+
+Browser-1 stopped on a harness regex escaped incorrectly inside a CDP expression (`\d` became
+`d`); browser-2 uses `[0-9]` and passes. No production change was needed for that harness failure.
+Gate session 35995 and harness session 47393 are completed successfully. Ports 5183 / 9234 were
+left running; revalidate live state before reuse.
+
+Remaining: Scenario Comparison and Attribution bodies/dynamic errors; full localization coverage
+and final English/browser regressions; final delivery docs, merge and push. No merge/push yet,
+no full-delivery claim, and the active goal must remain active.

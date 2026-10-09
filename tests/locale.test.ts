@@ -239,7 +239,7 @@ test('real solver statuses and curve results translate without mutating result d
 
 import { readFileSync } from 'node:fs';
 test('curve and solver screens have translations for every direct authored text and shared display prop', () => {
-  for (const file of ['screen-curve.tsx', 'screen-solver.tsx']) {
+  for (const file of ['screen-curve.tsx', 'screen-solver.tsx', 'screen-marginal.tsx', 'screen-property.tsx']) {
     const source = readFileSync(`src/presentation/web/${file}`, 'utf8');
     for (const match of source.matchAll(/(?:text\(|(?:title|kicker|label|help)=)"([^"\n]+)"/g)) {
       const copy = match[1]!;
@@ -268,4 +268,63 @@ test('curve and solver dynamic announcements and accessible chart descriptions r
     assert.doesNotMatch(translateText('zh-TW', copy), /against a|Pension input exceeds/);
     assert.deepEqual(translateText('zh-TW', copy).match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g),copy);
   }
+});
+
+
+import { marginalZhTW, marginalBasisZhTW } from '../src/presentation/i18n/marginal-zh-TW.js';
+import { propertyZhTW } from '../src/presentation/i18n/property-zh-TW.js';
+import { compareMarginal, taxBoundaries } from '../src/engine/marginal.js';
+import { marginalBasis, marginalRows, marginalConclusion, marginalPlan } from '../src/presentation/view/marginal-model.js';
+import { comparisonRows, defaultProperty } from '../src/presentation/view/property-model.js';
+import { comparePropertyPlans } from '../src/engine/property-comparison.js';
+
+test('allocation and property catalogs cover authored explanations, tax bases and invalid controls', () => {
+  for (const copy of [...Object.keys(marginalZhTW), ...Object.keys(marginalBasisZhTW), ...Object.keys(propertyZhTW)]) {
+    if (['isa','gia'].includes(copy)) continue;
+    assertTranslated(copy);
+  }
+  for (const copy of marginalBasis) assertTranslated(copy);
+  for (const region of ['scotland', 'rest_of_uk'] as const) {
+    const profile = createExampleProfile();profile.personal.taxRegion = region;
+    for (const boundary of taxBoundaries(profile)) { assertTranslated(boundary.label);assertTranslated(boundary.basis); }
+  }
+  const profile = createExampleProfile();
+  for (const value of ['', 'abc', '-1', 'Infinity']) {
+    const plan = marginalPlan(profile, defaultLedgerOptions(), { 'marginal.amount': value }, 'gross_earnings');
+    for (const issue of plan.issues) assertTranslated(issue);
+  }
+  for (const copy of [
+    'Compare 10,000 matching paths', '2,500 / 10,000 path pairs', 'Failure at age 65',
+    'Rank 2', 'cash: 3 of up to 7 plans complete',
+    'Destination cash £0; pension added £1,000.',
+    'Incremental income tax £-400; employee NI £-20; employer pension £100; provider relief £0.',
+    'higher taxable band crossed at £62,430 (£62,000 → £63,000 on that tax basis).',
+    'Pension / ISA has the highest tested constrained mean usable wealth. Shared ranks indicate near-equivalence within paired sampling uncertainty, not a universal wrapper ordering. Read the tradeoffs before acting.',
+  ]) {
+    assertTranslated(copy);
+    assert.deepEqual(translateText('zh-TW',copy).match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g),copy);
+  }
+});
+
+test('actual allocation and property outputs translate display copy and preserve all result data', async () => {
+  const profile = createExampleProfile();profile.simulation.count = 8;
+  for (const basis of ['gross_earnings','after_tax_cash'] as const) {
+    const result = await compareMarginal(profile, { amount:1000,basis,maximumDebt:0 });
+    const before = structuredClone(result);
+    assertTranslated(marginalConclusion(result));
+    for (const row of marginalRows(result)) {
+      if (!['ISA','GIA'].includes(row.label)) assertTranslated(row.label);
+      for (const copy of [row.rank,row.classification,...row.constraints,...row.funding,...(row.reason?[row.reason]:[])]) {
+        assertTranslated(copy);
+        assert.doesNotMatch(translateText('zh-TW',copy),/crossed at|taxable band|pension added|requires an existing|requires a configured/);
+        assert.deepEqual(translateText('zh-TW',copy).match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g),copy);
+      }
+    }
+    assert.deepEqual(result,before);
+  }
+  profile.property = defaultProperty(profile);
+  const comparison = await comparePropertyPlans(profile);
+  const before = structuredClone(comparison);
+  for (const row of comparisonRows(comparison)) assertTranslated(row.label);
+  assert.deepEqual(comparison,before);
 });

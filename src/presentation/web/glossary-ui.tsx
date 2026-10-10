@@ -1,3 +1,5 @@
+import { useLocale } from './locale.js';
+import { localizeGlossaryEntry } from '../i18n/glossary.js';
 /**
  * Glossary terms, reachable from wherever the word is used.
  *
@@ -14,11 +16,13 @@ import type { TabId } from '../view/tabs.js';
 
 /** One term and its definition, shown on demand. Unknown ids render nothing rather than a gap. */
 export function GlossaryTerm(props: { id: string }): ReactNode {
+  const { locale, text } = useLocale();
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(props.id);
   const wrapper = useRef<HTMLSpanElement>(null);
   const panelId = useId();
-  const entry = glossaryEntry(shown);
+  const rawEntry = glossaryEntry(shown);
+  const entry = rawEntry ? localizeGlossaryEntry(locale, rawEntry) : undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -34,7 +38,8 @@ export function GlossaryTerm(props: { id: string }): ReactNode {
     };
   }, [open]);
 
-  const first = glossaryEntry(props.id);
+  const rawFirst = glossaryEntry(props.id);
+  const first = rawFirst ? localizeGlossaryEntry(locale, rawFirst) : undefined;
   if (!first) return null;
   return (
     <span className="glossary-anchor" ref={wrapper}>
@@ -53,11 +58,11 @@ export function GlossaryTerm(props: { id: string }): ReactNode {
           <span className="glossary-panel-body">{entry.definition}</span>
           {entry.seeAlso && entry.seeAlso.length > 0 ? (
             <span className="glossary-see-also">
-              See also:{' '}
+              {text('See also:')}{' '}
               {glossaryEntries(entry.seeAlso).map((other, index) => (
                 <span key={other.id}>
                   {index > 0 ? ', ' : null}
-                  <button type="button" className="link-button" onClick={() => setShown(other.id)}>{other.term}</button>
+                  <button type="button" className="link-button" onClick={() => setShown(other.id)}>{localizeGlossaryEntry(locale, other).term}</button>
                 </span>
               ))}
             </span>
@@ -70,11 +75,12 @@ export function GlossaryTerm(props: { id: string }): ReactNode {
 
 /** A row of terms. Renders nothing at all when there is nothing to explain. */
 export function GlossaryTerms(props: { ids: readonly string[] | undefined; lead?: string }): ReactNode {
+  const { text } = useLocale();
   const entries = glossaryEntries(props.ids ?? []);
   if (entries.length === 0) return null;
   return (
     <p className="glossary-row">
-      <span className="glossary-lead">{props.lead ?? 'What is'}</span>
+      <span className="glossary-lead">{text(props.lead ?? 'What is')}</span>
       {entries.map(entry => <GlossaryTerm key={entry.id} id={entry.id} />)}
     </p>
   );
@@ -87,16 +93,17 @@ export function GlossaryTerms(props: { ids: readonly string[] | undefined; lead?
  * piece of wiring and none of them can quietly go without.
  */
 export function GlossaryBar(props: { tab: TabId }): ReactNode {
+  const { locale, text } = useLocale();
   return (
     <div className="glossary-bar">
       <GlossaryTerms ids={SCREEN_TERMS[props.tab]} lead="Words used on this screen:" />
       <details className="glossary-all">
-        <summary>All {GLOSSARY.length} terms</summary>
+        <summary>{text(`All ${GLOSSARY.length} terms`)}</summary>
         <dl className="glossary-list">
           {GLOSSARY.map(entry => (
             <div key={entry.id} id={`glossary-${entry.id}`}>
-              <dt>{entry.term}</dt>
-              <dd>{entry.definition}</dd>
+              <dt>{localizeGlossaryEntry(locale, entry).term}</dt>
+              <dd>{localizeGlossaryEntry(locale, entry).definition}</dd>
             </div>
           ))}
         </dl>

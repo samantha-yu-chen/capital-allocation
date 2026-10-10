@@ -1,3 +1,5 @@
+import { useLocale } from './locale.js';
+import { localizeLearnSection, localizeLearnTabSection } from '../i18n/learn-zh-TW.js';
 /**
  * The "How this works" panel (UX-10).
  *
@@ -22,20 +24,22 @@ import { GlossaryTerms } from './glossary-ui.js';
 import { Card } from './components.js';
 
 function SectionBody(props: { section: LearnSection }): ReactNode {
-  const { section } = props;
+  const { locale, text } = useLocale();
+  const section = localizeLearnSection(locale, props.section);
   return (
     <>
       {section.paragraphs.map(paragraph => <p key={paragraph} className="learn-paragraph">{paragraph}</p>)}
       <GlossaryTerms ids={section.terms} lead="Words used here:" />
       <p className="learn-sources">
-        <span className="learn-sources-lead">Where this comes from:</span> {section.sources.join(' · ')}
+        <span className="learn-sources-lead">{text('Where this comes from:')}</span> {section.sources.join(' · ')}
       </p>
     </>
   );
 }
 
 function ScreenSection(props: { section: LearnTabSection; open: boolean }): ReactNode {
-  const { section } = props;
+  const { locale } = useLocale();
+  const section = localizeLearnTabSection(locale, props.section);
   return (
     <details className="learn-screen" id={`learn-${section.id}`} open={props.open}
       data-testid={`learn-screen-${section.tab}`}>
@@ -53,33 +57,31 @@ export function LearnPanel(props: {
   tab: TabId;
   onClose: () => void;
 }): ReactNode {
-  const current = learnForTab(props.tab);
+  const { locale, text } = useLocale();
+  const current = localizeLearnTabSection(locale, learnForTab(props.tab));
   return (
     <div className="stack" data-testid="learn-panel">
       <Card kicker="How this works" title="What this model does with your numbers" elevation="sm">
         <p className="card-body">
-          A plain-language walkthrough of the model: one year at a time, then many lifetimes at once, then what
-          the results do and do not mean. Nothing on this page is a result — it explains the method, and every
-          section says which files in the project the rule comes from.
+          {text('A plain-language walkthrough of the model: one year at a time, then many lifetimes at once, then what the results do and do not mean. Nothing on this page is a result — it explains the method, and every section says which files in the project the rule comes from.')}
         </p>
         <p className="learn-doc-note">
-          The same walkthrough is written up at <code>{LEARN_DOC_PATH}</code> for reading away from the app.
+          {text('The same walkthrough is written up at')} <code>{LEARN_DOC_PATH}</code> {text('for reading away from the app.')}
         </p>
         <button type="button" className="btn btn-secondary learn-back" data-testid="learn-close" onClick={props.onClose}>
-          Back to {current.title}
+          {text('Back to')} {current.title}
         </button>
       </Card>
 
       {MODEL_SECTIONS.map(section => (
-        <Card key={section.id} title={section.title} elevation="sm">
+        <Card key={section.id} title={localizeLearnSection(locale, section).title} elevation="sm">
           <div id={`learn-${section.id}`} className="learn-section"><SectionBody section={section} /></div>
         </Card>
       ))}
 
       <Card kicker="Screen by screen" title="What each of the eight screens answers" elevation="sm">
         <p className="card-body">
-          Each screen asks one question of the same model. The screen you were on is open first; the rest are
-          here so you can read ahead before you spend a run on one.
+          {text('Each screen asks one question of the same model. The screen you were on is open first; the rest are here so you can read ahead before you spend a run on one.')}
         </p>
         <div className="learn-screens">
           {tabSections().map(section => (

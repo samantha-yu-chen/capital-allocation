@@ -1,3 +1,4 @@
+import { useLocale } from './locale.js';
 /**
  * Overview: the current position, this year's cash flow, the reference FIRE arithmetic and the full
  * annual ledger, all from the deterministic engine.
@@ -34,6 +35,7 @@ const LEDGER_COLUMNS = [
 ] as const;
 
 function LedgerDetail(props: { row: LedgerRowModel; basis: MoneyBasis }): ReactNode {
+  const { text } = useLocale();
   const v = props.row[props.basis];
   const entries: [string, string][] = [
     ['Employment income', money(v.employmentIncome)],
@@ -88,14 +90,14 @@ function LedgerDetail(props: { row: LedgerRowModel; basis: MoneyBasis }): ReactN
     <>
       {entries.map(([label, value]) => (
         <div className="line" key={label}>
-          <dt className="text-muted">{label}</dt>
-          <dd>{value}</dd>
+          <dt className="text-muted">{text(label)}</dt>
+          <dd>{text(value)}</dd>
         </div>
       ))}
       {props.row.failures.length ? (
         <div className="span-all">
           <b className="field-error">
-            {props.row.failures.map(failure => `${failure.code} (shortfall ${moneyExact(failure.shortfall)})`).join('; ')}
+            {props.row.failures.map(failure => text(`${failure.code} (shortfall ${moneyExact(failure.shortfall)})`)).join('; ')}
           </b>
         </div>
       ) : null}
@@ -112,15 +114,16 @@ function LedgerDetail(props: { row: LedgerRowModel; basis: MoneyBasis }): ReactN
  * concluded the model forgot inflation.
  */
 function BasisExplanation(props: { basis: MoneyBasis; rows: readonly LedgerRowModel[] }): ReactNode {
+  const { text } = useLocale();
   const explanation = moneyBasisExplanation(props.basis);
   const [age, setAge] = useState<number>(() => defaultComparisonAge(props.rows));
   const row = props.rows.find(candidate => candidate.age === age) ?? props.rows[props.rows.length - 1];
   return (
     <div className="basis-explanation stack-tight" data-testid="basis-explanation">
       <p className="field-plain" style={{ margin: 0 }} data-testid="basis-spending-note">
-        {explanation.spendingNote}
+        {text(explanation.spendingNote)}
       </p>
-      <p className="field-help" style={{ margin: 0 }} data-testid="basis-switch-note">{explanation.switchNote}</p>
+      <p className="field-help" style={{ margin: 0 }} data-testid="basis-switch-note">{text(explanation.switchNote)}</p>
       {row ? (
         <>
           <div className="row">
@@ -133,7 +136,7 @@ function BasisExplanation(props: { basis: MoneyBasis; rows: readonly LedgerRowMo
             />
           </div>
           <p className="footnote" style={{ margin: 0 }} data-testid="inflation-pair">
-            {inflationComparison(row).sentence}
+            {text(inflationComparison(row).sentence)}
           </p>
         </>
       ) : null}
@@ -143,6 +146,7 @@ function BasisExplanation(props: { basis: MoneyBasis; rows: readonly LedgerRowMo
 }
 
 function LedgerTable(props: { model: OverviewModel }): ReactNode {
+  const { text } = useLocale();
   const [basis, setBasis] = useState<MoneyBasis>('real');
   const [from, setFrom] = useState<number>(props.model.rows[0]?.age ?? 0);
   const rows = props.model.rows.filter(row => row.age >= from).slice(0, 25);
@@ -150,8 +154,7 @@ function LedgerTable(props: { model: OverviewModel }): ReactNode {
   return (
     <Card kicker="Annual ledger" title="Every projected year">
       <p className="card-body">
-        The deterministic run: the configured nominal means every year, not a sampled path. Expand a year
-        to see all of its line items. Years are half-open — the row for age {ages[0]} covers [{ages[0]}, {(ages[0] ?? 0) + 1}).
+        {text(`The deterministic run: the configured nominal means every year, not a sampled path. Expand a year to see all of its line items. Years are half-open — the row for age ${ages[0]} covers [${ages[0]}, ${(ages[0] ?? 0) + 1}).`)}
       </p>
       <div className="row">
         <SelectField
@@ -173,13 +176,12 @@ function LedgerTable(props: { model: OverviewModel }): ReactNode {
       <div className="table-scroll">
         <table className="table">
           <caption>
-            Showing ages {rows[0]?.age ?? '—'}–{rows[rows.length - 1]?.age ?? '—'} of {ages[0]}–{ages[ages.length - 1]}.
-            Amounts in {basis === 'real' ? 'today’s money' : 'nominal pounds'}.
+            {text(`Showing ages ${rows[0]?.age ?? '—'}–${rows[rows.length - 1]?.age ?? '—'} of ${ages[0]}–${ages[ages.length - 1]}. Amounts in ${basis === 'real' ? 'today’s money' : 'nominal pounds'}.`)}
           </caption>
           <thead>
             <tr>
               {LEDGER_COLUMNS.map((column, index) => (
-                <th key={column} scope="col" className={index <= 1 ? undefined : 'numeric'}>{column}</th>
+                <th key={column} scope="col" className={index <= 1 ? undefined : 'numeric'}>{text(column)}</th>
               ))}
             </tr>
           </thead>
@@ -195,7 +197,7 @@ function LedgerTable(props: { model: OverviewModel }): ReactNode {
                   detail={<LedgerDetail row={row} basis={basis} />}
                   cells={[
                     row.age,
-                    row.phase,
+                    text(row.phase),
                     money(v.grossIncome),
                     money(v.totalTax),
                     money(v.pensionContributionTotal),
@@ -216,14 +218,13 @@ function LedgerTable(props: { model: OverviewModel }): ReactNode {
 }
 
 function ReferenceFire(props: { model: OverviewModel; profile: Profile }): ReactNode {
+  const { text } = useLocale();
   const r = props.model.reference;
   return (
     <Card kicker="Reference FIRE target" title="Transparent arithmetic, not a safety result" elevation="md">
       <TwoNumbers story={twoNumbersStoryFor(props.profile)} />
       <p className="card-body">
-        The ratios below are the spec’s, and they ignore sequence of returns, tax on withdrawals and the
-        shape of the path. The spending reference is the entered retirement budget before property adjustments. The FIRE &amp; Monte Carlo screen includes housing cash flows when testing whether the plan survives.
-      </p>
+        {text("The ratios below are the spec’s, and they ignore sequence of returns, tax on withdrawals and the shape of the path. The spending reference is the entered retirement budget before property adjustments. The FIRE & Monte Carlo screen includes housing cash flows when testing whether the plan survives. ")}</p>
       <dl className="kv">
         <Line label="Annual retirement spending (today’s money)" value={money(r.retirementSpendingReal)} />
         <Line label="Reference withdrawal rate" value={percent(r.withdrawalRate, 2)} />
@@ -252,6 +253,7 @@ function ReferenceFire(props: { model: OverviewModel; profile: Profile }): React
 }
 
 function CashFlow(props: { model: OverviewModel }): ReactNode {
+  const { text } = useLocale();
   const c = props.model.cashFlow;
   const m = props.model.marginal;
   return (
@@ -267,7 +269,7 @@ function CashFlow(props: { model: OverviewModel }): ReactNode {
         <Line label="Essential spending" value={money(c.essentialSpending)} />
         <Line label="Discretionary spending" value={money(c.discretionarySpending)} />
         {c.spendingOverrideNote
-          ? <p className="field-error" style={{ gridColumn: '1 / -1' }}>{c.spendingOverrideNote}</p>
+          ? <p className="field-error" style={{ gridColumn: '1 / -1' }}>{text(c.spendingOverrideNote)}</p>
           : null}
         {c.capitalNeeds > 0 ? <Line label="Known capital needs" value={money(c.capitalNeeds)} /> : null}
         <Line label="Annual investable surplus" value={moneySigned(c.investableSurplus)} strong />
@@ -297,23 +299,22 @@ function CashFlow(props: { model: OverviewModel }): ReactNode {
               : null}
           </dl>
           <p className="footnote">
-            Measured by re-running the whole projection with a larger salary, so it is this model’s own
-            marginal rate rather than a separate tax formula. The pension policy is held constant, so under
-            salary sacrifice part of the increase is sacrificed before tax and the rate reflects that.
-          </p>
+            {text("Measured by re-running the whole projection with a larger salary, so it is this model’s own marginal rate rather than a separate tax formula. The pension policy is held constant, so under salary sacrifice part of the increase is sacrificed before tax and the rate reflects that. ")}</p>
         </>
       ) : (
-        <p className="footnote">Marginal rate unavailable: {props.model.marginalUnavailable}</p>
+        <p className="footnote">{text("Marginal rate unavailable: ")}{text(props.model.marginalUnavailable ?? '')}</p>
       )}
     </Card>
   );
 }
 
-function engineErrorBanner(error: unknown, _profile: Profile): ReactNode {
+function EngineErrorBanner(props: { error: unknown }): ReactNode {
+  const { text } = useLocale();
+  const { error } = props;
   const thrown = error instanceof Error ? error : new Error(String(error));
   return (
     <Banner tone="error" title="The projection could not be produced">
-      <p style={{ margin: 0 }}><b>{thrown.name}:</b> {thrown.message}</p>
+      <p style={{ margin: 0 }}><b>{thrown.name}{text(":")}</b> {text(thrown.message)}</p>
     </Banner>
   );
 }
@@ -329,6 +330,7 @@ function HeadlineCard(props: {
   onOpenCurve: () => void;
   onOpenSolverQuestion: (question: SolverModeId) => void;
 }): ReactNode {
+  const { text } = useLocale();
   const monteCarloRun: CompletedOverviewRun<MonteCarloResult> | null =
     props.currentRunKey && props.monteCarloState.status === 'done'
       ? { key: props.monteCarloState.key, result: props.monteCarloState.result }
@@ -341,29 +343,27 @@ function HeadlineCard(props: {
   const running = props.monteCarloState.status === 'running';
   return (
     <Card className="headline-card" elevation="lg">
-      <div className="headline-question">{model.question}</div>
+      <div className="headline-question">{text(model.question)}</div>
       {model.state === 'empty' ? (
         <div className="headline-empty">
           <p>
-            Run your plan to see its success probability. Then compute the FIRE age curve to find the
-            earliest tested age that reaches your target.
-          </p>
+            {text("Run your plan to see its success probability. Then compute the FIRE age curve to find the earliest tested age that reaches your target. ")}</p>
           <div className="row">
             <button type="button" className="btn btn-primary" disabled={!props.profile || running} onClick={props.onRun}>
-              {running ? 'Running your plan…' : `Run ${props.profile?.simulation.count.toLocaleString('en-GB') ?? ''} simulated futures`}
+              {text(running ? 'Running your plan…' : `Run ${props.profile?.simulation.count.toLocaleString('en-GB') ?? ''} simulated futures`)}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={props.onOpenFire}>See run settings</button>
+            <button type="button" className="btn btn-secondary" onClick={props.onOpenFire}>{text("See run settings")}</button>
           </div>
         </div>
       ) : (
         <div className="headline-complete">
-          <p className="headline-answer">{model.sentence}</p>
-          <div className="headline-sources" aria-label="Completed runs behind this answer">
+          <p className="headline-answer">{text(model.sentence ?? '')}</p>
+          <div className="headline-sources" aria-label={text('Completed runs behind this answer')}>
             {model.sources.map(source => (
               <button key={source.tab} type="button" className="headline-source" onClick={source.tab === 'fire' ? props.onOpenFire : props.onOpenCurve}>
-                <span>{source.label}</span>
-                <strong>{source.value}</strong>
-                <small>From {source.tab === 'fire' ? 'FIRE & Monte Carlo' : 'FIRE Age Curve'}: {source.metadata}</small>
+                <span>{text(source.label)}</span>
+                <strong>{text(source.value)}</strong>
+                <small>{text('From')} {text(source.tab === 'fire' ? 'FIRE & Monte Carlo' : 'FIRE Age Curve')}: {text(source.metadata)}</small>
               </button>
             ))}
           </div>
@@ -372,13 +372,11 @@ function HeadlineCard(props: {
               /* An offer to open a search, not a result: the solve itself stays explicit. */
               <button type="button" className="btn btn-secondary headline-solve"
                 onClick={() => props.onOpenSolverQuestion('salary')}>
-                What would it take to reach {model.targetProbabilityText}?
-              </button>
+                {text(`What would it take to reach ${model.targetProbabilityText}?`)}</button>
             ) : null}
             {model.sources.every(source => source.tab !== 'curve') ? (
               <button type="button" className="link-button headline-next" onClick={props.onOpenCurve}>
-                Compute the earliest age that reaches the target
-              </button>
+                {text("Compute the earliest age that reaches the target ")}</button>
             ) : null}
           </div>
         </div>
@@ -404,6 +402,7 @@ export function OverviewScreen(props: {
   tierMode: TierMode;
   onTierMode: (mode: TierMode) => void;
 }): ReactNode {
+  const { text } = useLocale();
   const { store } = props;
   const profile = store.profile;
   const outcome = useMemo(() => {
@@ -424,14 +423,13 @@ export function OverviewScreen(props: {
       {!profile ? (
         <Banner tone="error" title="Fix the inputs before the model can run">
           <p style={{ margin: 0 }}>
-            Nothing is sent to the engine while the profile is invalid. The affected groups are marked below.
-          </p>
+            {text("Nothing is sent to the engine while the profile is invalid. The affected groups are marked below. ")}</p>
           <ul>
-            {store.crossFieldIssues.map(issue => <li key={`${issue.path}:${issue.message}`}>{issue.message}</li>)}
+            {store.crossFieldIssues.map(issue => <li key={`${issue.path}:${issue.message}`}>{text(issue.message)}</li>)}
           </ul>
         </Banner>
       ) : null}
-      {outcome && !outcome.ok ? engineErrorBanner(outcome.error, profile!) : null}
+      {outcome && !outcome.ok ? <EngineErrorBanner error={outcome.error} /> : null}
 
       <div className="split">
         <div className="stack">
@@ -445,10 +443,9 @@ export function OverviewScreen(props: {
             onMode={props.onTierMode}
           />
           <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={store.reset}>
-            Reset everything to the starter profile
-          </button>
+            {text("Reset everything to the starter profile ")}</button>
           <p className="footnote" style={{ margin: 0 }}>
-            {store.starterNote} {STARTER_ILLUSTRATION_CAVEAT}
+            {text(store.starterNote)} {text(STARTER_ILLUSTRATION_CAVEAT)}
           </p>
         </div>
 
@@ -464,9 +461,7 @@ export function OverviewScreen(props: {
               <Line label="Net worth" value={money(outcome?.ok ? outcome.model.position.netWorth : Number.NaN)} strong />
             </dl>
             <p className="footnote">
-              Liquid and pension capital are never collapsed into one headline. Property equity is not spendable
-              without an explicitly modelled action, so it stays out of the liquid figure.
-            </p>
+              {text("Liquid and pension capital are never collapsed into one headline. Property equity is not spendable without an explicitly modelled action, so it stays out of the liquid figure. ")}</p>
           </Card>
 
           {outcome?.ok ? <CashFlow model={outcome.model} /> : null}
@@ -484,8 +479,7 @@ export function OverviewScreen(props: {
                 <Line label="Surplus allocation" value={outcome.model.assumptions.options.surplusAllocation} />
               </dl>
               <p className="footnote">
-                Event order each year: {outcome.model.assumptions.eventOrder.join(' → ')}.
-              </p>
+                {text("Event order each year: ")}{outcome.model.assumptions.eventOrder.map(text).join(' → ')}{text(". ")}</p>
             </Card>
           ) : null}
         </div>

@@ -265,12 +265,14 @@ test('every screen that renders a starter card renders the one component that ca
 
   // A screen may quote the caveat on its own (the Overview reset does), but only the constant —
   // never a reworded copy that could soften it while the original stays in the module.
+  const rendersStandaloneCaveat = (source: string): boolean =>
+    /\{(?:text\()?STARTER_ILLUSTRATION_CAVEAT\)?\}/.test(source);
   for (const entry of sources) {
     if (!entry.source.includes('STARTER_ILLUSTRATION_CAVEAT')) continue;
-    assert.ok(entry.source.includes('{STARTER_ILLUSTRATION_CAVEAT}') || entry.source.includes('card.caveat'),
+    assert.ok(rendersStandaloneCaveat(entry.source) || entry.source.includes('card.caveat'),
       `${entry.file} imports the caveat without rendering it`);
   }
-  assert.ok(sources.some(entry => entry.source.includes('{STARTER_ILLUSTRATION_CAVEAT}')),
+  assert.ok(sources.some(entry => rendersStandaloneCaveat(entry.source)),
     'the caveat must also reach a reader who never opens the picker');
 
   // Every other screen reaches the situations through <StarterPicker>, never by rebuilding a card

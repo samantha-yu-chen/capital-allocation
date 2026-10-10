@@ -1,3 +1,4 @@
+import { useLocale } from './locale.js';
 /**
  * A spoken question whose answers are the choices.
  *
@@ -25,6 +26,7 @@ export function QuestionPicker<T extends string>(props: {
   /** Rendered under the chosen option: the mode's own precise definition. */
   children?: ReactNode;
 }): ReactNode {
+  const { text } = useLocale();
   const id = useId();
   const refs = useRef(new Map<T, HTMLButtonElement>());
   const move = (offset: number) => {
@@ -43,7 +45,7 @@ export function QuestionPicker<T extends string>(props: {
     <div className="question-picker">
       {/* The question is the card's heading: it is what the screen is for, and the radio group is
           labelled by it, so the outline and the screen reader hear the same thing. */}
-      <h3 className="question-stem" id={`${id}-stem`}>{props.stem}</h3>
+      <h3 className="question-stem" id={`${id}-stem`}>{text(props.stem)}</h3>
       <div className="question-options" role="radiogroup" aria-labelledby={`${id}-stem`} onKeyDown={onKeyDown}>
         {props.choices.map(choice => {
           const selected = choice.value === props.value;
@@ -59,8 +61,8 @@ export function QuestionPicker<T extends string>(props: {
               ref={element => { if (element) refs.current.set(choice.value, element); else refs.current.delete(choice.value); }}
               onClick={() => props.onChange(choice.value)}
             >
-              <strong>{choice.subject}</strong>
-              <small>{choice.plain}</small>
+              <strong>{text(choice.subject)}</strong>
+              <small>{text(choice.plain)}</small>
             </button>
           );
         })}

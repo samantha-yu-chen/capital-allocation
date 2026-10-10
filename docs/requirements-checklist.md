@@ -330,3 +330,24 @@ exists and states which package owns it; it renders no illustrative figures.
   numbers with their hardware and concurrency, and the limitations that remain.
 
 Maintain this checklist as each package lands; add test/file references as evidence. Do not treat prototype outputs or an interface alone as finished functionality.
+
+
+## English / Taiwan Traditional Chinese presentation (package 11)
+
+- **Default and preference:** English without valid storage; visible English / 繁體中文 selector;
+  safe storage failure fallback and `document.lang`. `tests/locale.test.ts`, `web/locale.tsx` and
+  `tests/browser-locale-ui.mjs` cover fresh default, persistence and switching.
+- **Coverage:** independent catalogs in `src/presentation/i18n/`; every rendered screen's static
+  authored text/shared display props audited with TypeScript AST; all registry help, glossary,
+  onboarding, Learn and dynamic engine-derived result/error formats covered by locale tests.
+- **Integrity:** locale is absent from domain/engine/config changes and run/cache keys. Actual
+  results retain numeric tokens and source objects; saved custom names/notes are preserved. Browser
+  tests switch during and after real 10,000-path runs and compare displayed numbers.
+- **Runtime:** all eight destinations remain reachable; cancellation publishes nothing; edited
+  inputs invalidate stale results; desktop and 390 × 844 mobile overflow checks pass. Complete
+  60-cell matrix, paired property comparison, allocation, solver, attribution and stresses use
+  actual engines. Both worker smoke variants and original English solver/property harnesses pass.
+- **Gate:** `npm run check`, **368/368**, strict typecheck and production build. Package-11 handoff
+  contains the per-screen timings and exact test commands. Raw metadata/technical IDs remain
+  unchanged, GBP and existing numeric formatting remain authoritative, and model limitations are
+  unchanged. This adds a display language, not a different tax jurisdiction or financial model.

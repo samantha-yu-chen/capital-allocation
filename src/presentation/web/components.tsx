@@ -1,3 +1,4 @@
+import { progressCountLine, type ProgressUnit } from '../view/progress.js';
 import { useLocale } from './locale.js';
 /**
  * Shared presentation pieces, built from the Organic component classes.
@@ -310,7 +311,7 @@ export function BarList(props: { rows: readonly { label: string; value: number; 
   );
 }
 
-export function Progress(props: { completed: number; total: number; label: string }): ReactNode {
+export function Progress(props: { completed: number; total: number; label: string; unit?: ProgressUnit }): ReactNode {
   const { text } = useLocale();
   const fraction = props.total > 0 ? Math.min(1, props.completed / props.total) : 0;
   return (
@@ -326,7 +327,7 @@ export function Progress(props: { completed: number; total: number; label: strin
         <div className="progress-fill" style={{ width: `${fraction * 100}%` }} />
       </div>
       <p className="stat-small text-muted" aria-live="polite">
-        {text(`${props.completed.toLocaleString('en-GB')} of ${props.total.toLocaleString('en-GB')} paths complete`)}
+        {text(progressCountLine(props.completed, props.total, props.unit))}
       </p>
     </div>
   );
@@ -387,7 +388,7 @@ export function FanChart(props: {
       {ageTicks.map(age => (
         <text className="chart-label" key={age} x={x(age)} y={height - padding.bottom + 16} textAnchor="middle">{age}</text>
       ))}
-      <text className="chart-label" x={width / 2} y={height - 4} textAnchor="middle">Age boundary</text>
+      <text className="chart-label" x={width / 2} y={height - 4} textAnchor="middle">{text('Age boundary')}</text>
     </svg>
   );
 }

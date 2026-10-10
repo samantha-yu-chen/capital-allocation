@@ -1,3 +1,4 @@
+import { scenarioZhTW, scenarioErrorsZhTW, scenarioBasisZhTW, translateScenarioTemplate } from './scenario-zh-TW.js';
 import { attributionZhTW, attributionCaveatsZhTW, translateAttributionTemplate } from './attribution-zh-TW.js';
 import { propertyZhTW, translatePropertyTemplate } from './property-zh-TW.js';
 import { marginalZhTW, marginalBasisZhTW, translateMarginalTemplate } from './marginal-zh-TW.js';
@@ -36,7 +37,8 @@ export function readLocale(storage: Pick<Storage, 'getItem'> | undefined): Local
 export function translateText(locale: Locale, value: string): string {
   if (locale === 'en') return value;
   const key = value.trim();
-  const translated = textZhTW[key] ?? fieldHelpZhTW[key] ?? starterZhTW[key] ?? onboardingZhTW[key] ?? fireZhTW[key] ?? errorsZhTW[key] ?? profileZhTW[key] ?? commonZhTW[key] ?? overviewZhTW[key] ?? overviewExtraZhTW[key] ?? curveZhTW[key] ?? solverZhTW[key] ?? propertyZhTW[key] ?? marginalZhTW[key] ?? marginalBasisZhTW[key] ?? attributionZhTW[key] ?? attributionCaveatsZhTW[key]
+  const translated = textZhTW[key] ?? fieldHelpZhTW[key] ?? starterZhTW[key] ?? onboardingZhTW[key] ?? fireZhTW[key] ?? errorsZhTW[key] ?? profileZhTW[key] ?? commonZhTW[key] ?? overviewZhTW[key] ?? overviewExtraZhTW[key] ?? curveZhTW[key] ?? solverZhTW[key] ?? propertyZhTW[key] ?? marginalZhTW[key] ?? marginalBasisZhTW[key] ?? attributionZhTW[key] ?? attributionCaveatsZhTW[key] ?? scenarioZhTW[key] ?? scenarioErrorsZhTW[key] ?? scenarioBasisZhTW[key]
+    ?? translateScenarioTemplate(key, item => translateText(locale, item))
     ?? translateAttributionTemplate(key, item => translateText(locale, item))
     ?? translatePropertyTemplate(key)
     ?? translateMarginalTemplate(key, item => translateText(locale, item))

@@ -255,3 +255,85 @@ Bundle **819.65 kB / 267.14 kB gzip**, existing Vite size advisory.
 Harness session 55607 completed successfully before any further repository edits.
 Remaining: Scenario Comparison, full localization audit and final regressions, delivery docs,
 merge and push. No full-delivery claim; goal remains active.
+
+## Stage 7 in progress — Scenario Comparison
+
+Uncommitted work now adds `scenario-zh-TW.ts` and `scenario-result.ts`, connects the scenario
+screen to locale, and translates static controls/tables, strategies/presets, the seven basis
+paragraphs, cost announcements, cache messages, salary notes, generated matrix labels, strategy
+notes, conclusions and dominance prose. `localizeScenarioResult` clones display labels, preserving
+library names verbatim. Engine/run keys unchanged. English source copy remains the default.
+
+Gate `/tmp/zh-tw-check-21.log` passed **364/364**, typecheck/build green;
+**846.17 kB / 275.26 kB gzip**, existing Vite advisory. This is interim evidence only.
+No scenario browser verification yet and this stage is not delivered or committed.
+
+Next work:
+- Audit and finish dynamic library validation/import/migration errors and preset error prefixes;
+  progress must translate authored suffixes while preserving user names.
+- Preserve library notes in `localizeScenarioResult`, avoid translating arbitrary user-authored
+  library names/notes (including names equal to catalog keys such as Cash/Baseline).
+- Test actual matrix/spending/income/library results, including user-name collisions, numeric
+  token equality and source-result immutability. Add scenario screen to static-source audit.
+- Real Chrome 10,000-path matrix/spending/income/library verification including both worker smokes,
+  switch during/after, cancel/stale/cache/preview, mobile and desktop. Do not edit repository files
+  while harness runs. Ports 5183/9234 were left running but must be revalidated.
+- Final full UI/catalog audit, existing English regressions, completion docs, commit/merge/push.
+
+Working tree is authoritative; do not rerun the AST wrapping script on the already edited screen.
+The broad replacement initially changed some React keys; those keys were restored to untranslated
+values. ScenarioResult uses a pure display result helper so no lookup/calculation is added to JSX.
+
+### Stage 7 follow-up (still incomplete)
+
+Added known import/schema/preset error display templates, dedicated progress localization that
+matches the case before translating its authored suffix, and preserves library labels and notes
+verbatim. Static screen audit includes scenarios. Actual small-count engine tests cover all four
+comparison modes, numeric tokens, result immutability, conclusion/dominance and user-name collisions.
+Gate 23 passed **365/365** (after gate 22 caught one missing static title, now fixed).
+
+Browser attempts (terminal; safe to edit):
+- `browser-locale-scenario-ui.mjs` attempt 1 failed only on CSS-uppercase name assertion; fixed.
+- Attempt 2 completed both 10,000-path worker smokes and launched full 60-cell 10,000-path matrix.
+  Harness timed out after 20 minutes. A later read-only CDP check found the completed result.
+- `/tmp/zh-tw-scenario-recovery.mjs` verified all 60 rows and exact English/Chinese numeric tokens;
+  recorded 60,746 animation frames, maximum gap 300.1 ms. Wall time is not reliable for this
+  recovered run; do not claim a performance pass. Actual screenshots saved matrix desktop/mobile.
+- Recovery verified spending: 3 rows, 12.819 s, 770 frames, 16.8 ms max gap; income: 5 rows,
+  20.913 s, 1,256 frames, 16.8 ms max gap. Cancel/stale assertions passed before these.
+- Library run stopped on numeric-token ordering in cache prose (English 1 of 2, Chinese 2 then 1).
+  Fixed translation to 1／2; engine figures unchanged. Added regression case. Gate 24 started as
+  exec session 10842, log `/tmp/zh-tw-check-24.log`; revalidate its terminal status.
+
+Browser logs `/tmp/zh-tw-browser-scenario-{1,2}.log` and
+`/tmp/zh-tw-browser-scenario-recovery-1.log`. No complete scenario JSON evidence yet.
+Next: finish successful browser run including library/cache/preview/migration/import, inspect
+screenshots, address matrix performance evidence, complete final whole-UI audit and delivery docs.
+No Scenario commit yet. Do not mark complete, merge or push before remaining acceptance work.
+
+### Stage 7 verified
+
+The complete rerun `/tmp/zh-tw-browser-scenario-3.log` passed (session 15982 terminal):
+both worker smokes, 60-cell 10,000-path matrix **260.410 s / 15,626 frames / 33.4 ms**;
+spending **13.213 s / 793 frames / 33.3 ms**; income **21.890 s / 1,314 frames / 16.8 ms**;
+library **4.937 s / 297 frames / 16.8 ms**. All numeric tokens match between English and Chinese,
+cancel/stale behavior passed, desktop/mobile overflow zero, no runtime exceptions.
+`/tmp/zh-tw-scenario-ui-results.json` retains measurements. This replaces the unreliable recovered
+matrix timing as acceptance evidence.
+
+Final library rerun `/tmp/zh-tw-browser-final-library.log`: **4.736 s / 285 frames / 33.4 ms**,
+cache, explicit preview, invalid-import rejection and schema-1 migration passed; user names retained.
+The migration note now translates only for app-owned origins; custom notes remain literal. Actual
+matrix and library mobile screenshots visually inspected. Progress uses a React-free count helper
+and the correct scenario/path unit. Static AST coverage includes every rendered screen and shared
+label/help/aria prop; technical identifiers/formula/bilingual language names are intentional.
+
+Final gate `/tmp/zh-tw-check-28.log`: **368/368**, strict typecheck/build green;
+**849.33 kB / 276.41 kB gzip**, existing Vite advisory. Final basic browser test passed, both
+10,000-path smokes, default English, persisted Chinese, all eight tabs, edited-input preservation,
+68.98% FIRE switching during/after, cancel/stale, zero mobile overflow/no exceptions.
+Original English `browser-solver-ui.mjs` passed: curve **40.30 s**, age 50 **90.61%**, solver
+**350.09 s**, confirmed **£87,600**, sensitivities, unsupported candidates, cancel/stale and all
+four overflow checks zero. Original `browser-property-ui.mjs` passed: full run **4.82 s**,
+293 frames/16.8 ms, paired comparison, cancellation, validation and zero overflow on property,
+Overview and FIRE. Final batch session 7938 terminal. No browser job remains active.

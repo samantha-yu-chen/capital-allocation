@@ -1,3 +1,5 @@
+import { localizeLibraryRows, localizeScenarioProgress, localizeScenarioResult } from '../i18n/scenario-result.js';
+import { useLocale } from './locale.js';
 /**
  * Scenario Comparison (spec sections 61–66, 81; reference UI tab 6).
  *
@@ -22,8 +24,8 @@ import {
 } from '../view/fields.js';
 import {
   COMPARISON_VIEWS, DEFAULT_PREVIEW_PATHS, PRESET_OPTIONS, STRATEGY_OPTIONS, cacheNote,
-  defaultFireRange, defaultScenarioSettings, dominanceNote, libraryRows, matrixGrid,
-  scenarioBasis, scenarioConclusion, scenarioCostWarning, scenarioPlan, scenarioProgressLine,
+  defaultFireRange, defaultScenarioSettings, dominanceNote, matrixGrid,
+  scenarioBasis, scenarioConclusion, scenarioCostWarning, scenarioPlan,
   scenarioPropertyPlan, scenarioRows, scenarioSummary, spendingEffectRows,
   type ComparisonView, type ScenarioSettings,
 } from '../view/scenario-model.js';
@@ -48,6 +50,7 @@ export function ScenariosScreen({ store, ledgerOptions, onOpenField }: {
   /** UX-11: take the reader to one profile input, on the screen whose form holds it. */
   onOpenField: (fieldId: string) => void;
 }): ReactNode {
+  const { locale, text } = useLocale();
   const [settings, setSettings] = useState<ScenarioSettings>(defaultScenarioSettings);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [name, setName] = useState('Baseline');
@@ -83,14 +86,14 @@ export function ScenariosScreen({ store, ledgerOptions, onOpenField }: {
     <div className="stack">
       {runner.invalidated ? (
         <Banner tone="notice" title="Inputs changed, so the previous comparison was discarded">
-          <p style={{ margin: 0 }}>A comparison only holds for the exact plans it ran. Any run in flight was cancelled; run it again.</p>
+          <p style={{ margin: 0 }}>{text("A comparison only holds for the exact plans it ran. Any run in flight was cancelled; run it again.")}</p>
         </Banner>
       ) : null}
       {runner.state.status === 'cancelled' ? (
-        <Banner tone="neutral" title="Run cancelled">No partial matrix is published. Nothing already computed is shown on its own.</Banner>
+        <Banner tone="neutral" title="Run cancelled">{text("No partial matrix is published. Nothing already computed is shown on its own.")}</Banner>
       ) : null}
       {runner.state.status === 'error' ? (
-        <Banner tone="error" title="Comparison could not be computed">{runner.state.name}: {runner.state.message}</Banner>
+        <Banner tone="error" title="Comparison could not be computed">{runner.state.name}{text(": ")}{text(runner.state.message)}</Banner>
       ) : null}
       {!profile ? <Banner tone="error" title="Invalid profile; no comparison can run" /> : null}
 
@@ -99,9 +102,7 @@ export function ScenariosScreen({ store, ledgerOptions, onOpenField }: {
 
       <Card kicker="Comparison" title="Compare plans on the same market paths" elevation="md">
         <p className="footnote">
-          All scenarios reuse the entered seed and the same absolute path indices (spec section 65), so a difference
-          between two rows is a difference in the plan, not in the draw.
-        </p>
+          {text("All scenarios reuse the entered seed and the same absolute path indices (spec section 65), so a difference between two rows is a difference in the plan, not in the draw. ")}</p>
         <div className="field-grid">
           <SelectField label="What to compare" value={settings.view}
             options={COMPARISON_VIEWS} onChange={(view: ComparisonView) => setSettings(s => ({ ...s, view }))} />
@@ -113,19 +114,17 @@ export function ScenariosScreen({ store, ledgerOptions, onOpenField }: {
         </div>
         {settings.view === 'library' ? null : (
           <>
-            <h4 className="card-title" style={{ fontSize: 15 }}>Income uplift bands (section 62)</h4>
+            <h4 className="card-title" style={{ fontSize: 15 }}>{text("Income uplift bands (section 62)")}</h4>
             <div className="field-grid">
               {SCENARIO_SALARY_FIELDS.map((def, index) => control(def, SCENARIO_SALARY_DEFAULTS[index]!))}
             </div>
-            <h4 className="card-title" style={{ fontSize: 15 }}>Spending cases (section 61)</h4>
+            <h4 className="card-title" style={{ fontSize: 15 }}>{text("Spending cases (section 61)")}</h4>
             <p className="footnote">
-              Each case replaces the household monthly total in working <em>and</em> retirement years, so its effect on the
-              investable surplus and on the capital the plan must reach are both visible in one run.
-            </p>
+              {text("Each case replaces the household monthly total in working ")}<em>{text("and")}</em> {text(" retirement years, so its effect on the investable surplus and on the capital the plan must reach are both visible in one run. ")}</p>
             <ProfileFields store={store} ids={['spending.scenarioMonthly.low', 'spending.scenarioMonthly.base', 'spending.scenarioMonthly.high']} />
           </>
         )}
-        <h4 className="card-title" style={{ fontSize: 15 }}>Run settings</h4>
+        <h4 className="card-title" style={{ fontSize: 15 }}>{text("Run settings")}</h4>
         <ProfileFields store={store} ids={['simulation.count', 'simulation.seed', 'personal.targetSuccessProbability']} />
         <div className="field-grid">
           <CheckboxField label="Search the earliest qualifying FIRE age" checked={settings.fireAgeEnabled}
@@ -142,25 +141,25 @@ export function ScenariosScreen({ store, ledgerOptions, onOpenField }: {
           {settings.previewEnabled ? control(SCENARIO_PREVIEW_FIELD, DEFAULT_PREVIEW_PATHS) : null}
         </div>
         {plan?.issues.filter(issue => issue.id === null).map(issue => (
-          <p className="field-error" role="alert" key={issue.message}>{issue.message}</p>
+          <p className="field-error" role="alert" key={issue.message}>{text(issue.message)}</p>
         ))}
-        <p className="footnote" data-testid="scenario-announcement">{plan?.announcement}</p>
+        <p className="footnote" data-testid="scenario-announcement">{text(plan?.announcement ?? '')}</p>
         {plan && profile && scenarioCostWarning(plan, profile) ? (
-          <Banner tone="notice" title="This run is expensive">{scenarioCostWarning(plan, profile)}</Banner>
+          <Banner tone="notice" title="This run is expensive">{text(scenarioCostWarning(plan, profile) ?? '')}</Banner>
         ) : null}
         <div className="row">
           <button className="btn btn-primary" type="button" disabled={blocked || running}
             onClick={() => { if (profile && plan) runner.run(controls => runScenariosBrowser(profile, plan.request, controls)); }}>
-            {running ? 'Comparing…' : 'Run comparison'}
+            {text(running ? 'Comparing…' : 'Run comparison')}
           </button>
-          <button className="btn btn-secondary" type="button" disabled={!running} onClick={runner.cancel}>Cancel</button>
+          <button className="btn btn-secondary" type="button" disabled={!running} onClick={runner.cancel}>{text("Cancel")}</button>
         </div>
         {runner.state.status === 'running' ? (
           <div role="status">
-            <p>{scenarioProgressLine(runner.state.progress)}</p>
+            <p>{localizeScenarioProgress(locale, runner.state.progress, plan?.cases ?? [])}</p>
             {runner.state.progress ? (
               <>
-                <Progress completed={runner.state.progress.casesCompleted} total={runner.state.progress.casesPlanned} label="Scenario progress" />
+                <Progress completed={runner.state.progress.casesCompleted} total={runner.state.progress.casesPlanned} label="Scenario progress" unit="scenarios" />
                 <Progress completed={runner.state.progress.paths.completed} total={runner.state.progress.paths.total} label="Path progress in the current scenario" />
               </>
             ) : null}
@@ -174,7 +173,7 @@ export function ScenariosScreen({ store, ledgerOptions, onOpenField }: {
         : null}
 
       <Card kicker="Comparison basis" title="What these numbers mean" muted>
-        {scenarioBasis.map(paragraph => <p className="footnote" key={paragraph}>{paragraph}</p>)}
+        {scenarioBasis.map(paragraph => <p className="footnote" key={paragraph}>{text(paragraph)}</p>)}
       </Card>
     </div>
   );
@@ -186,31 +185,28 @@ function LibraryCard(props: {
   /** UX-11: passed straight to the picker, which turns a chosen card's facts into jumps. */
   onOpenField: (fieldId: string) => void;
 }): ReactNode {
+  const { locale, text } = useLocale();
   const { store, library, options } = props;
   const [presetError, setPresetError] = useState<string | null>(null);
-  const rows = libraryRows(library.library.scenarios);
+  const rows = localizeLibraryRows(locale, library.library.scenarios);
   const profile = store.profile;
   const status = library.status;
   return (
     <Card kicker="Named scenarios" title="Save, duplicate and edit alternatives" elevation="sm">
       <p className="footnote">
-        A scenario stores a validated profile and its plan options. Saved data is versioned and re-validated on every
-        load: an older document is migrated explicitly and anything the profile schema rejects is refused, with reasons,
-        rather than partially loaded.
-      </p>
+        {text("A scenario stores a validated profile and its plan options. Saved data is versioned and re-validated on every load: an older document is migrated explicitly and anything the profile schema rejects is refused, with reasons, rather than partially loaded. ")}</p>
       {status.kind === 'rejected' ? (
         <Banner tone="error" title="Saved scenarios could not be loaded">
-          {status.issues.map(issue => <p className="footnote" key={issue}>{issue}</p>)}
+          {status.issues.map(issue => <p className="footnote" key={issue}>{text(issue)}</p>)}
         </Banner>
       ) : null}
       {status.kind === 'loaded' && status.migratedFrom !== null ? (
         <Banner tone="notice" title={`Migrated ${status.scenarios} scenario(s) from schema ${status.migratedFrom}`}>
-          Run options were defaulted because schema {status.migratedFrom} did not store them. Save again to keep the migrated form.
-        </Banner>
+          {text("Run options were defaulted because schema ")}{status.migratedFrom} {text(" did not store them. Save again to keep the migrated form. ")}</Banner>
       ) : null}
       <div className="field-grid">
         <div className="field">
-          <label htmlFor="scenario.name">Scenario name</label>
+          <label htmlFor="scenario.name">{text("Scenario name")}</label>
           <input className="input" id="scenario.name" type="text" value={props.name}
             onChange={event => props.onName(event.target.value)} />
         </div>
@@ -218,16 +214,15 @@ function LibraryCard(props: {
       <div className="row">
         <button className="btn btn-primary" type="button" disabled={!profile}
           onClick={() => { if (profile) library.add({ name: props.name.trim() || 'Scenario', profile, options, origin: 'custom' }); }}>
-          Save current profile as a scenario
-        </button>
-        <button className="btn btn-secondary" type="button" onClick={library.reload}>Reload saved scenarios</button>
-        <button className="btn btn-secondary" type="button" onClick={library.forget}>Forget saved scenarios</button>
+          {text("Save current profile as a scenario ")}</button>
+        <button className="btn btn-secondary" type="button" onClick={library.reload}>{text("Reload saved scenarios")}</button>
+        <button className="btn btn-secondary" type="button" onClick={library.forget}>{text("Forget saved scenarios")}</button>
       </div>
       <p className="footnote">
-        {status.kind === 'saved' ? `Saved ${status.scenarios} scenario(s) at ${status.savedAt}.`
+        {text(status.kind === 'saved' ? `Saved ${status.scenarios} scenario(s) at ${status.savedAt}.`
           : status.kind === 'loaded' ? `Loaded ${status.scenarios} scenario(s) saved at ${status.savedAt}.`
           : status.kind === 'rejected' ? 'Nothing is loaded; the stored document was refused.'
-          : 'No scenarios are saved in this browser yet.'}
+          : 'No scenarios are saved in this browser yet.')}
       </p>
       <StarterPicker
         chosenId={store.starterId}
@@ -246,11 +241,11 @@ function LibraryCard(props: {
         profile={store.base}
         onOpenField={props.onOpenField}
       />
-      <h4 className="card-title" style={{ fontSize: 15 }}>Create from a preset</h4>
-      <p className="footnote">Each preset is an explicit transform of the current profile, not a stored example result.</p>
+      <h4 className="card-title" style={{ fontSize: 15 }}>{text("Create from a preset")}</h4>
+      <p className="footnote">{text("Each preset is an explicit transform of the current profile, not a stored example result.")}</p>
       <div className="row">
         {PRESET_OPTIONS.map(preset => (
-          <button className="btn btn-secondary" type="button" key={preset.value} title={preset.description} disabled={!profile}
+          <button className="btn btn-secondary" type="button" key={preset.value} title={text(preset.description)} disabled={!profile}
             onClick={() => {
               if (!profile) return;
               const definition = SCENARIO_PRESET_DEFINITIONS.find(d => d.id === preset.value)!;
@@ -265,32 +260,32 @@ function LibraryCard(props: {
                 setPresetError(`${preset.label}: ${error instanceof Error ? error.message : String(error)}`);
               }
             }}>
-            {preset.label}
+            {text(preset.label)}
           </button>
         ))}
       </div>
-      {presetError ? <p className="field-error" role="alert">{presetError}</p> : null}
+      {presetError ? <p className="field-error" role="alert">{text(presetError)}</p> : null}
       {rows.length ? (
         <div className="table-scroll">
           <table className="table" data-testid="scenario-library">
-            <caption>Saved scenarios in this browser</caption>
-            <thead><tr><th>Name</th><th>Salary</th><th>Spending</th><th>FIRE age</th><th>Pension</th><th>Reproducibility</th><th>Actions</th></tr></thead>
+            <caption>{text("Saved scenarios in this browser")}</caption>
+            <thead><tr><th>{text("Name")}</th><th>{text("Salary")}</th><th>{text("Spending")}</th><th>{text("FIRE age")}</th><th>{text("Pension")}</th><th>{text("Reproducibility")}</th><th>{text("Actions")}</th></tr></thead>
             <tbody>
               {rows.map(row => (
                 <tr key={row.id}>
                   <th>{row.name}<br /><span className="footnote">{row.origin}{row.note ? ` · ${row.note}` : ''}</span></th>
-                  <td>{row.salary}</td><td>{row.spending}</td><td>{row.fireAge}</td><td>{row.pension}</td><td>{row.paths}</td>
+                  <td>{row.salary}</td><td>{text(row.spending)}</td><td>{text(row.fireAge)}</td><td>{text(row.pension)}</td><td>{text(row.paths)}</td>
                   <td>
                     <div className="row">
                       <button className="btn btn-secondary" type="button" onClick={() => {
                         const found = library.library.scenarios.find(s => s.id === row.id);
                         if (found) store.edit(() => found.profile);
-                      }}>Load</button>
-                      <button className="btn btn-secondary" type="button" onClick={() => library.duplicate(row.id)}>Duplicate</button>
+                      }}>{text("Load")}</button>
+                      <button className="btn btn-secondary" type="button" onClick={() => library.duplicate(row.id)}>{text("Duplicate")}</button>
                       <button className="btn btn-secondary" type="button" disabled={!profile} onClick={() => {
                         if (profile) library.update(row.id, { name: props.name.trim() || row.name, profile, options });
-                      }}>Replace with current</button>
-                      <button className="btn btn-secondary" type="button" onClick={() => library.remove(row.id)}>Delete</button>
+                      }}>{text("Replace with current")}</button>
+                      <button className="btn btn-secondary" type="button" onClick={() => library.remove(row.id)}>{text("Delete")}</button>
                     </div>
                   </td>
                 </tr>
@@ -300,17 +295,17 @@ function LibraryCard(props: {
         </div>
       ) : null}
       <details>
-        <summary>Export or import the versioned library</summary>
+        <summary>{text("Export or import the versioned library")}</summary>
         <div className="field">
-          <label htmlFor="scenario.transfer">Library JSON</label>
+          <label htmlFor="scenario.transfer">{text("Library JSON")}</label>
           <textarea className="input" id="scenario.transfer" rows={6} value={props.transfer}
             onChange={event => props.onTransfer(event.target.value)} />
         </div>
         <div className="row">
-          <button className="btn btn-secondary" type="button" onClick={() => props.onTransfer(library.exportText())}>Export to the box</button>
-          <button className="btn btn-secondary" type="button" onClick={() => library.importText(props.transfer)}>Import from the box</button>
+          <button className="btn btn-secondary" type="button" onClick={() => props.onTransfer(library.exportText())}>{text("Export to the box")}</button>
+          <button className="btn btn-secondary" type="button" onClick={() => library.importText(props.transfer)}>{text("Import from the box")}</button>
         </div>
-        <p className="footnote">Imported text is validated and migrated exactly like stored data; an invalid document is refused with reasons.</p>
+        <p className="footnote">{text("Imported text is validated and migrated exactly like stored data; an invalid document is refused with reasons.")}</p>
       </details>
     </Card>
   );
@@ -319,7 +314,9 @@ function LibraryCard(props: {
 function ScenarioResult({ result, target, story }: {
   result: ScenarioBatchResult; target: number; story: TwoNumbersStory | null;
 }): ReactNode {
-  const rows = scenarioRows(result);
+  const { locale, text } = useLocale();
+  const displayResult = localizeScenarioResult(locale, result);
+  const rows = scenarioRows(displayResult);
   const grid = matrixGrid(result);
   const spending = spendingEffectRows(result);
   const dominance = dominanceNote(result);
@@ -327,37 +324,33 @@ function ScenarioResult({ result, target, story }: {
     <div className="stack" data-testid="scenario-result">
       {result.metadata.preview ? (
         <Banner tone="notice" title={`PREVIEW — ${result.metadata.simulationCount} of ${result.metadata.enteredSimulationCount} paths`}>
-          You explicitly asked for a reduced-path preview. These figures carry preview sampling error and are not a
-          full-count result; run without the preview before acting on them.
-        </Banner>
+          {text("You explicitly asked for a reduced-path preview. These figures carry preview sampling error and are not a full-count result; run without the preview before acting on them. ")}</Banner>
       ) : null}
       <Card kicker="Completed comparison" title="What these scenarios support saying" elevation="lg">
-        <p>{scenarioConclusion(result, target)}</p>
-        {dominance ? <p className="footnote">{dominance}</p> : null}
-        <p className="footnote">{cacheNote(result)}</p>
+        <p>{text(scenarioConclusion(displayResult, target))}</p>
+        {dominance ? <p className="footnote">{text(dominance)}</p> : null}
+        <p className="footnote">{text(cacheNote(result))}</p>
         <div className="split">
-          {scenarioSummary(result).map(item => <Stat key={item.label} kicker={item.label} value={item.value} note={item.note} />)}
+          {scenarioSummary(displayResult).map(item => <Stat key={item.label} kicker={item.label} value={item.value} note={item.label === 'Best tested success' ? <>{item.note}</> : text(item.note)} />)}
         </div>
       </Card>
 
       {spending.length > 1 ? (
         <Card kicker="Spending sensitivity" title="Both effects of a spending case" elevation="sm">
           <p className="footnote">
-            A higher case lowers what the plan can invest this year and raises the retirement budget and the capital it
-            implies. Both columns come from the same run.
-          </p>
+            {text("A higher case lowers what the plan can invest this year and raises the retirement budget and the capital it implies. Both columns come from the same run. ")}</p>
           {story ? <TwoNumbers story={story} variant="note" /> : null}
           <div className="table-scroll">
             <table className="table" data-testid="spending-effects">
-              <thead><tr><th>Case</th><th>Investable surplus</th><th>Total invested</th><th>Retirement budget</th><th>Reference FIRE number</th><th>FIRE success</th><th>Earliest qualifying age</th><th>Required salary</th></tr></thead>
+              <thead><tr><th>{text("Case")}</th><th>{text("Investable surplus")}</th><th>{text("Total invested")}</th><th>{text("Retirement budget")}</th><th>{text("Reference FIRE number")}</th><th>{text("FIRE success")}</th><th>{text("Earliest qualifying age")}</th><th>{text("Required salary")}</th></tr></thead>
               <tbody>
                 {spending.map(row => (
                   <tr key={row.label}>
-                    <th>{row.monthly}</th><td>{row.surplus}</td><td>{row.totalInvested}</td>
-                    <td>{row.retirementSpending}</td><td>{row.capitalTarget}</td><td>{row.probability}</td><td>{row.fireAge}</td>
+                    <th>{text(row.monthly)}</th><td>{row.surplus}</td><td>{row.totalInvested}</td>
+                    <td>{row.retirementSpending}</td><td>{row.capitalTarget}</td><td>{text(row.probability)}</td><td>{text(row.fireAge)}</td>
                     <td data-testid="spending-required-salary">
-                      {row.requiredSalary}
-                      {row.requiredSalaryNotes.map(note => <span className="footnote" key={note}><br />{note}</span>)}
+                      {text(row.requiredSalary)}
+                      {row.requiredSalaryNotes.map(note => <span className="footnote" key={note}><br />{text(note)}</span>)}
                     </td>
                   </tr>
                 ))}
@@ -369,16 +362,16 @@ function ScenarioResult({ result, target, story }: {
 
       {grid ? (
         <Card kicker="Required matrix" title="FIRE success by salary, spending and strategy" elevation="sm">
-          <p className="footnote">Percentages are FIRE success; the second line is median net worth at that plan’s target FIRE age, in today’s money.</p>
+          <p className="footnote">{text("Percentages are FIRE success; the second line is median net worth at that plan’s target FIRE age, in today’s money.")}</p>
           <div className="table-scroll">
             <table className="table" data-testid="scenario-matrix">
-              <thead><tr><th>Salary</th><th>Spending</th>{grid.strategies.map(s => <th key={s.id}>{s.label}</th>)}</tr></thead>
+              <thead><tr><th>{text("Salary")}</th><th>{text("Spending")}</th>{grid.strategies.map(s => <th key={s.id}>{text(s.label)}</th>)}</tr></thead>
               <tbody>
                 {grid.rows.map(row => (
                   <tr key={`${row.salary}${row.spending}`}>
-                    <th>{row.salary}</th><td>{row.spending}</td>
+                    <th>{row.salary}</th><td>{text(row.spending)}</td>
                     {row.cells.map(cell => (
-                      <td key={cell.id}>{cell.status === 'evaluated' ? <>{cell.probability}<br />{cell.netWorth}</> : 'Unsupported'}</td>
+                      <td key={cell.id}>{cell.status === 'evaluated' ? <>{cell.probability}<br />{cell.netWorth}</> : text('Unsupported')}</td>
                     ))}
                   </tr>
                 ))}
@@ -393,17 +386,17 @@ function ScenarioResult({ result, target, story }: {
           <table className="table" data-testid="scenario-rows">
             <thead>
               <tr>
-                <th>Scenario</th><th>FIRE success</th><th>FIRE age</th><th>Required salary</th><th>Take-home</th><th>Marginal rate</th>
-                <th>Pension contribution</th><th>ISA contribution</th><th>Total invested</th>
-                <th>Liquid @ FIRE</th><th>Pension @ FIRE</th><th>Net worth @ FIRE</th><th>Median terminal</th><th>P10 terminal</th>
+                <th>{text("Scenario")}</th><th>{text("FIRE success")}</th><th>{text("FIRE age")}</th><th>{text("Required salary")}</th><th>{text("Take-home")}</th><th>{text("Marginal rate")}</th>
+                <th>{text("Pension contribution")}</th><th>{text("ISA contribution")}</th><th>{text("Total invested")}</th>
+                <th>{text("Liquid @ FIRE")}</th><th>{text("Pension @ FIRE")}</th><th>{text("Net worth @ FIRE")}</th><th>{text("Median terminal")}</th><th>{text("P10 terminal")}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(row => (
                 <tr key={row.id}>
                   <th>{row.label}{row.note ? <><br /><span className="footnote">{row.note}</span></> : null}
-                    {row.status === 'unsupported' ? <><br /><span className="footnote">Unsupported: {row.reason}</span></> : null}</th>
-                  <td>{row.probability}</td><td>{row.fireAge}</td><td>{row.requiredSalary}</td><td>{row.takeHome}</td><td>{row.marginalRate}</td>
+                    {row.status === 'unsupported' ? <><br /><span className="footnote">{text("Unsupported: ")}{text(row.reason ?? '')}</span></> : null}</th>
+                  <td>{text(row.probability)}</td><td>{text(row.fireAge)}</td><td>{text(row.requiredSalary)}</td><td>{row.takeHome}</td><td>{row.marginalRate}</td>
                   <td>{row.pensionContribution}</td><td>{row.isaContribution}</td><td>{row.totalInvested}</td>
                   <td>{row.liquidAtFire}</td><td>{row.pensionAtFire}</td><td>{row.netWorthAtFire}</td>
                   <td>{row.terminalMedian}</td><td>{row.terminalP10}</td>
@@ -413,7 +406,7 @@ function ScenarioResult({ result, target, story }: {
           </table>
         </div>
         <details>
-          <summary>Reproducibility metadata</summary>
+          <summary>{text("Reproducibility metadata")}</summary>
           <pre style={{ overflowX: 'auto', maxWidth: '100%' }}>{JSON.stringify(result.metadata, null, 2)}</pre>
         </details>
       </Card>

@@ -239,7 +239,7 @@ test('real solver statuses and curve results translate without mutating result d
 
 import { readFileSync } from 'node:fs';
 test('curve and solver screens have translations for every direct authored text and shared display prop', () => {
-  for (const file of ['screen-curve.tsx', 'screen-solver.tsx', 'screen-marginal.tsx', 'screen-property.tsx', 'screen-attribution.tsx']) {
+  for (const file of ['screen-curve.tsx', 'screen-solver.tsx', 'screen-marginal.tsx', 'screen-property.tsx', 'screen-attribution.tsx', 'screen-scenarios.tsx']) {
     const source = readFileSync(`src/presentation/web/${file}`, 'utf8');
     for (const match of source.matchAll(/(?:text\(|(?:title|kicker|label|help)=)"([^"\n]+)"/g)) {
       const copy = match[1]!;
@@ -369,5 +369,106 @@ test('real attribution and stress display output translates without altering res
     }
     assert.match(translateText('zh-TW',diagnostics.interpretation),/FIRE 後最初五年/);
     assert.deepEqual(result,before);
+  }
+});
+
+test('scenario controls and dynamic costs retain all numeric values in Chinese', () => {
+  for (const copy of [
+    'Required matrix (salary × spending × strategy)',
+    'Save, duplicate and edit alternatives',
+    'Enter a salary of zero or more.',
+    '36 scenarios × up to 1 complete simulation = 36 simulations, or 360,000 lifetime projections. The entered path count of 10,000 is used in full; it is never reduced to finish sooner.',
+    'PREVIEW: you asked for 1,000 paths instead of the entered 10,000. Its numbers are labelled a preview and must not be read as a full-count result.',
+    '£70k · £2,000/mo · Balanced',
+    '1 of 2 scenarios reused an identical cached result. A cached cell is keyed on the whole profile, every run option and the engine, tax and generator versions, so it can only be reused for exactly the same inputs.',
+    'Contractual employee contribution of 5.00% retained.',
+    '£87,600 (already met)',
+    'None in 45–48',
+    'Cash leads at 68.98% ± 0.46% SE. It still falls short of the 90% target.',
+    'Cash, Baseline lead within paired sampling uncertainty, so this batch does not separate them.',
+  ]) {
+    assertTranslated(copy);
+    assert.deepEqual(translateText('zh-TW',copy).match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g),copy);
+  }
+  assert.match(translateText('zh-TW','Cash leads at 68.98% ± 0.46% SE. It still falls short of the 90% target.'),/^Cash /);
+});
+
+import { localizeScenarioResult, localizeScenarioProgress } from '../src/presentation/i18n/scenario-result.js';
+import { buildScenarioMatrix, buildIncomeCases, buildSpendingCases, buildLibraryCases, runScenarioBatch, CAPITAL_STRATEGIES } from '../src/engine/scenario.js';
+import { scenarioRows, scenarioConclusion, dominanceNote, scenarioBasis } from '../src/presentation/view/scenario-model.js';
+import { createScenario } from '../src/domain/scenarios.js';
+
+test('actual scenario results localize generated labels while keeping user names and numbers intact', async () => {
+  const profile=createExampleProfile();profile.simulation.count=4;
+  const context={property:defaultProperty(profile),salaryAxis:[55_000,75_000,90_000]};
+  const batches=[
+    buildScenarioMatrix(profile,{salaries:[55_000,75_000],monthlySpending:[1300,2000],strategies:[...CAPITAL_STRATEGIES],context}),
+    buildIncomeCases(profile,[55_000,75_000],null,'balanced',context),
+    buildSpendingCases(profile,[1300,2000],'balanced',context),
+    buildLibraryCases(['Cash','Baseline','ISA Heavy'].map(name=>createScenario({name,profile,note:'Balanced'}))),
+  ];
+  for(const cases of batches){
+    const result=await runScenarioBatch(profile,{cases}),before=structuredClone(result);
+    const display=localizeScenarioResult('zh-TW',result);
+    assert.equal(localizeScenarioResult('en',result),result);
+    for(let i=0;i<result.cells.length;i++){
+      const original=result.cells[i]!,translated=display.cells[i]!;
+      assert.deepEqual({...translated,label:original.label,note:original.note},original);
+      if(original.group==='library') assert.equal(translated.label,original.label);
+      else if(/[A-Za-z]{3}/.test(original.label)) assertTranslated(original.label);
+    }
+    for(const row of scenarioRows(display)){
+      if(row.note) assert.doesNotMatch(row.note,/Contractual employee|Employee contribution|Buys at age|band\./);
+      for(const copy of [row.fireAge,...row.requiredSalaryNotes]) if(/[A-Za-z]{3}/.test(copy)) assertTranslated(copy);
+    }
+    const conclusion=scenarioConclusion(display,.9);
+    assertTranslated(conclusion);
+    assert.deepEqual(translateText('zh-TW',conclusion).match(/\d+(?:[,.]\d+)*/g),conclusion.match(/\d+(?:[,.]\d+)*/g));
+    const dominance=dominanceNote(result);if(dominance)assertTranslated(dominance);
+    assert.deepEqual(result,before);
+    const item=cases[0]!;
+    const progress=localizeScenarioProgress('zh-TW',{stage:`${item.label}: FIRE age 45`,casesCompleted:1,casesPlanned:cases.length,paths:{completed:1,total:4}},cases);
+    assert.match(progress,/FIRE 年齡 45/);
+    if(item.group==='library') assert.ok(progress.startsWith(item.label));
+  }
+  for(const paragraph of scenarioBasis)assertTranslated(paragraph);
+});
+
+import { localizeLibraryRows } from '../src/presentation/i18n/scenario-result.js';
+test('library localization preserves custom names and notes, translates app-owned migration notes',()=>{
+  const profile=createExampleProfile();
+  const scenarios=[createScenario({name:'Cash',profile,note:'Balanced',origin:'custom'}),
+    createScenario({name:'Baseline',profile,note:'Migrated from schema 1; run options defaulted.',origin:'migrated-v1'})];
+  const before=structuredClone(scenarios),rows=localizeLibraryRows('zh-TW',scenarios);
+  assert.equal(rows[0]!.name,'Cash');assert.equal(rows[0]!.note,'Balanced');
+  assert.equal(rows[1]!.name,'Baseline');assert.match(rows[1]!.note,/已從 schema 1 轉換/);
+  assert.deepEqual(scenarios,before);
+});
+
+import { progressCountLine } from '../src/presentation/view/progress.js';
+test('progress counts use the correct unit and import diagnostics translate without losing locations',()=>{
+  assert.equal(progressCountLine(42,60,'scenarios'),'42 of 60 scenarios complete');
+  assert.equal(translateText('zh-TW',progressCountLine(42,60,'scenarios')),'已完成 42／60 個情境');
+  assert.equal(translateText('zh-TW',progressCountLine(1100,10000)),'已完成 1,100／10,000 條路徑');
+  for(const copy of ['Age boundary','scenarios.0: Unrecognized key: "unknown"',"Expected property name or '}' in JSON at position 1 (line 1 column 2)"]){
+    assertTranslated(copy);
+    assert.deepEqual(translateText('zh-TW',copy).match(/\d+(?:[,.]\d+)*/g),copy.match(/\d+(?:[,.]\d+)*/g));
+  }
+});
+
+import * as ts from 'typescript';
+import { readdirSync } from 'node:fs';
+test('every rendered screen has catalog coverage for authored static text and shared display props',()=>{
+  const intentional=new Set(['English','Language / 語言','pkg','expm1(ρ·σᵢ·σⱼ) / √(expm1(σᵢ²)·expm1(σⱼ²))']);
+  const directory='src/presentation/web/';
+  for(const file of readdirSync(directory).filter(file=>file.endsWith('.tsx')&&file!=='screen-planned.tsx')){
+    const source=ts.createSourceFile(file,readFileSync(directory+file,'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+    const check=(copy:string)=>{if(/[A-Za-z]{3}/.test(copy)&&!intentional.has(copy))assertTranslated(copy);};
+    const visit=(node:ts.Node):void=>{
+      if(ts.isJsxText(node)&&node.text.trim())check(node.text.trim().replace(/\s+/g,' '));
+      if(ts.isJsxAttribute(node)&&['title','kicker','label','help','placeholder','aria-label','caption'].includes(node.name.getText(source))&&node.initializer&&ts.isStringLiteral(node.initializer))check(node.initializer.text);
+      if(ts.isCallExpression(node)&&node.expression.getText(source)==='text'&&node.arguments[0]&&ts.isStringLiteral(node.arguments[0]))check(node.arguments[0].text);
+      ts.forEachChild(node,visit);
+    };visit(source);
   }
 });

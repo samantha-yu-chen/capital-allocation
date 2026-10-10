@@ -1,4 +1,5 @@
 export const commonZhTW: Readonly<Record<string, string>> = {
+  'Age boundary': '年齡邊界',
   'See also:': '另見：', 'What is': '名詞說明：', 'Words used on this screen:': '本頁用語：',
   'Those tax rules are held constant in real terms for the whole projection — bands, allowances and thresholds move with inflation and never otherwise change. Real tax law will change over a lifetime, and that risk is not modelled.': '整段推估期間，稅制維持相同的實質結構：級距、免稅額與門檻只隨通膨調整，不會有其他變動。實際稅法可能在一生中改變，此風險尚未納入模型。',
   'Words used here:': '本節用語：', 'Where this comes from:': '規則來源：',

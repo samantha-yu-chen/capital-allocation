@@ -1,4 +1,7 @@
-# Traditional Chinese localization — in progress
+# Traditional Chinese localization — historical checkpoint
+
+**Completed:** see [chunk-11.md](chunk-11.md) for final scope and acceptance evidence.
+The entries below are chronological checkpoints, not the current delivery status.
 
 Worktree: `.worktrees/zh-tw`, branch `feat/zh-tw`, baseline `01f2e84`.
 

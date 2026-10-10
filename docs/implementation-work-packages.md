@@ -224,3 +224,20 @@ Do not add live bank/broker connections, multiple properties, couples tax optimi
 
 No package remains. `handoffs/chunk-10.md` is the release handoff; it names the limitations that a
 future assignment would start from, and repeats that the section 89 deferred list stays deferred.
+
+
+## 11. English / Taiwan Traditional Chinese presentation — **delivered**
+
+User-requested presentation extension after the ten V0.3 engine packages. English remains the fresh
+browser default; a visible selector switches all eight screens, onboarding, Learn, glossary and
+validation/run messages to Taiwan Traditional Chinese. `src/presentation/i18n/` holds independent
+catalogs and pure localization helpers. Locale is only a browser preference: domain, engine and tax
+configuration are unchanged, run/cache keys do not include it, and custom scenario names/notes and
+raw reproducibility data remain literal.
+
+Evidence: **368** passing tests in `npm run check`, all-screen static-copy coverage, actual engine
+result/numeric-token/immutability tests, both 10,000-path worker smokes, real results and switching
+during/after runs, cancellation/stale-result checks, zero mobile overflow and original English
+solver/property browser regressions. Full matrix **260.410 s**, maximum frame gap **33.4 ms**;
+all 60 cells use 10,000 paths. `handoffs/chunk-11.md` records commands, measured results, interfaces,
+limitations and the next assignment. Original V0.3 modelling limitations still apply.

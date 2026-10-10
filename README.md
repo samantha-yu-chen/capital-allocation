@@ -35,6 +35,21 @@ See the [work packages](docs/implementation-work-packages.md), the
 [release handoff](docs/handoffs/chunk-10.md) for delivery details, measured performance and the
 limitations that remain.
 
+## Language / 語言
+
+The app starts in English. Use the visible **English / 繁體中文** selector to switch to Taiwan
+Traditional Chinese; the preference is saved in this browser. Switching preserves profile edits,
+running analyses and completed results. All eight screens, onboarding, Learn and glossary are
+translated. Currency remains GBP and the model remains the same UK tax model.
+
+Translations live in [`src/presentation/i18n/`](src/presentation/i18n/); locale never enters engine
+inputs or run/cache keys. Saved custom scenario names and notes stay verbatim. Reproducibility JSON
+keys and technical IDs stay unchanged. See the [localization handoff](docs/handoffs/chunk-11.md)
+for acceptance evidence and catalog maintenance.
+
+預設為英文。使用畫面上的 **English / 繁體中文** 選單切換語言；瀏覽器會記住選擇。
+切換不會清除已編輯的資料、執行中的分析或完成的結果。
+
 ## Run
 
 Install Node.js 24 with npm (`.nvmrc`), then:
